@@ -183,7 +183,13 @@ export function MRDetailMetadata(props: { mr: MergeRequest; discussionLabel?: st
       <Detail.Metadata.Label title="From" text={mr.source_branch} />
       <Detail.Metadata.Label title="Into" text={mr.target_branch} />
       <Detail.Metadata.Separator />
-      <MRDateLabels mr={mr} Label={Detail.Metadata.Label} />
+      <UserDetailTagList
+        title={assigneesForPeopleSection(mr).length === 1 ? "Assignee" : "Assignees"}
+        users={assigneesForPeopleSection(mr)}
+      />
+      <UserDetailTagList title={mr.reviewers.length === 1 ? "Reviewer" : "Reviewers"} users={mr.reviewers} />
+      <DetailMergeOptions mr={mr} />
+      <Detail.Metadata.Separator />
       {props.discussionLabel ? (
         <Detail.Metadata.Label
           title="Comments"
@@ -191,13 +197,7 @@ export function MRDetailMetadata(props: { mr: MergeRequest; discussionLabel?: st
           icon={{ source: Icon.SpeechBubble, tintColor: Color.PrimaryText }}
         />
       ) : null}
-      <Detail.Metadata.Separator />
-      <UserDetailTagList
-        title={assigneesForPeopleSection(mr).length === 1 ? "Assignee" : "Assignees"}
-        users={assigneesForPeopleSection(mr)}
-      />
-      <UserDetailTagList title={mr.reviewers.length === 1 ? "Reviewer" : "Reviewers"} users={mr.reviewers} />
-      <DetailMergeOptions mr={mr} />
+      <MRDateLabels mr={mr} Label={Detail.Metadata.Label} />
     </Detail.Metadata>
   );
 }
@@ -219,14 +219,14 @@ export function MRListDetailMetadata(props: { mr: MergeRequest }) {
       <List.Item.Detail.Metadata.Label title="From" text={mr.source_branch} />
       <List.Item.Detail.Metadata.Label title="Into" text={mr.target_branch} />
       <List.Item.Detail.Metadata.Separator />
-      <MRDateLabels mr={mr} Label={List.Item.Detail.Metadata.Label} />
-      <List.Item.Detail.Metadata.Separator />
       <UserListDetailTagList
         title={assigneesForPeopleSection(mr).length === 1 ? "Assignee" : "Assignees"}
         users={assigneesForPeopleSection(mr)}
       />
       <UserListDetailTagList title={mr.reviewers.length === 1 ? "Reviewer" : "Reviewers"} users={mr.reviewers} />
       <ListDetailMergeOptions mr={mr} />
+      <List.Item.Detail.Metadata.Separator />
+      <MRDateLabels mr={mr} Label={List.Item.Detail.Metadata.Label} />
     </List.Item.Detail.Metadata>
   );
 }

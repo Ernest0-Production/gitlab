@@ -11,8 +11,6 @@ import {
   optimizeMarkdownText,
   Query,
   showErrorToast,
-  formatDate,
-  toLongDateString,
   tokenizeQueryText,
 } from "../utils";
 import { formatMRDiscussionStatsLabel, useMRDiscussionStats } from "./mr_discussions";
@@ -387,10 +385,6 @@ export function MRListItem(props: {
           ]
         : []),
       ...(mr.milestone?.title ? [{ tag: mr.milestone.title, tooltip: "Milestone" }] : []),
-      {
-        date: new Date(mr.updated_at),
-        tooltip: `Updated: ${formatDate(mr.updated_at)} (${toLongDateString(mr.updated_at)})`,
-      },
     );
   }
   accessories.push({ icon: accessoryIcon, tooltip: mr.author?.name });
