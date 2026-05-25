@@ -16,7 +16,7 @@ import {
 import { formatMRDiscussionStatsLabel, useMRDiscussionStats } from "./mr_discussions";
 import { getMRStateListIcon } from "./mr_status";
 import { gql } from "@apollo/client";
-import { MergeRequestCopyActions, MRItemActions, MRTodoActionSection, ShowMRCommitsAction } from "./mr_actions";
+import { MRItemActions, MRTodoAndCopySection, ShowMRCommitsAction } from "./mr_actions";
 import { GitLabOpenInBrowserAction } from "./actions";
 import { getMRPipelineStatusAccessoryIcon, getMRPipelineStatusTooltip } from "./jobs";
 import { useCache } from "../cache";
@@ -129,9 +129,8 @@ export function MRDetail(props: { mr: MergeRequest }) {
             <GitLabOpenInBrowserAction url={props.mr.web_url} />
             <ShowMRCommitsAction mr={props.mr} />
           </ActionPanel.Section>
-          <MRTodoActionSection mr={props.mr} />
+          <MRTodoAndCopySection mr={props.mr} />
           <MRItemActions mr={props.mr} />
-          <MergeRequestCopyActions mr={props.mr} />
         </ActionPanel>
       }
       metadata={<MRDetailMetadata mr={mr} discussionLabel={discussionLabel} />}
@@ -348,13 +347,6 @@ export function MRListItem(props: {
           text: `${approvedCount}/${approvalsRequired}`,
           tooltip: fullyApproved ? "Fully Approved" : `${approvedCount} of ${approvalsRequired} Approvals`,
         });
-      } else if (approval.approved) {
-        accessories.push({
-          icon: {
-            source: Icon.Checkmark,
-            tintColor: Color.Green,
-          },
-        });
       }
     }
 
@@ -407,9 +399,8 @@ export function MRListItem(props: {
             <ShowMRCommitsAction mr={mr} />
             <MRListDetailsToggleAction isShowingDetail={isShowingDetail} onToggle={toggleListDetails} />
           </ActionPanel.Section>
-          <MRTodoActionSection shortcut={{ modifiers: ["cmd"], key: "t" }} mr={mr} finished={props.refreshData} />
+          <MRTodoAndCopySection shortcut={{ modifiers: ["cmd"], key: "t" }} mr={mr} finished={props.refreshData} />
           <MRItemActions mr={mr} onDataChange={props.refreshData} />
-          <MergeRequestCopyActions mr={mr} />
           {props.filterAction ? <ActionPanel.Section title="Filter">{props.filterAction}</ActionPanel.Section> : null}
           <CacheActionPanelSection />
         </ActionPanel>

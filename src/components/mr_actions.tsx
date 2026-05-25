@@ -118,7 +118,7 @@ export function MergeMRAction(props: {
       showErrorToast(getErrorMessage(error), "Failed to Merge");
     }
   }
-  if (mr.state === "opened") {
+  if (mr.state === "opened" && mr.user?.can_merge === true) {
     return (
       <Action
         title="Merge"
@@ -127,12 +127,11 @@ export function MergeMRAction(props: {
         onAction={handleAction}
       />
     );
-  } else {
-    return null;
   }
+  return null;
 }
 
-export function MRTodoActionSection(props: {
+function MRTodoAction(props: {
   mr: MergeRequest;
   shortcut?: Keyboard.Shortcut;
   finished?: () => void;
@@ -157,14 +156,12 @@ export function MRTodoActionSection(props: {
       }
     }
     return (
-      <ActionPanel.Section>
-        <Action
-          title="Mark as Done"
-          shortcut={props.shortcut}
-          icon={{ source: Icon.Checkmark, tintColor: Color.Green }}
-          onAction={markAsDone}
-        />
-      </ActionPanel.Section>
+      <Action
+        title="Mark as Done"
+        shortcut={props.shortcut}
+        icon={{ source: Icon.Checkmark, tintColor: Color.Green }}
+        onAction={markAsDone}
+      />
     );
   }
 
@@ -180,13 +177,24 @@ export function MRTodoActionSection(props: {
   }
 
   return (
+    <Action
+      title="Add a To-Do"
+      shortcut={props.shortcut}
+      icon={{ source: GitLabIcons.todo, tintColor: Color.PrimaryText }}
+      onAction={addTodo}
+    />
+  );
+}
+
+export function MRTodoAndCopySection(props: {
+  mr: MergeRequest;
+  shortcut?: Keyboard.Shortcut;
+  finished?: () => void;
+}): React.ReactElement {
+  return (
     <ActionPanel.Section>
-      <Action
-        title="Add a To-Do"
-        shortcut={props.shortcut}
-        icon={{ source: GitLabIcons.todo, tintColor: Color.PrimaryText }}
-        onAction={addTodo}
-      />
+      <MRTodoAction mr={props.mr} shortcut={props.shortcut} finished={props.finished} />
+      <MergeRequestCopyActions mr={props.mr} />
     </ActionPanel.Section>
   );
 }
@@ -196,18 +204,21 @@ export function MergeRequestCopyActions(props: { mr: MergeRequest }) {
   return (
     <ActionPanel.Submenu title="Copy" icon={Icon.Clipboard} shortcut={{ modifiers: ["cmd"], key: "c" }}>
       <Action.CopyToClipboard
-        title="URL"
+        title="Link"
         content={mr.web_url}
+        shortcut={{ modifiers: ["cmd"], key: "l" }}
         icon={{ source: Icon.Link, tintColor: Color.PrimaryText }}
       />
       <Action.CopyToClipboard
         title={`!${mr.iid}`}
         content={mr.iid}
+        shortcut={{ modifiers: ["cmd"], key: "i" }}
         icon={{ source: Icon.Hashtag, tintColor: Color.PrimaryText }}
       />
       <Action.CopyToClipboard
         title="Title"
         content={mr.title}
+        shortcut={{ modifiers: ["cmd"], key: "t" }}
         icon={{ source: Icon.Text, tintColor: Color.PrimaryText }}
       />
     </ActionPanel.Submenu>

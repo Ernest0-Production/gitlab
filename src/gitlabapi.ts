@@ -118,6 +118,7 @@ export function jsonDataToMergeRequest(mr: any): MergeRequest {
     squash_on_merge: mr.squash_on_merge,
     merge_when_pipeline_succeeds: mr.merge_when_pipeline_succeeds,
     user_notes_count: mr.user_notes_count,
+    user: mr.user ? { can_merge: mr.user.can_merge === true } : undefined,
   };
 }
 
@@ -263,6 +264,10 @@ export interface MRDiscussion {
   notes?: MRDiscussionNote[];
 }
 
+export interface MergeRequestUser {
+  can_merge?: boolean;
+}
+
 export class MergeRequest {
   public title = "";
   public description = "";
@@ -290,6 +295,7 @@ export class MergeRequest {
   public squash_on_merge: boolean | undefined = undefined;
   public merge_when_pipeline_succeeds: boolean | undefined = undefined;
   public user_notes_count: number | undefined = undefined;
+  public user?: MergeRequestUser;
 }
 
 export class Pipeline {
