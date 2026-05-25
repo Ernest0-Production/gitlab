@@ -25,6 +25,7 @@ export function ClearLocalCacheAction() {
     <Action
       title="Clear Local Extension Cache"
       icon={{ source: Icon.XMarkCircle, tintColor: Color.Red }}
+      style={Action.Style.Destructive}
       onAction={handleAction}
     />
   );

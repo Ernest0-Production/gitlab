@@ -351,14 +351,6 @@
       "description": "Pop to root after e.g. open the browser"
     },
     {
-      "name": "listdetails",
-      "type": "checkbox",
-      "label": "Show details in merge request list",
-      "required": false,
-      "default": false,
-      "description": "Show details in merge request lists via a metadata view"
-    },
-    {
       "name": "includeEpicAncestor",
       "type": "checkbox",
       "label": "Include Group Ancestors for Epics",

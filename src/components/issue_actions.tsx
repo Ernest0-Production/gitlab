@@ -76,7 +76,7 @@ export function CreateIssueTodoAction(props: { issue: Issue; shortcut?: Keyboard
   if (issue.state === "opened") {
     return (
       <Action
-        title="Add a to Do"
+        title="Add a To-Do"
         shortcut={props.shortcut}
         icon={{ source: GitLabIcons.todo, tintColor: Color.PrimaryText }}
         onAction={handleAction}

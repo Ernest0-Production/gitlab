@@ -9,9 +9,10 @@ import { MRDetail } from "./mr";
 export function ShowTodoDetailsAction(props: { todo: Todo }): React.ReactNode | null {
   const todo = props.todo;
   const icon = { source: GitLabIcons.show_details, tintColor: Color.PrimaryText };
+  const mrShowDetailsIcon = { source: Icon.ArrowRight, tintColor: Color.PrimaryText };
   if (todo.target_type === "MergeRequest") {
     const mr = jsonDataToMergeRequest(todo.target);
-    return <Action.Push title="Show Details" target={<MRDetail mr={mr} />} icon={icon} />;
+    return <Action.Push title="Show Details" target={<MRDetail mr={mr} />} icon={mrShowDetailsIcon} />;
   } else if (todo.target_type === "Issue") {
     const issue = jsonDataToIssue(todo.target);
     return <Action.Push title="Show Details" target={<IssueDetail issue={issue} />} icon={icon} />;

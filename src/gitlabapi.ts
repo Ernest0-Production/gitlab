@@ -64,6 +64,7 @@ function userFromJson(data: any): User {
     web_url: data.web_url,
     avatar_url: data.avatar_url,
     state: data.state,
+    public_email: data.public_email ?? "",
   };
 }
 
@@ -97,6 +98,8 @@ export function jsonDataToMergeRequest(mr: any): MergeRequest {
     iid: mr.iid,
     state: mr.state,
     updated_at: mr.updated_at,
+    created_at: mr.created_at,
+    merged_at: mr.merged_at,
     author: maybeUserFromJson(mr.author),
     assignees: mr.assignees.map(userFromJson),
     reviewers: mr.reviewers?.map(userFromJson) || [],
@@ -248,6 +251,18 @@ export class Issue {
   public merge_requests_count: number = 0;
 }
 
+export interface MRDiscussionNote {
+  resolvable?: boolean;
+  resolved?: boolean;
+  system?: boolean;
+}
+
+export interface MRDiscussion {
+  resolvable?: boolean;
+  resolved?: boolean;
+  notes?: MRDiscussionNote[];
+}
+
 export class MergeRequest {
   public title = "";
   public description = "";
@@ -259,6 +274,8 @@ export class MergeRequest {
   public assignees: User[] = [];
   public reviewers: User[] = [];
   public updated_at = "";
+  public created_at = "";
+  public merged_at = "";
   public project_id = 0;
   public reference_full = "";
   public labels: Label[] = [];
@@ -348,6 +365,7 @@ export class User {
   public state = "";
   public avatar_url = "";
   public web_url = "";
+  public public_email = "";
 }
 
 export class TemplateSummary {
@@ -762,14 +780,7 @@ export class GitLab {
       params.in = args.searchIn || "title";
     }
     const userItems: User[] = await this.fetch("users", params).then((users) => {
-      return users.map((userdata: any) => ({
-        id: userdata.id,
-        name: userdata.name,
-        username: userdata.username,
-        web_url: userdata.web_url,
-        avatar_url: userdata.avatar_url,
-        state: userdata.state,
-      }));
+      return users.map((userdata: any) => userFromJson(userdata));
     });
     return userItems;
   }
@@ -803,6 +814,10 @@ export class GitLab {
     const projectPrefix = `projects/${projectID}/merge_requests/${mrIID}/approvals`;
     const result: MergeRequestApprovals = (await this.fetch(`${projectPrefix}/`, params)) as MergeRequestApprovals;
     return result;
+  }
+
+  async getMergeRequestDiscussions(projectID: number, mrIID: number): Promise<MRDiscussion[]> {
+    return await this.fetch(`projects/${projectID}/merge_requests/${mrIID}/discussions`, {}, true);
   }
 
   async getMergeRequest(projectID: number, mrID: number, params: Record<string, any>): Promise<MergeRequest> {

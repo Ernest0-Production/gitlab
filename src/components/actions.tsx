@@ -16,7 +16,7 @@ export function GitLabOpenInBrowserAction(props: {
     <Action.OpenInBrowser
       url={props.url}
       title={props.title}
-      shortcut={props.shortcut}
+      shortcut={props.shortcut ?? { modifiers: ["cmd"], key: "o" }}
       onOpen={afterOpen}
       icon={props.icon}
     />

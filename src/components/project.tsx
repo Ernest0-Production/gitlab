@@ -198,21 +198,29 @@ function MyProjectsDropdownItem(props: { project: Project }) {
 export function MyProjectsDropdown(props: {
   onChange: (pro: Project | undefined) => void;
   storeValue?: boolean;
+  includeAllItem?: boolean;
 }): React.ReactNode | null {
   const { projects: myprojects } = useMyProjects();
+  const includeAllItem = props.includeAllItem !== false;
   if (myprojects) {
     return (
       <List.Dropdown
         tooltip="Select Project"
         storeValue={props.storeValue}
         onChange={(newValue) => {
+          if (includeAllItem && newValue === "-") {
+            props.onChange(undefined);
+            return;
+          }
           const pro = myprojects.find((p) => `${p.id}` === newValue);
           props.onChange(pro);
         }}
       >
-        <List.Dropdown.Section>
-          <List.Dropdown.Item title="All Projects" value="-" />
-        </List.Dropdown.Section>
+        {includeAllItem ? (
+          <List.Dropdown.Section>
+            <List.Dropdown.Item title="All Projects" value="-" />
+          </List.Dropdown.Section>
+        ) : null}
         <List.Dropdown.Section>
           {myprojects.map((pro) => (
             <MyProjectsDropdownItem key={`${pro.id}`} project={pro} />

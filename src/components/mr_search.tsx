@@ -1,73 +1,230 @@
-import { List } from "@raycast/api";
+import { Action, ActionPanel, Color, Icon, List } from "@raycast/api";
 import { useCachedState } from "@raycast/utils";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useCache } from "../cache";
-import { getListDetailsPreference, gitlab } from "../common";
-import { MergeRequest } from "../gitlabapi";
+import { gitlab } from "../common";
+import { MergeRequest, Project } from "../gitlabapi";
+import { GitLabIcons } from "../icons";
 import { daysInSeconds, getErrorMessage, hashRecord, showErrorToast } from "../utils";
-import { MRScope, MRState, MRListItem, getMRQuery, injectMRQueryNamedParameters, MRListEmptyView } from "./mr";
+import {
+  MRScope,
+  MRState,
+  MRListItem,
+  MRListDetailsToggleAction,
+  mrSearchBarPlaceholder,
+  getMRQuery,
+  injectMRQueryNamedParameters,
+  useMRListDetails,
+} from "./mr";
+import { mrStateFilterIcon } from "./mr_status";
+import { MyProjectsDropdown, useMyProjects } from "./project";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+function partitionMrsByAuthor(mrs: MergeRequest[], userId: number) {
+  const createdByMe: MergeRequest[] = [];
+  const other: MergeRequest[] = [];
+  for (const m of mrs) {
+    if (m.author?.id === userId) {
+      createdByMe.push(m);
+    } else {
+      other.push(m);
+    }
+  }
+  return { createdByMe, other };
+}
+
+function mergeRequestStateFilterSubmenu(mrState: MRState, onSelectState: (state: MRState) => void) {
+  const stateFilters: { state: MRState; title: string }[] = [
+    { state: MRState.opened, title: "Open" },
+    { state: MRState.merged, title: "Merged" },
+    { state: MRState.closed, title: "Closed" },
+  ];
+
+  return (
+    <ActionPanel.Submenu title="Filter by" shortcut={{ modifiers: ["cmd"], key: "f" }} icon={Icon.Filter}>
+      <ActionPanel.Section>
+        <Action
+          title="All"
+          icon={mrStateFilterIcon(MRState.all, mrState === MRState.all)}
+          autoFocus={mrState === MRState.all}
+          onAction={() => onSelectState(MRState.all)}
+        />
+      </ActionPanel.Section>
+      <ActionPanel.Section>
+        {stateFilters.map(({ state, title }) => (
+          <Action
+            key={state}
+            title={title}
+            icon={mrStateFilterIcon(state, mrState === state)}
+            autoFocus={mrState === state}
+            onAction={() => onSelectState(state)}
+          />
+        ))}
+      </ActionPanel.Section>
+    </ActionPanel.Submenu>
+  );
+}
+
+function SearchMergeRequestsEmptyView(props: {
+  mrState: MRState;
+  onSelectState: (state: MRState) => void;
+  isShowingDetail: boolean;
+  onToggleListDetails: () => void;
+}) {
+  return (
+    <List.EmptyView
+      title="No Merge Requests"
+      icon={{ source: GitLabIcons.merge_request, tintColor: Color.PrimaryText }}
+      actions={
+        <ActionPanel>
+          <ActionPanel.Section>
+            <MRListDetailsToggleAction isShowingDetail={props.isShowingDetail} onToggle={props.onToggleListDetails} />
+          </ActionPanel.Section>
+          <ActionPanel.Section title="Filter">
+            {mergeRequestStateFilterSubmenu(props.mrState, props.onSelectState)}
+          </ActionPanel.Section>
+        </ActionPanel>
+      }
+    />
+  );
+}
+
 export function SearchMyMergeRequests() {
-  const [scope, setScope] = useState<string>(MRScope.created_by_me);
-  const state = MRState.all;
+  const [projectId, setProjectId] = useState<string | undefined>();
+  const { projects: myprojects, isLoading: projectsLoading, error: projectsError } = useMyProjects();
+  const [mrState, setMrState] = useCachedState<MRState>("mr-search-state", MRState.opened);
+  const scope = MRScope.all;
   const [search, setSearch] = useState<string>();
-  const params: Record<string, any> = { state, scope };
+  const [userId, setUserId] = useState<number | undefined>();
+  const { isShowingDetail, toggleListDetails } = useMRListDetails();
+
+  const project = useMemo(() => myprojects?.find((p) => `${p.id}` === projectId), [myprojects, projectId]);
+
+  useEffect(() => {
+    gitlab.getMyself().then((u) => setUserId(u.id));
+  }, []);
+
+  useEffect(() => {
+    if (!myprojects?.length || projectId) {
+      return;
+    }
+    setProjectId(`${myprojects[0].id}`);
+  }, [myprojects, projectId]);
+
+  useEffect(() => {
+    if (!projectsError) {
+      return;
+    }
+    showErrorToast(getErrorMessage(projectsError), "Could not fetch Projects");
+  }, [projectsError]);
+
+  const params: Record<string, any> = { state: mrState, scope };
   const qd = getMRQuery(search);
   params.search = qd.query || "";
-  injectMRQueryNamedParameters(params, qd, scope as MRScope, false);
-  injectMRQueryNamedParameters(params, qd, scope as MRScope, true);
+  injectMRQueryNamedParameters(params, qd, scope, false);
+  injectMRQueryNamedParameters(params, qd, scope, true);
   const paramsHash = hashRecord(params);
   const { data, isLoading, error, performRefetch } = useCache<MergeRequest[] | undefined>(
-    `mymrssearch_${paramsHash}`,
+    project ? `mymrssearch_${project.id}_${paramsHash}` : "mymrssearch_no_project",
     async (): Promise<MergeRequest[] | undefined> => {
-      return await gitlab.getMergeRequests(params);
+      if (!project) {
+        return undefined;
+      }
+      return await gitlab.getMergeRequests(params, project);
     },
     {
-      deps: [scope, state, search],
+      deps: [project?.id, search, mrState],
       secondsToRefetch: 1,
       secondsToInvalid: daysInSeconds(7),
     },
   );
-  if (error) {
+
+  useEffect(() => {
+    if (!error) {
+      return;
+    }
     showErrorToast(getErrorMessage(error), "Could not fetch Merge Requests");
-  }
-  if (isLoading === undefined) {
-    return <List isLoading={true} searchBarPlaceholder="" />;
+  }, [error]);
+
+  const { createdByMe, other } = useMemo(() => {
+    if (!data || userId === undefined) {
+      return { createdByMe: [], other: [] };
+    }
+    return partitionMrsByAuthor(data, userId);
+  }, [data, userId]);
+
+  if (projectsLoading || isLoading === undefined) {
+    return <List isLoading={true} searchBarPlaceholder={mrSearchBarPlaceholder} />;
   }
 
-  const title = search ? "Search Results" : "Created Recently";
-  const [expandDetails, setExpandDetails] = useCachedState("expand-details", true);
+  if (!myprojects || myprojects.length === 0) {
+    return (
+      <List searchBarPlaceholder={mrSearchBarPlaceholder}>
+        <List.EmptyView
+          title="No Projects"
+          description="You have no GitLab projects with membership."
+          icon={{ source: GitLabIcons.project, tintColor: Color.PrimaryText }}
+        />
+      </List>
+    );
+  }
+
+  if (!project) {
+    return <List isLoading={true} searchBarPlaceholder={mrSearchBarPlaceholder} />;
+  }
+
+  const listFilterActions = (
+    <ActionPanel>
+      <ActionPanel.Section>
+        <MRListDetailsToggleAction isShowingDetail={isShowingDetail} onToggle={toggleListDetails} />
+      </ActionPanel.Section>
+      <ActionPanel.Section title="Filter">{mergeRequestStateFilterSubmenu(mrState, setMrState)}</ActionPanel.Section>
+    </ActionPanel>
+  );
+
+  const onProjectChange = (pro: Project | undefined) => {
+    setProjectId(pro ? `${pro.id}` : undefined);
+  };
+
+  const renderMrs = (mrs: MergeRequest[]) =>
+    mrs.map((m) => (
+      <MRListItem
+        key={m.id}
+        mr={m}
+        refreshData={performRefetch}
+        showCIStatus={true}
+        isShowingDetail={isShowingDetail}
+        onToggleListDetails={toggleListDetails}
+        filterAction={mergeRequestStateFilterSubmenu(mrState, setMrState)}
+      />
+    ));
 
   return (
     <List
       isLoading={isLoading}
       searchText={search}
       onSearchTextChange={setSearch}
-      isShowingDetail={getListDetailsPreference()}
+      searchBarPlaceholder={mrSearchBarPlaceholder}
+      isShowingDetail={isShowingDetail}
       throttle
-      searchBarAccessory={
-        <List.Dropdown tooltip="Scope" onChange={setScope}>
-          <List.Dropdown.Item title="Created by Me" value={MRScope.created_by_me} />
-          <List.Dropdown.Item title="Assigned to Me" value={MRScope.assigned_to_me} />
-          <List.Dropdown.Item title="All" value={MRScope.all} />
-        </List.Dropdown>
-      }
+      searchBarAccessory={<MyProjectsDropdown includeAllItem={false} onChange={onProjectChange} storeValue />}
+      actions={listFilterActions}
     >
-      <List.Section title={title} subtitle={data ? `${data.length}` : undefined}>
-        {data?.map((m) => (
-          <MRListItem
-            key={m.id}
-            mr={m}
-            refreshData={performRefetch}
-            showCIStatus={true}
-            expandDetails={expandDetails}
-            onToggleDetails={() => setExpandDetails(!expandDetails)}
-          />
-        ))}
+      {createdByMe.length > 0 ? (
+        <List.Section title="Created by me" subtitle={`${createdByMe.length}`}>
+          {renderMrs(createdByMe)}
+        </List.Section>
+      ) : null}
+      <List.Section title="Other" subtitle={`${other.length}`}>
+        {renderMrs(other)}
       </List.Section>
-      <MRListEmptyView />
+      <SearchMergeRequestsEmptyView
+        mrState={mrState}
+        onSelectState={setMrState}
+        isShowingDetail={isShowingDetail}
+        onToggleListDetails={toggleListDetails}
+      />
     </List>
   );
 }

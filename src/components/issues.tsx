@@ -17,7 +17,7 @@ import {
 } from "../utils";
 import { IssueItemActions } from "./issue_actions";
 import { GitLabOpenInBrowserAction } from "./actions";
-import { userIcon } from "./users";
+import { userIcon, userTagOnAction } from "./users";
 import { CacheActionPanelSection } from "./cache_actions";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -103,12 +103,24 @@ export function IssueDetail(props: { issue: Issue }) {
           </Detail.Metadata.TagList>
           {issue.author && (
             <Detail.Metadata.TagList title="Author">
-              <Detail.Metadata.TagList.Item key={issue.id} text={issue.author.name} icon={userIcon(issue.author)} />
+              <Detail.Metadata.TagList.Item
+                key={issue.id}
+                text={issue.author.name}
+                icon={userIcon(issue.author)}
+                onAction={userTagOnAction(issue.author)}
+              />
             </Detail.Metadata.TagList>
           )}
           <Detail.Metadata.TagList title="Assignee">
             {issue.assignees.length > 0 ? (
-              issue.assignees.map((a) => <Detail.Metadata.TagList.Item key={a.id} text={a.name} icon={userIcon(a)} />)
+              issue.assignees.map((a) => (
+                <Detail.Metadata.TagList.Item
+                  key={a.id}
+                  text={a.name}
+                  icon={userIcon(a)}
+                  onAction={userTagOnAction(a)}
+                />
+              ))
             ) : (
               <Detail.Metadata.TagList.Item text="-" />
             )}

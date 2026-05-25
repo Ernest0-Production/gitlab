@@ -1,11 +1,19 @@
 import { List } from "@raycast/api";
-import { useCachedState } from "@raycast/utils";
 import { useState } from "react";
 import { useCache } from "../cache";
-import { getListDetailsPreference, gitlab } from "../common";
+import { gitlab } from "../common";
 import { MergeRequest, Project } from "../gitlabapi";
 import { daysInSeconds, showErrorToast } from "../utils";
-import { MRListEmptyView, MRListItem, MRScope, MRState } from "./mr";
+import {
+  MRListDetailsToggleAction,
+  MRListEmptyView,
+  MRListItem,
+  MRScope,
+  MRState,
+  mrSearchBarPlaceholder,
+  useMRListDetails,
+} from "./mr";
+import { ActionPanel } from "@raycast/api";
 import { MyProjectsDropdown } from "./project";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -28,17 +36,24 @@ function MyMRList(props: {
     props.performRefetch();
   };
 
-  const [expandDetails, setExpandDetails] = useCachedState("expand-details", true);
+  const { isShowingDetail, toggleListDetails } = useMRListDetails();
 
   return (
     <List
-      searchBarPlaceholder="Filter Merge Requests by Name..."
+      searchBarPlaceholder={mrSearchBarPlaceholder}
       isLoading={props.isLoading}
       searchText={props.searchText}
       onSearchTextChange={props.onSearchTextChange}
       searchBarAccessory={props.searchBarAccessory}
-      isShowingDetail={getListDetailsPreference()}
+      isShowingDetail={isShowingDetail}
       throttle
+      actions={
+        <ActionPanel>
+          <ActionPanel.Section>
+            <MRListDetailsToggleAction isShowingDetail={isShowingDetail} onToggle={toggleListDetails} />
+          </ActionPanel.Section>
+        </ActionPanel>
+      }
     >
       <List.Section title={props.title} subtitle={mrs?.length.toString() || ""}>
         {mrs?.map((mr) => (
@@ -47,8 +62,8 @@ function MyMRList(props: {
             mr={mr}
             refreshData={refresh}
             showCIStatus={true}
-            expandDetails={expandDetails}
-            onToggleDetails={() => setExpandDetails(!expandDetails)}
+            isShowingDetail={isShowingDetail}
+            onToggleListDetails={toggleListDetails}
           />
         ))}
       </List.Section>

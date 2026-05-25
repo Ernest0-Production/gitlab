@@ -28,6 +28,7 @@ export enum GitLabIcons {
   show_details = "app-window-sidebar-right-16",
   tag = "tag.png",
   commit = "commit.svg",
+  rebase = "arrow-rebase.png",
   activity = "history.svg",
   status_success = "status_success.png",
   status_failed = "status_failed.png",

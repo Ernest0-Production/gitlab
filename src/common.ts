@@ -103,15 +103,6 @@ export function getPreferPopToRootPreference(): boolean {
   return false;
 }
 
-export function getListDetailsPreference(): boolean {
-  const pref = getPreferenceValues();
-  const val = (pref.listdetails as boolean) || false;
-  if (val === true) {
-    return true;
-  }
-  return false;
-}
-
 export function getExcludeTodoAuthorUsernamesPreference(): string[] {
   const pref = getPreferenceValues();
   return pref.excludeTodoAuthorUsernames?.split(",").map((u: string) => u.trim()) || [];

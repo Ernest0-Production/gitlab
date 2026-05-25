@@ -1,12 +1,11 @@
-import { Color, List } from "@raycast/api";
+import { ActionPanel, Color, List } from "@raycast/api";
 import { MergeRequest, Project } from "../gitlabapi";
-import { getListDetailsPreference, gitlab } from "../common";
+import { gitlab } from "../common";
 import { daysInSeconds, showErrorToast } from "../utils";
 import { useCache } from "../cache";
 import { useEffect, useState } from "react";
 import { MyProjectsDropdown } from "./project";
-import { MRListItem } from "./mr";
-import { useCachedState } from "@raycast/utils";
+import { MRListDetailsToggleAction, MRListItem, useMRListDetails } from "./mr";
 import { GitLabIcons } from "../icons";
 
 function ReviewListEmptyView() {
@@ -16,6 +15,7 @@ function ReviewListEmptyView() {
 export function ReviewList() {
   const [project, setProject] = useState<Project>();
   const { mrs, error, isLoading, performRefetch } = useMyReviews(project);
+  const { isShowingDetail, toggleListDetails } = useMRListDetails();
 
   if (error) {
     showErrorToast(error, "Cannot search Reviews");
@@ -25,22 +25,27 @@ export function ReviewList() {
     return <List isLoading={true} searchBarPlaceholder="" />;
   }
 
-  const [expandDetails, setExpandDetails] = useCachedState("expand-details", true);
-
   return (
     <List
       searchBarPlaceholder="Filter Reviews by name..."
       isLoading={isLoading}
       searchBarAccessory={<MyProjectsDropdown onChange={setProject} storeValue={true} />}
-      isShowingDetail={getListDetailsPreference()}
+      isShowingDetail={isShowingDetail}
+      actions={
+        <ActionPanel>
+          <ActionPanel.Section>
+            <MRListDetailsToggleAction isShowingDetail={isShowingDetail} onToggle={toggleListDetails} />
+          </ActionPanel.Section>
+        </ActionPanel>
+      }
     >
       {mrs?.map((mr) => (
         <MRListItem
           key={mr.id}
           mr={mr}
           refreshData={performRefetch}
-          expandDetails={expandDetails}
-          onToggleDetails={() => setExpandDetails(!expandDetails)}
+          isShowingDetail={isShowingDetail}
+          onToggleListDetails={toggleListDetails}
         />
       ))}
       <ReviewListEmptyView />

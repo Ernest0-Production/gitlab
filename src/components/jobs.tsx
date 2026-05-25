@@ -83,6 +83,40 @@ export function getCIJobStatusIcon(status: string, allowFailure: boolean): Image
   */
 }
 
+const MR_PIPELINE_IN_PROGRESS = new Set(["running", "pending", "created", "preparing", "waiting_for_resource"]);
+
+const MR_PIPELINE_STATUS_LABELS: Record<string, string> = {
+  success: "Pipeline Passed",
+  failed: "Pipeline Failed",
+  running: "Pipeline Running",
+  pending: "Pipeline Pending",
+  created: "Pipeline Created",
+  preparing: "Pipeline Preparing",
+  waiting_for_resource: "Pipeline Waiting for Resource",
+  canceled: "Pipeline Canceled",
+  skipped: "Pipeline Skipped",
+  scheduled: "Pipeline Scheduled",
+  manual: "Pipeline Manual",
+};
+
+export function getMRPipelineStatusTooltip(status: string): string {
+  return MR_PIPELINE_STATUS_LABELS[status.toLowerCase()] ?? "Pipeline Status Unknown";
+}
+
+export function getMRPipelineStatusAccessoryIcon(status: string): Image.ImageLike {
+  const normalized = status.toLowerCase();
+  if (normalized === "success") {
+    return { source: Icon.Hammer, tintColor: Color.Green };
+  }
+  if (normalized === "failed") {
+    return { source: Icon.Hammer, tintColor: Color.Red };
+  }
+  if (MR_PIPELINE_IN_PROGRESS.has(normalized)) {
+    return { source: Icon.CircleProgress25, tintColor: Color.Blue };
+  }
+  return { source: Icon.Hammer, tintColor: Color.PrimaryText };
+}
+
 export function getCIJobStatusEmoji(status: string): string {
   switch (status.toLowerCase()) {
     case "success": {

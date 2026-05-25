@@ -1,4 +1,4 @@
-import { Action, ActionPanel, Image, List } from "@raycast/api";
+import { Action, ActionPanel, Image, List, open } from "@raycast/api";
 import { User } from "../gitlabapi";
 import { gitlab } from "../common";
 import { useState, useEffect } from "react";
@@ -93,4 +93,11 @@ export function useSearch(query: string | undefined): {
 
 export function userIcon(user: User): Image.ImageLike {
   return { source: user.avatar_url, mask: Image.Mask.Circle };
+}
+
+export function userTagOnAction(user: User): (() => void) | undefined {
+  if (!user.web_url) {
+    return undefined;
+  }
+  return () => open(user.web_url);
 }

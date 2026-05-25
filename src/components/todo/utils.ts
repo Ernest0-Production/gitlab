@@ -1,8 +1,16 @@
 import { useState, useEffect } from "react";
 import { useCache } from "../../cache";
 import { getExcludeTodoAuthorUsernamesPreference, gitlab } from "../../common";
-import { Project, Todo } from "../../gitlabapi";
+import { MergeRequest, Project, Todo } from "../../gitlabapi";
 import { daysInSeconds } from "../../utils";
+
+export function findTodoForMR(todos: Todo[] | undefined, mr: MergeRequest): Todo | undefined {
+  return todos?.find(
+    (t) =>
+      t.target_type === "MergeRequest" &&
+      (t.target?.id === mr.id || (t.target?.iid === mr.iid && t.target?.project_id === mr.project_id)),
+  );
+}
 
 export function useTodos(
   search?: string,
