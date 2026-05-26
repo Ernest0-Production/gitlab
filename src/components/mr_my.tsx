@@ -6,6 +6,7 @@ import { MergeRequest, Project } from "../gitlabapi";
 import { daysInSeconds, showErrorToast } from "../utils";
 import {
   MRListDetailsToggleAction,
+  MRListMetadataToggleAction,
   MRListEmptyView,
   MRListItem,
   MRScope,
@@ -55,6 +56,7 @@ function MyMRList(props: {
         <ActionPanel>
           <ActionPanel.Section>
             <MRListDetailsToggleAction isShowingDetail={isShowingDetail} onToggle={toggleListDetails} />
+            <MRListMetadataToggleAction isShowingDetail={isShowingDetail} />
           </ActionPanel.Section>
           <ActionPanel.Section>{refreshAction}</ActionPanel.Section>
         </ActionPanel>

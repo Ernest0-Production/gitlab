@@ -109,16 +109,28 @@ function pipelineStatusFromJson(pipeline: any): string | undefined {
   return undefined;
 }
 
-function parseHeadPipelineFromJson(mr: any): MRHeadPipeline | undefined {
-  const pipeline = mr.head_pipeline ?? mr.pipeline;
+function headPipelineFromPipelineJson(pipeline: any): MRHeadPipeline | undefined {
   const status = pipelineStatusFromJson(pipeline);
-  if (!status) {
+  if (!status || pipeline?.id == null) {
     return undefined;
   }
   return {
     id: pipeline.id,
     status,
   };
+}
+
+function parseHeadPipelineFromJson(mr: any): MRHeadPipeline | undefined {
+  return headPipelineFromPipelineJson(mr.head_pipeline ?? mr.pipeline);
+}
+
+function applyMergeRequestListParams(params: Record<string, any>): void {
+  if (!params.with_labels_details) {
+    params.with_labels_details = "true";
+  }
+  if (params.with_merge_status_recheck == null) {
+    params.with_merge_status_recheck = "true";
+  }
 }
 
 export function getMRHeadPipelineStatus(mr: MergeRequest | undefined): string | undefined {
@@ -509,7 +521,7 @@ export class GitLab {
   public async fetch(url: string, params: { [key: string]: string } = {}, all = false): Promise<any> {
     const per_page = all ? 100 : 50;
     const fetchPage = async (page: number): Promise<Response> => {
-      const pagedParams = { ...params, ...{ per_page: `${per_page}`, page: `${page}` } };
+      const pagedParams = { ...params, per_page: params.per_page ?? `${per_page}`, page: `${page}` };
       const ps = paramString(pagedParams);
       const fullUrl = this.url + "/api/v4/" + url + ps;
       logAPI(`send GET request: ${fullUrl}`);
@@ -836,12 +848,7 @@ export class GitLab {
   }
 
   async getMergeRequests(params: Record<string, any>, project?: Project): Promise<MergeRequest[]> {
-    if (!params.with_labels_details) {
-      params.with_labels_details = "true";
-    }
-    if (params.with_merge_status_recheck === undefined) {
-      params.with_merge_status_recheck = "true";
-    }
+    applyMergeRequestListParams(params);
     const projectPrefix = project ? `projects/${project.id}/` : "";
     const issueItems: MergeRequest[] = await this.fetch(`${projectPrefix}merge_requests`, params).then((issues) => {
       return issues.map((issue: any) => jsonDataToMergeRequest(issue));
@@ -885,12 +892,7 @@ export class GitLab {
   }
 
   async getGroupMergeRequests(params: Record<string, any>, group: Group): Promise<MergeRequest[]> {
-    if (!params.with_labels_details) {
-      params.with_labels_details = "true";
-    }
-    if (params.with_merge_status_recheck === undefined) {
-      params.with_merge_status_recheck = "true";
-    }
+    applyMergeRequestListParams(params);
     const issueItems: MergeRequest[] = await this.fetch(`groups/${group.id}/merge_requests`, params).then((issues) => {
       return issues.map((issue: any) => jsonDataToMergeRequest(issue));
     });
@@ -926,16 +928,7 @@ export class GitLab {
 
   async getMyself(): Promise<User> {
     const user: User = await receiveLargeCachedObject("user", async () => {
-      const user: User = await this.fetch("user").then((userdata) => {
-        return {
-          id: userdata.id,
-          name: userdata.name,
-          username: userdata.username,
-          web_url: userdata.web_url,
-          avatar_url: userdata.avatar_url,
-          state: userdata.state,
-        };
-      });
+      const user: User = await this.fetch("user").then((userdata) => userFromJson(userdata));
       return user;
     });
     return user;

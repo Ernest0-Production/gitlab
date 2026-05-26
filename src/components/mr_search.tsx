@@ -11,6 +11,7 @@ import {
   MRState,
   MRListItem,
   MRListDetailsToggleAction,
+  MRListMetadataToggleAction,
   mrSearchBarPlaceholder,
   getMRQuery,
   injectMRQueryNamedParameters,
@@ -103,6 +104,7 @@ function SearchMergeRequestsEmptyView(props: {
         <ActionPanel>
           <ActionPanel.Section>
             <MRListDetailsToggleAction isShowingDetail={props.isShowingDetail} onToggle={props.onToggleListDetails} />
+            <MRListMetadataToggleAction isShowingDetail={props.isShowingDetail} />
           </ActionPanel.Section>
           {mergeRequestFilterAndSortSection(
             props.mrState,
@@ -199,6 +201,7 @@ export function SearchMyMergeRequests() {
       <ActionPanel>
         <ActionPanel.Section>
           <MRListDetailsToggleAction isShowingDetail={isShowingDetail} onToggle={toggleListDetails} />
+          <MRListMetadataToggleAction isShowingDetail={isShowingDetail} />
         </ActionPanel.Section>
         {filterSortSection}
       </ActionPanel>

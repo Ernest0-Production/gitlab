@@ -45,16 +45,9 @@ export function formatMRDiscussionStatsLabel(stats: MRDiscussionStats): string {
   return `${stats.resolved}/${stats.resolvableTotal}`;
 }
 
-export function getMRDiscussionMetadataLabel(
-  mr: MergeRequest,
-  stats: MRDiscussionStats | undefined,
-): string | undefined {
-  const notesCount = mr.user_notes_count ?? 0;
+export function getMRDiscussionMetadataLabel(stats: MRDiscussionStats | undefined): string | undefined {
   if (stats && stats.resolvableTotal > 0) {
     return formatMRDiscussionStatsLabel(stats);
-  }
-  if (notesCount > 0) {
-    return `${notesCount}`;
   }
   return undefined;
 }

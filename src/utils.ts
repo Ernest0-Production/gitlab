@@ -287,6 +287,28 @@ export function formatDate(input: Date | string): string {
   return timeAgo.format(date) as string;
 }
 
+function isSameCalendarDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+/** Pipeline list accessory: "N min ago" (5–59), "HH:MM" today, "HH:MM Mon" otherwise. */
+export function formatPipelineListAccessoryDate(input: Date | string, reference: Date = new Date()): string {
+  const date = typeof input === "string" ? new Date(input) : input;
+  const diffMinutes = Math.floor((reference.getTime() - date.getTime()) / 60000);
+  const hours = date.getHours().toString().padStart(2, "0");
+  const minutes = date.getMinutes().toString().padStart(2, "0");
+  const time = `${hours}:${minutes}`;
+
+  if (diffMinutes >= 5 && diffMinutes <= 59) {
+    return `${diffMinutes} min ago`;
+  }
+  if (isSameCalendarDay(date, reference)) {
+    return time;
+  }
+  const month = new Intl.DateTimeFormat("en", { month: "short" }).format(date);
+  return `${time} ${month}`;
+}
+
 export function now(): Date {
   return new Date();
 }

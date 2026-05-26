@@ -4,12 +4,20 @@ import fetch from "cross-fetch";
 import { getPreferenceValues } from "@raycast/api";
 import { getHttpAgent, GitLab } from "./gitlabapi";
 
+let gitlabClient: GitLab | undefined;
+
 export function createGitLabClient(): GitLab {
   const preferences = getPreferenceValues();
   const instance = (preferences.instance as string) || "https://gitlab.com";
   const token = preferences.token as string;
-  const gitlab = new GitLab(instance, token);
-  return gitlab;
+  return new GitLab(instance, token);
+}
+
+function getGitLabClient(): GitLab {
+  if (!gitlabClient) {
+    gitlabClient = createGitLabClient();
+  }
+  return gitlabClient;
 }
 
 export class GitLabGQL {
@@ -48,7 +56,16 @@ export function createGitLabGQLClient(): GitLabGQL {
   return new GitLabGQL(instance, client);
 }
 
-export const gitlab = createGitLabClient();
+export const gitlab: GitLab = new Proxy({} as GitLab, {
+  get(_target, prop) {
+    const client = getGitLabClient();
+    const value = Reflect.get(client, prop, client) as unknown;
+    if (typeof value === "function") {
+      return (value as (...args: unknown[]) => unknown).bind(client);
+    }
+    return value;
+  },
+});
 
 const defaultRefreshInterval = 10 * 1000;
 

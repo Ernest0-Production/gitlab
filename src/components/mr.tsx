@@ -17,6 +17,7 @@ import { gql } from "@apollo/client";
 import { MRItemActions, MRTodoAndCopySection, ShowMRCommitsAction, ShowMRPipelinesAction } from "./mr_actions";
 import { GitLabOpenInBrowserAction } from "./actions";
 import { getCIJobStatusIcon, getMRPipelineStatusTooltip } from "./jobs";
+import { useMRPipelines } from "./mr_pipelines";
 import { MRDetailMetadata, MRListDetailMetadata } from "./mr_metadata";
 import { useCachedState } from "@raycast/utils";
 import { CacheActionPanelSection } from "./cache_actions";
@@ -38,6 +39,7 @@ export enum MRState {
 }
 
 export const mrListDetailsShortcut: Keyboard.Shortcut = { modifiers: ["cmd", "shift"], key: "d" };
+export const mrListMetadataShortcut: Keyboard.Shortcut = { modifiers: ["cmd", "shift"], key: "i" };
 
 export const mrSearchBarPlaceholder = "Search by title, description, author, id";
 
@@ -50,6 +52,18 @@ export function useMRListDetails(): { isShowingDetail: boolean; toggleListDetail
   };
 }
 
+export function useMRListMetadata(): { isShowingMetadata: boolean; toggleListMetadata: () => void } {
+  const [isShowingMetadata, setIsShowingMetadata] = useCachedState("mr-list-metadata", true);
+  const toggleListMetadata = useCallback(
+    () => setIsShowingMetadata((current) => !current),
+    [setIsShowingMetadata],
+  );
+  return {
+    isShowingMetadata,
+    toggleListMetadata,
+  };
+}
+
 export function MRListDetailsToggleAction(props: { isShowingDetail: boolean; onToggle: () => void }) {
   const detailsIcon = { source: GitLabIcons.show_details, tintColor: Color.PrimaryText };
   return (
@@ -58,6 +72,21 @@ export function MRListDetailsToggleAction(props: { isShowingDetail: boolean; onT
       shortcut={mrListDetailsShortcut}
       icon={detailsIcon}
       onAction={props.onToggle}
+    />
+  );
+}
+
+export function MRListMetadataToggleAction(props: { isShowingDetail: boolean }) {
+  const { isShowingMetadata, toggleListMetadata } = useMRListMetadata();
+  if (!props.isShowingDetail) {
+    return null;
+  }
+  return (
+    <Action
+      title={isShowingMetadata ? "Hide Metadata" : "Show Metadata"}
+      shortcut={mrListMetadataShortcut}
+      icon={isShowingMetadata ? Icon.EyeDisabled : Icon.AppWindowList}
+      onAction={toggleListMetadata}
     />
   );
 }
@@ -98,7 +127,7 @@ export function MRDetail(props: { mr: MergeRequest }) {
     showErrorToast(error, "Could not get Merge Request Details");
   }
 
-  const discussionLabel = getMRDiscussionMetadataLabel(mr, discussionStats);
+  const discussionLabel = getMRDiscussionMetadataLabel(discussionStats);
 
   const desc = (mrdetail?.description ? mrdetail.description : props.mr.description) || "";
 
@@ -135,11 +164,12 @@ export function MRListDetail(props: { mr: MergeRequest }) {
   const mr = props.mr;
   const { mrdetail, error, isLoading } = useDetail(props.mr.id);
   const { stats: discussionStats } = useMRDiscussionStats(mr);
+  const { isShowingMetadata } = useMRListMetadata();
   if (error) {
     showErrorToast(error, "Could not get Merge Request Details");
   }
 
-  const discussionLabel = getMRDiscussionMetadataLabel(mr, discussionStats);
+  const discussionLabel = getMRDiscussionMetadataLabel(discussionStats);
 
   const lines: string[] = [];
   lines.push(`# ${mr.title}`);
@@ -151,7 +181,9 @@ export function MRListDetail(props: { mr: MergeRequest }) {
     <List.Item.Detail
       markdown={lines.join("\n")}
       isLoading={isLoading}
-      metadata={<MRListDetailMetadata mr={mr} discussionLabel={discussionLabel} />}
+      metadata={
+        isShowingMetadata ? <MRListDetailMetadata mr={mr} discussionLabel={discussionLabel} /> : undefined
+      }
     />
   );
 }
@@ -263,6 +295,7 @@ export function MRList({
         <ActionPanel>
           <ActionPanel.Section>
             <MRListDetailsToggleAction isShowingDetail={isShowingDetail} onToggle={toggleListDetails} />
+            <MRListMetadataToggleAction isShowingDetail={isShowingDetail} />
           </ActionPanel.Section>
         </ActionPanel>
       }
@@ -310,7 +343,13 @@ export function MRListItem(props: {
     : undefined;
 
   const showCIStatus = props.showCIStatus === undefined || props.showCIStatus === true;
-  const pipelineStatus = showCIStatus && !mr.has_conflicts ? getMRHeadPipelineStatus(mr) : undefined;
+  const listPipelineStatus = getMRHeadPipelineStatus(mr);
+  const fetchMrPipelines = showCIStatus && !mr.has_conflicts && !listPipelineStatus;
+  const { pipelines: latestMrPipeline } = useMRPipelines(mr, { enabled: fetchMrPipelines, limit: 1 });
+  const pipelineStatus =
+    showCIStatus && !mr.has_conflicts
+      ? (listPipelineStatus ?? latestMrPipeline?.[0]?.status)
+      : undefined;
   const accessories: List.Item.Accessory[] = [];
   if (!isShowingDetail) {
     if (pipelineStatus) {
@@ -359,6 +398,7 @@ export function MRListItem(props: {
             <ShowMRCommitsAction mr={mr} />
             <ShowMRPipelinesAction mr={mr} />
             <MRListDetailsToggleAction isShowingDetail={isShowingDetail} onToggle={toggleListDetails} />
+            <MRListMetadataToggleAction isShowingDetail={isShowingDetail} />
           </ActionPanel.Section>
           <MRTodoAndCopySection shortcut={{ modifiers: ["cmd"], key: "t" }} mr={mr} finished={props.refreshData} />
           <MRItemActions mr={mr} onDataChange={props.refreshData} />

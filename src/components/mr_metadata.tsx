@@ -1,6 +1,6 @@
 import { Color, Detail, Icon, List } from "@raycast/api";
 import { MergeRequest, User } from "../gitlabapi";
-import { capitalizeFirstLetter, formatDate, toLongDateString } from "../utils";
+import { capitalizeFirstLetter, formatDate } from "../utils";
 import { getMRStateMetadataIcon } from "./mr_status";
 import { userIcon, userTagOnAction } from "./users";
 
@@ -143,7 +143,7 @@ function MRDateLabel(props: {
   Label: typeof Detail.Metadata.Label | typeof List.Item.Detail.Metadata.Label;
 }) {
   const Label = props.Label;
-  return <Label title={props.title} text={formatDate(props.isoDate)} tooltip={toLongDateString(props.isoDate)} />;
+  return <Label title={props.title} text={formatDate(props.isoDate)} />;
 }
 
 function MRDateLabels(props: {

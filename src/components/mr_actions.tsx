@@ -1,4 +1,4 @@
-import { Action, ActionPanel, Alert, Color, confirmAlert, Icon, Keyboard, showToast, Toast } from "@raycast/api";
+import { Action, ActionPanel, Alert, Color, confirmAlert, Icon, Image, Keyboard, showToast, Toast } from "@raycast/api";
 import React from "react";
 import { gitlab } from "../common";
 import { MergeRequest } from "../gitlabapi";
@@ -39,7 +39,7 @@ export function CloseMRAction(props: { mr: MergeRequest; finished?: () => void }
   return (
     <Action
       title="Close"
-      icon={{ source: Icon.XMarkCircle, tintColor: Color.Red }}
+      icon={{ source: GitLabIcons.mropen, tintColor: Color.Red, mask: Image.Mask.Circle }}
       style={Action.Style.Destructive}
       shortcut={{ modifiers: ["ctrl"], key: "x" }}
       onAction={handleAction}
@@ -146,9 +146,10 @@ function MRTodoAction(props: {
   }
 
   if (existingTodo) {
+    const todo = existingTodo;
     async function markAsDone() {
       try {
-        await gitlab.post(`todos/${existingTodo.id}/mark_as_done`);
+        await gitlab.post(`todos/${todo.id}/mark_as_done`);
         showToast(Toast.Style.Success, "Done", "Todo is now marked as done");
         performRefetch();
         props.finished?.();

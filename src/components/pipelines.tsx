@@ -2,7 +2,14 @@ import { Action, ActionPanel, List, Icon, Image, Color } from "@raycast/api";
 import { useEffect, useState } from "react";
 import { getCIRefreshInterval, getGitLabGQL } from "../common";
 import { gql } from "@apollo/client";
-import { capitalizeFirstLetter, getErrorMessage, getIdFromGqlId, now, showErrorToast } from "../utils";
+import {
+  capitalizeFirstLetter,
+  formatPipelineListAccessoryDate,
+  getErrorMessage,
+  getIdFromGqlId,
+  now,
+  showErrorToast,
+} from "../utils";
 import { JobList } from "./jobs";
 import { PipelineItemActions } from "./pipeline_actions";
 import useInterval from "use-interval";
@@ -25,7 +32,7 @@ const GET_PIPELINES = gql`
           status
           active
           path
-          ref
+          sha
           startedAt
           duration
           createdAt
@@ -80,6 +87,13 @@ function pipelineTimestamp(pipeline: Pipeline, field: "finished" | "started" | "
   return pipeline.created_at || (pipeline as { createdAt?: string }).createdAt;
 }
 
+function formatPipelineShaSubtitle(sha: string | undefined): string {
+  if (!sha) {
+    return "";
+  }
+  return sha.length > 8 ? sha.slice(0, 8) : sha;
+}
+
 export function normalizePipelineForList(data: Record<string, any>): Pipeline {
   const pipeline = new Pipeline();
   pipeline.id = data.id;
@@ -97,28 +111,22 @@ export function normalizePipelineForList(data: Record<string, any>): Pipeline {
   return pipeline;
 }
 
-function getDateStatus(pipeline: Pipeline): {
-  icon: Image.ImageLike | undefined;
-  tooltip: string | undefined;
-  date: Date | undefined;
-} {
+function getPipelineListAccessory(pipeline: Pipeline): List.Item.Accessory | undefined {
   const finishedAt = pipelineTimestamp(pipeline, "finished");
-  if (finishedAt) {
-    const d = new Date(finishedAt);
-    const durationText = pipeline.duration ? `\nDuration: ${pipeline.duration} seconds` : "";
-    return { icon: Icon.Calendar, tooltip: `Finished at ${d.toLocaleString()}${durationText}`, date: d };
-  }
   const startedAt = pipelineTimestamp(pipeline, "started");
-  if (startedAt) {
-    const d = new Date(startedAt);
-    return { icon: Icon.WristWatch, tooltip: `Started at ${d.toLocaleString()}`, date: d };
-  }
   const createdAt = pipelineTimestamp(pipeline, "created");
-  if (createdAt) {
-    const d = new Date(createdAt);
-    return { icon: Icon.Stop, tooltip: `Created at ${d.toLocaleString()}`, date: d };
+  const iso = finishedAt ?? startedAt ?? createdAt;
+  if (!iso) {
+    return undefined;
   }
-  return { icon: undefined, tooltip: undefined, date: undefined };
+  const d = new Date(iso);
+  const durationSuffix = finishedAt && pipeline.duration ? ` · ${pipeline.duration}s` : "";
+  const tooltip = finishedAt
+    ? `Finished ${d.toLocaleString()}${durationSuffix}`
+    : startedAt
+      ? `Started ${d.toLocaleString()}`
+      : `Created ${d.toLocaleString()}`;
+  return { text: formatPipelineListAccessoryDate(d), tooltip };
 }
 
 export function PipelineListItem(props: {
@@ -129,7 +137,7 @@ export function PipelineListItem(props: {
 }) {
   const pipeline = props.pipeline;
   const icon = getIcon(pipeline.status);
-  const dateStatus = getDateStatus(pipeline);
+  const dateAccessory = getPipelineListAccessory(pipeline);
   return (
     <List.Item
       id={`${pipeline.id}`}
@@ -140,14 +148,8 @@ export function PipelineListItem(props: {
           ? `Status: ${capitalizeFirstLetter(getStatusText(pipeline.status.toLowerCase()))}`
           : "",
       }}
-      subtitle={pipeline.ref || ""}
-      accessories={[
-        {
-          tooltip: dateStatus.tooltip,
-          icon: dateStatus.icon,
-          date: dateStatus.date,
-        },
-      ]}
+      subtitle={formatPipelineShaSubtitle(pipeline.sha)}
+      accessories={dateAccessory ? [dateAccessory] : []}
       actions={
         <ActionPanel>
           <ActionPanel.Section>
@@ -248,7 +250,7 @@ export function useSearch(
             started_at: p.startedAt,
             duration: p.duration,
             finished_at: p.finishedAt,
-            ref: p.ref,
+            sha: p.sha,
           }),
         );
         if (!didUnmount) {

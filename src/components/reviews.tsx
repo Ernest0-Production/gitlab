@@ -5,7 +5,7 @@ import { daysInSeconds, showErrorToast } from "../utils";
 import { useCache } from "../cache";
 import { useEffect, useState } from "react";
 import { MyProjectsDropdown } from "./project";
-import { MRListDetailsToggleAction, MRListItem, useMRListDetails } from "./mr";
+import { MRListDetailsToggleAction, MRListMetadataToggleAction, MRListItem, useMRListDetails } from "./mr";
 import { GitLabIcons } from "../icons";
 
 function ReviewListEmptyView() {
@@ -35,6 +35,7 @@ export function ReviewList() {
         <ActionPanel>
           <ActionPanel.Section>
             <MRListDetailsToggleAction isShowingDetail={isShowingDetail} onToggle={toggleListDetails} />
+            <MRListMetadataToggleAction isShowingDetail={isShowingDetail} />
           </ActionPanel.Section>
         </ActionPanel>
       }
