@@ -6,7 +6,6 @@ import { Project, User, searchData } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
 import { capitalizeFirstLetter, daysInSeconds, shortify, showErrorToast } from "../utils";
 import { DefaultActions, GitLabOpenInBrowserAction } from "./actions";
-import { CacheActionPanelSection } from "./cache_actions";
 import { IssueDetailFetch } from "./issues";
 import { MRDetailFetch } from "./mr";
 
@@ -412,12 +411,7 @@ export function EventListItem(props: { event: Event }) {
           tooltip: ev.author ? ev.author.name : undefined,
         },
       ]}
-      actions={
-        <ActionPanel>
-          {actionElement && actionElement}
-          {actionElement && <CacheActionPanelSection />}
-        </ActionPanel>
-      }
+      actions={<ActionPanel>{actionElement && actionElement}</ActionPanel>}
     />
   );
 }

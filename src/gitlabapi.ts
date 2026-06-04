@@ -552,6 +552,29 @@ export class GitLab {
     }
   }
 
+  public async fetchPaged(
+    url: string,
+    params: { [key: string]: string } = {},
+    page = 1,
+    perPage = 50,
+  ): Promise<{ data: any; hasMore: boolean }> {
+    const pagedParams = { ...params, per_page: params.per_page ?? `${perPage}`, page: `${page}` };
+    const ps = paramString(pagedParams);
+    const fullUrl = this.url + "/api/v4/" + url + ps;
+    logAPI(`send GET request: ${fullUrl}`);
+    const fetcher = this.getFetcher();
+    try {
+      const response = await fetcher(fullUrl, {
+        method: "GET",
+      });
+      const data = await toJsonOrError(response);
+      const hasMore = getNextPageNumber(response) !== undefined;
+      return { data, hasMore };
+    } catch (error: any) {
+      throw Error(error); // rethrow error, otherwise raycast could not catch the error
+    }
+  }
+
   public async downloadFile(url: string, params: { localFilepath: string }): Promise<string> {
     logAPI(`download ${url}`);
     const fetcher = this.getFetcher();
@@ -854,6 +877,18 @@ export class GitLab {
       return issues.map((issue: any) => jsonDataToMergeRequest(issue));
     });
     return issueItems;
+  }
+
+  async getMergeRequestsPage(
+    params: Record<string, any>,
+    page: number,
+    project?: Project,
+  ): Promise<{ mergeRequests: MergeRequest[]; hasMore: boolean }> {
+    applyMergeRequestListParams(params);
+    const projectPrefix = project ? `projects/${project.id}/` : "";
+    const { data, hasMore } = await this.fetchPaged(`${projectPrefix}merge_requests`, params, page, 50);
+    const mergeRequests: MergeRequest[] = data.map((issue: any) => jsonDataToMergeRequest(issue));
+    return { mergeRequests, hasMore };
   }
 
   async getMergeRequestsApprovalsFromProjectMR({

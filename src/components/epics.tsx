@@ -6,7 +6,6 @@ import { Epic, Group, searchData } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
 import { capitalizeFirstLetter, showErrorToast, toLongDateString } from "../utils";
 import { GitLabOpenInBrowserAction } from "./actions";
-import { CacheActionPanelSection } from "./cache_actions";
 import { CreateEpicTodoAction } from "./epic_actions";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -92,7 +91,6 @@ export function EpicListItem(props: {
             <Action.CopyToClipboard title="Copy Epic ID" content={epic.id} />
             <ActionToggleGroupName show={props.displayGroup} callback={props.onChangeDisplayGroup} />
           </ActionPanel.Section>
-          <CacheActionPanelSection />
         </ActionPanel>
       }
     />

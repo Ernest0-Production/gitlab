@@ -1,11 +1,10 @@
 import { Action, ActionPanel, Color, Icon, List } from "@raycast/api";
 import { useCachedState } from "@raycast/utils";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useCache } from "../cache";
 import { gitlab } from "../common";
 import { MergeRequest, Project } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
-import { daysInSeconds, getErrorMessage, hashRecord, showErrorToast } from "../utils";
+import { getErrorMessage, hashRecord, showErrorToast } from "../utils";
 import {
   MRScope,
   MRState,
@@ -18,6 +17,7 @@ import {
   useMRListDetails,
 } from "./mr";
 import { RefreshMergeRequestsAction } from "./mr_actions";
+import { usePaginatedMergeRequests } from "./mr_data";
 import { appendMROrderByParams, mergeRequestSortSubmenu, MR_DEFAULT_ORDER_BY, MRSearchOrderBy } from "./mr_sort";
 import { mrStateFilterIcon } from "./mr_status";
 import { MyProjectsDropdown, useMyProjects } from "./project";
@@ -159,20 +159,19 @@ export function SearchMyMergeRequests() {
     return requestParams;
   }, [mrState, scope, orderBy, search]);
   const paramsHash = useMemo(() => hashRecord(params), [params]);
-  const { data, isLoading, error, performRefetch } = useCache<MergeRequest[] | undefined>(
-    project ? `mymrssearch_${project.id}_${paramsHash}` : "mymrssearch_no_project",
-    async (): Promise<MergeRequest[] | undefined> => {
-      if (!project) {
-        return undefined;
-      }
-      return await gitlab.getMergeRequests(params, project);
-    },
-    {
-      deps: [project?.id, search, mrState, orderBy],
-      secondsToRefetch: 60,
-      secondsToInvalid: daysInSeconds(7),
-    },
-  );
+  const {
+    mrs: data,
+    isLoading,
+    error,
+    performRefetch,
+    pagination,
+  } = usePaginatedMergeRequests({
+    cacheKey: `mymrssearch_${project?.id ?? "none"}_${paramsHash}`,
+    buildParams: () => params,
+    project,
+    execute: !!project,
+    keepPreviousData: true,
+  });
 
   useEffect(() => {
     if (!error) {
@@ -230,7 +229,7 @@ export function SearchMyMergeRequests() {
     [myprojects, projectId, onProjectChange],
   );
 
-  if (projectsLoading || isLoading === undefined) {
+  if (projectsLoading) {
     return <List isLoading={true} searchBarPlaceholder={mrSearchBarPlaceholder} />;
   }
 
@@ -268,6 +267,7 @@ export function SearchMyMergeRequests() {
   return (
     <List
       isLoading={isLoading}
+      pagination={pagination}
       searchText={search}
       onSearchTextChange={setSearch}
       searchBarPlaceholder={mrSearchBarPlaceholder}

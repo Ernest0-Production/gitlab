@@ -2,7 +2,7 @@ import { environment } from "@raycast/api";
 import path from "path/posix";
 import * as fs from "fs/promises";
 import { constants } from "fs";
-import { currentSeconds, daysInSeconds, fileExists, getErrorMessage } from "./utils";
+import { currentSeconds, daysInSeconds, getErrorMessage } from "./utils";
 import { useEffect, useRef, useState } from "react";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -100,13 +100,6 @@ export async function receiveLargeCachedObject(key: string, fn: () => Promise<an
   } else {
     cacheLog("use cached data");
     return data;
-  }
-}
-
-export async function clearLargeObjectCache(): Promise<void> {
-  const cacheDir = getLargeCacheDirectory();
-  if (await fileExists(cacheDir)) {
-    await fs.rm(cacheDir, { recursive: true });
   }
 }
 

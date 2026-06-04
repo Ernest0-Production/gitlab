@@ -25,7 +25,6 @@ import {
 } from "./project_actions";
 import { GitLabIcons, getTextIcon, useImage } from "../icons";
 import { useCache } from "../cache";
-import { CacheActionPanelSection } from "./cache_actions";
 
 export enum ProjectScope {
   membership = "membership",
@@ -86,7 +85,6 @@ export function ProjectListItem(props: { project: Project; nameOnly?: boolean })
             <CloneProjectInVSCodeAction shortcut={{ modifiers: ["cmd", "shift"], key: "c" }} project={project} />
             <CloneProjectInGitPod shortcut={{ modifiers: ["cmd", "shift"], key: "g" }} project={project} />
           </ActionPanel.Section>
-          <CacheActionPanelSection />
         </ActionPanel>
       }
     />

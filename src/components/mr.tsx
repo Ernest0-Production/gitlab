@@ -3,14 +3,7 @@ import { getMRHeadPipelineStatus, Group, MergeRequest, Project } from "../gitlab
 import { GitLabIcons } from "../icons";
 import { getGitLabGQL, gitlab } from "../common";
 import { useCallback, useEffect, useState } from "react";
-import {
-  getErrorMessage,
-  now,
-  optimizeMarkdownText,
-  Query,
-  showErrorToast,
-  tokenizeQueryText,
-} from "../utils";
+import { getErrorMessage, now, optimizeMarkdownText, Query, showErrorToast, tokenizeQueryText } from "../utils";
 import { getMRDiscussionMetadataLabel, useMRDiscussionStats } from "./mr_discussions";
 import { getMRStateListIcon } from "./mr_status";
 import { gql } from "@apollo/client";
@@ -20,7 +13,6 @@ import { getCIJobStatusIcon, getMRPipelineStatusTooltip } from "./jobs";
 import { useMRPipelines } from "./mr_pipelines";
 import { MRDetailMetadata, MRListDetailMetadata } from "./mr_metadata";
 import { useCachedState } from "@raycast/utils";
-import { CacheActionPanelSection } from "./cache_actions";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -54,10 +46,7 @@ export function useMRListDetails(): { isShowingDetail: boolean; toggleListDetail
 
 export function useMRListMetadata(): { isShowingMetadata: boolean; toggleListMetadata: () => void } {
   const [isShowingMetadata, setIsShowingMetadata] = useCachedState("mr-list-metadata", true);
-  const toggleListMetadata = useCallback(
-    () => setIsShowingMetadata((current) => !current),
-    [setIsShowingMetadata],
-  );
+  const toggleListMetadata = useCallback(() => setIsShowingMetadata((current) => !current), [setIsShowingMetadata]);
   return {
     isShowingMetadata,
     toggleListMetadata,
@@ -181,9 +170,7 @@ export function MRListDetail(props: { mr: MergeRequest }) {
     <List.Item.Detail
       markdown={lines.join("\n")}
       isLoading={isLoading}
-      metadata={
-        isShowingMetadata ? <MRListDetailMetadata mr={mr} discussionLabel={discussionLabel} /> : undefined
-      }
+      metadata={isShowingMetadata ? <MRListDetailMetadata mr={mr} discussionLabel={discussionLabel} /> : undefined}
     />
   );
 }
@@ -347,9 +334,7 @@ export function MRListItem(props: {
   const fetchMrPipelines = showCIStatus && !mr.has_conflicts && !listPipelineStatus;
   const { pipelines: latestMrPipeline } = useMRPipelines(mr, { enabled: fetchMrPipelines, limit: 1 });
   const pipelineStatus =
-    showCIStatus && !mr.has_conflicts
-      ? (listPipelineStatus ?? latestMrPipeline?.[0]?.status)
-      : undefined;
+    showCIStatus && !mr.has_conflicts ? (listPipelineStatus ?? latestMrPipeline?.[0]?.status) : undefined;
   const accessories: List.Item.Accessory[] = [];
   if (!isShowingDetail) {
     if (pipelineStatus) {
@@ -409,7 +394,6 @@ export function MRListItem(props: {
               {props.refreshAction}
             </ActionPanel.Section>
           ) : null}
-          <CacheActionPanelSection />
         </ActionPanel>
       }
     />
