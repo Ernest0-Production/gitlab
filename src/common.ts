@@ -1,5 +1,5 @@
 import { ApolloClient, ApolloLink, HttpLink, InMemoryCache, concat, NormalizedCacheObject } from "@apollo/client";
-import fetch from "cross-fetch";
+import fetch from "node-fetch";
 
 import { getPreferenceValues } from "@raycast/api";
 import { getHttpAgent, GitLab } from "./gitlabapi";
@@ -37,7 +37,11 @@ export function createGitLabGQLClient(): GitLabGQL {
   const instance = (preferences.instance as string) || "https://gitlab.com";
   const token = preferences.token as string;
   const graphqlEndpoint = `${instance}/api/graphql`;
-  const httpLink = new HttpLink({ uri: graphqlEndpoint, fetch, fetchOptions: { agent: getHttpAgent() } });
+  const httpLink = new HttpLink({
+    uri: graphqlEndpoint,
+    fetch: fetch as unknown as typeof globalThis.fetch,
+    fetchOptions: { agent: getHttpAgent() },
+  });
 
   const authMiddleware = new ApolloLink((operation, forward) => {
     operation.setContext(({ headers = {} }) => ({
