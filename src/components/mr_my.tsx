@@ -1,9 +1,7 @@
 import { ActionPanel, List } from "@raycast/api";
 import { useMemo, useState } from "react";
-import { useCache } from "../cache";
-import { gitlab } from "../common";
 import { MergeRequest, Project } from "../gitlabapi";
-import { daysInSeconds, showErrorToast } from "../utils";
+import { showErrorToast } from "../utils";
 import {
   MRListDetailsToggleAction,
   MRListMetadataToggleAction,
@@ -15,6 +13,7 @@ import {
   useMRListDetails,
 } from "./mr";
 import { RefreshMergeRequestsAction } from "./mr_actions";
+import { ListPagination, usePaginatedMergeRequests } from "./mr_data";
 import { MyProjectsDropdown } from "./project";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -24,6 +23,7 @@ function MyMRList(props: {
   isLoading: boolean;
   title?: string;
   performRefetch: () => void;
+  pagination?: ListPagination;
   searchText?: string | undefined;
   onSearchTextChange?: (text: string) => void;
   searchBarAccessory?:
@@ -47,6 +47,7 @@ function MyMRList(props: {
     <List
       searchBarPlaceholder={mrSearchBarPlaceholder}
       isLoading={props.isLoading}
+      pagination={props.pagination}
       searchText={props.searchText}
       onSearchTextChange={props.onSearchTextChange}
       searchBarAccessory={props.searchBarAccessory}
@@ -90,7 +91,7 @@ export function MyMergeRequests(props: {
   const scope = props.scope;
   const state = props.state;
   const [project, setProject] = useState<Project>();
-  const { mrs: raw, isLoading, error, performRefetch } = useMyMergeRequests(scope, state, project);
+  const { mrs: raw, isLoading, error, performRefetch, pagination } = useMyMergeRequests(scope, state, project);
   if (error) {
     showErrorToast(error, "Cannot search Merge Requests");
   }
@@ -103,6 +104,7 @@ export function MyMergeRequests(props: {
       mrs={mrs}
       title={title}
       performRefetch={performRefetch}
+      pagination={pagination}
       searchText={props.searchText}
       onSearchTextChange={props.onSearchTextChange}
       searchBarAccessory={<MyProjectsDropdown onChange={setProject} />}
@@ -120,22 +122,12 @@ export function useMyMergeRequests(
   isLoading: boolean;
   error: string | undefined;
   performRefetch: () => void;
+  pagination: ListPagination;
 } {
-  const {
-    data: mrs,
-    isLoading,
-    error,
-    performRefetch,
-  } = useCache<MergeRequest[] | undefined>(
-    `mymrs_${scope}_${state}_${labels ? labels.join(",") : "[]"}`,
-    async (): Promise<MergeRequest[] | undefined> => {
-      return await gitlab.getMergeRequests({ state, scope, ...(labels && { labels }) });
-    },
-    {
-      deps: [project, scope, state, labels],
-      secondsToRefetch: 10,
-      secondsToInvalid: daysInSeconds(7),
-    },
-  );
-  return { mrs, isLoading, error, performRefetch };
+  // `project` is intentionally excluded from the cache key; the project filter is
+  // applied client-side in `MyMergeRequests` against the (global) fetched pages.
+  return usePaginatedMergeRequests({
+    cacheKey: `mymrs_${scope}_${state}_${labels ? labels.join(",") : "[]"}`,
+    buildParams: () => ({ state, scope, ...(labels && { labels }) }),
+  });
 }

@@ -886,7 +886,7 @@ export class GitLab {
   ): Promise<{ mergeRequests: MergeRequest[]; hasMore: boolean }> {
     applyMergeRequestListParams(params);
     const projectPrefix = project ? `projects/${project.id}/` : "";
-    const { data, hasMore } = await this.fetchPaged(`${projectPrefix}merge_requests`, params, page, 50);
+    const { data, hasMore } = await this.fetchPaged(`${projectPrefix}merge_requests`, params, page, 20);
     const mergeRequests: MergeRequest[] = data.map((issue: any) => jsonDataToMergeRequest(issue));
     return { mergeRequests, hasMore };
   }
