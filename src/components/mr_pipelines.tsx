@@ -1,10 +1,11 @@
-import { List } from "@raycast/api";
-import { useEffect } from "react";
+import { ActionPanel, List } from "@raycast/api";
+import { useEffect, useMemo } from "react";
 import { useCache } from "../cache";
 import { getCIRefreshInterval, gitlab } from "../common";
 import { MergeRequest, Pipeline, Project } from "../gitlabapi";
 import { daysInSeconds, getErrorMessage, showErrorToast } from "../utils";
 import { normalizePipelineForList, PipelineListItem } from "./pipelines";
+import { RunPipelineAction } from "./pipeline_actions";
 import useInterval from "use-interval";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -108,9 +109,27 @@ export function MRPipelineList(props: { mr: MergeRequest }) {
   const projectFullPath = project?.fullPath ?? "";
 
   const listLoading = isLoading === undefined || projectLoading === undefined || isLoading || projectLoading;
+  const runRef = pipelines?.[0]?.ref || mr.source_branch;
+  const runProjectId = pipelines?.[0]?.projectId || `${mr.project_id}`;
+
+  const listActions = useMemo(
+    () => (
+      <ActionPanel>
+        <ActionPanel.Section>
+          <RunPipelineAction
+            projectId={runProjectId}
+            ref={runRef}
+            onFinished={performRefetch}
+            shortcut={{ modifiers: ["cmd"], key: "n" }}
+          />
+        </ActionPanel.Section>
+      </ActionPanel>
+    ),
+    [runProjectId, runRef, performRefetch],
+  );
 
   return (
-    <List isLoading={listLoading} navigationTitle={navigationTitle}>
+    <List isLoading={listLoading} navigationTitle={navigationTitle} actions={listActions}>
       <List.Section title="Pipelines" subtitle={pipelines?.length ? `${pipelines.length}` : undefined}>
         {pipelines?.map((pipeline) => (
           <PipelineListItem
@@ -119,6 +138,7 @@ export function MRPipelineList(props: { mr: MergeRequest }) {
             projectFullPath={projectFullPath}
             onRefreshPipelines={performRefetch}
             navigationTitle={navigationTitle}
+            runRefFallback={mr.source_branch}
           />
         ))}
       </List.Section>

@@ -98,14 +98,65 @@ export function RetryPipelineAction(props: { pipeline: Pipeline; onRetryFinished
   );
 }
 
+export function resolvePipelineRunRef(pipeline: Pipeline, fallbackRef?: string): string {
+  return pipeline.ref || fallbackRef || "";
+}
+
+export function RunPipelineAction(props: {
+  projectId: string | number;
+  ref: string;
+  onFinished?: () => void;
+  shortcut?: Keyboard.Shortcut;
+}): React.ReactElement | null {
+  const ref = props.ref.trim();
+  if (!ref) {
+    return null;
+  }
+  async function handle() {
+    if (
+      !(await confirmAlert({
+        title: "Run Pipeline?",
+        message: `Create a new pipeline for ref "${ref}"?`,
+        primaryAction: { title: "Run Pipeline" },
+      }))
+    ) {
+      return;
+    }
+    try {
+      const created = await gitlab.post(`projects/${props.projectId}/pipeline`, { ref });
+      const pipelineId = created?.id ? `#${created.id}` : "";
+      showToast(Toast.Style.Success, "Started pipeline", pipelineId);
+      props.onFinished?.();
+    } catch (error) {
+      showErrorToast(getErrorMessage(error), "Failed to run pipeline");
+    }
+  }
+  return (
+    <Action
+      title="Run Pipeline"
+      icon={{ source: Icon.Play, tintColor: Color.Green }}
+      shortcut={props.shortcut ?? { modifiers: ["cmd"], key: "n" }}
+      onAction={handle}
+    />
+  );
+}
+
 export function PipelineItemActions(props: {
   pipeline: Pipeline;
+  runRefFallback?: string;
   onRefreshPipelines?: () => void;
   onDataChange?: () => void;
 }) {
   const pipeline = props.pipeline;
+  const runRef = resolvePipelineRunRef(pipeline, props.runRefFallback);
   return (
     <React.Fragment>
+      <RunPipelineAction
+        projectId={pipeline.projectId}
+        ref={runRef}
+        onFinished={props.onRefreshPipelines ?? props.onDataChange}
+        shortcut={{ modifiers: ["cmd"], key: "n" }}
+      />
       <RefreshPipelinesAction pipeline={pipeline} onRefreshPipelines={props.onRefreshPipelines ?? props.onDataChange} />
     </React.Fragment>
   );

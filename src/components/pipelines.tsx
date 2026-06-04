@@ -1,6 +1,6 @@
 import { Action, ActionPanel, List, Icon, Image, Color } from "@raycast/api";
-import { useEffect, useState } from "react";
-import { getCIRefreshInterval, getGitLabGQL } from "../common";
+import { useEffect, useMemo, useState } from "react";
+import { getCIRefreshInterval, getGitLabGQL, gitlab } from "../common";
 import { gql } from "@apollo/client";
 import {
   capitalizeFirstLetter,
@@ -16,6 +16,7 @@ import {
   isCancelablePipeline,
   PipelineItemActions,
   RetryPipelineAction,
+  RunPipelineAction,
 } from "./pipeline_actions";
 import useInterval from "use-interval";
 import { GitLabOpenInBrowserAction } from "./actions";
@@ -37,6 +38,7 @@ const GET_PIPELINES = gql`
           status
           active
           path
+          ref
           sha
           startedAt
           duration
@@ -139,6 +141,7 @@ export function PipelineListItem(props: {
   projectFullPath: string;
   onRefreshPipelines: () => void;
   navigationTitle?: string;
+  runRefFallback?: string;
 }) {
   const pipeline = props.pipeline;
   const icon = getIcon(pipeline.status);
@@ -171,13 +174,22 @@ export function PipelineListItem(props: {
               icon={{ source: Icon.Terminal, tintColor: Color.PrimaryText }}
             />
             <GitLabOpenInBrowserAction url={pipeline.webUrl} />
+            <Action.CopyToClipboard
+              title="Copy Pipeline URL"
+              content={pipeline.webUrl}
+              shortcut={{ modifiers: ["cmd"], key: "c" }}
+            />
             <RetryPipelineAction pipeline={props.pipeline} onRetryFinished={props.onRefreshPipelines} />
             {isCancelablePipeline(pipeline) ? (
               <CancelPipelineAction pipeline={props.pipeline} onRefreshPipelines={props.onRefreshPipelines} />
             ) : null}
           </ActionPanel.Section>
           <ActionPanel.Section>
-            <PipelineItemActions pipeline={props.pipeline} onRefreshPipelines={props.onRefreshPipelines} />
+            <PipelineItemActions
+              pipeline={props.pipeline}
+              runRefFallback={props.runRefFallback}
+              onRefreshPipelines={props.onRefreshPipelines}
+            />
           </ActionPanel.Section>
         </ActionPanel>
       }
@@ -185,8 +197,60 @@ export function PipelineListItem(props: {
   );
 }
 
+function useProjectPipelineRunContext(projectFullPath: string): {
+  projectId: string;
+  defaultBranch: string;
+} {
+  const [projectId, setProjectId] = useState("");
+  const [defaultBranch, setDefaultBranch] = useState("");
+
+  useEffect(() => {
+    let didUnmount = false;
+    async function fetchProject() {
+      try {
+        const project = await gitlab.fetch(`projects/${encodeURIComponent(projectFullPath)}`);
+        if (!didUnmount) {
+          setProjectId(`${project.id}`);
+          setDefaultBranch(project.default_branch ?? "");
+        }
+      } catch {
+        if (!didUnmount) {
+          setProjectId("");
+          setDefaultBranch("");
+        }
+      }
+    }
+    fetchProject();
+    return () => {
+      didUnmount = true;
+    };
+  }, [projectFullPath]);
+
+  return { projectId, defaultBranch };
+}
+
 export function PipelineList(props: { projectFullPath: string; navigationTitle?: string }) {
   const { pipelines, error, isLoading, refresh } = useSearch("", props.projectFullPath);
+  const { projectId, defaultBranch } = useProjectPipelineRunContext(props.projectFullPath);
+  const runRef = pipelines[0]?.ref || defaultBranch;
+  const runProjectId = pipelines[0]?.projectId || projectId;
+
+  const listActions = useMemo(
+    () => (
+      <ActionPanel>
+        <ActionPanel.Section>
+          <RunPipelineAction
+            projectId={runProjectId}
+            ref={runRef}
+            onFinished={refresh}
+            shortcut={{ modifiers: ["cmd"], key: "n" }}
+          />
+        </ActionPanel.Section>
+      </ActionPanel>
+    ),
+    [runProjectId, runRef, refresh],
+  );
+
   useInterval(() => {
     refresh();
   }, getCIRefreshInterval());
@@ -194,7 +258,7 @@ export function PipelineList(props: { projectFullPath: string; navigationTitle?:
     showErrorToast(error, "Cannot search Pipelines");
   }
   return (
-    <List isLoading={isLoading} navigationTitle={props.navigationTitle || "Pipelines"}>
+    <List isLoading={isLoading} navigationTitle={props.navigationTitle || "Pipelines"} actions={listActions}>
       <List.Section title="Pipelines">
         {pipelines?.map((pipeline) => (
           <PipelineListItem
@@ -203,6 +267,7 @@ export function PipelineList(props: { projectFullPath: string; navigationTitle?:
             projectFullPath={props.projectFullPath}
             onRefreshPipelines={refresh}
             navigationTitle={props.navigationTitle}
+            runRefFallback={defaultBranch}
           />
         ))}
       </List.Section>
@@ -253,6 +318,7 @@ export function useSearch(
             iid: p.iid,
             project_id: getIdFromGqlId(p.project.id),
             status: p.status,
+            ref: p.ref,
             web_url: `${getGitLabGQL().url}${p.path}`,
             created_at: p.createdAt,
             updated_at: p.updatedAt,

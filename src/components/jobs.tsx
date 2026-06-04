@@ -1,4 +1,4 @@
-import { ActionPanel, List, Icon, Image, Color } from "@raycast/api";
+import { Action, ActionPanel, List, Icon, Image, Color } from "@raycast/api";
 import { useEffect, useState } from "react";
 import { getCIRefreshInterval, getGitLabGQL, gitlab } from "../common";
 import { gql } from "@apollo/client";
@@ -152,6 +152,7 @@ export function JobListItem(props: { job: Job; projectFullPath: string; onRefres
   const icon = getCIJobStatusIcon(job.status, job.allowFailure);
   const subtitle = "#" + getIdFromGqlId(job.id);
   const status = getStatusText(job.status.toLowerCase(), job.allowFailure);
+  const jobUrl = getGitLabGQL().urlJoin(`${props.projectFullPath}/-/jobs/${getIdFromGqlId(job.id)}`);
   return (
     <List.Item
       id={job.id}
@@ -161,9 +162,8 @@ export function JobListItem(props: { job: Job; projectFullPath: string; onRefres
       actions={
         <ActionPanel>
           <ActionPanel.Section>
-            <GitLabOpenInBrowserAction
-              url={getGitLabGQL().urlJoin(`${props.projectFullPath}/-/jobs/${getIdFromGqlId(job.id)}`)}
-            />
+            <GitLabOpenInBrowserAction url={jobUrl} />
+            <Action.CopyToClipboard title="Copy Job URL" content={jobUrl} shortcut={{ modifiers: ["cmd"], key: "c" }} />
             <RetryJobAction job={props.job} />
             {isManualJob(job) ? <RunJobAction job={props.job} onRefreshJobs={props.onRefreshJobs} /> : null}
             {isCancelableJob(job) ? <CancelJobAction job={props.job} onRefreshJobs={props.onRefreshJobs} /> : null}
