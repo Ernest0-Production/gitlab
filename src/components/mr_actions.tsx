@@ -4,7 +4,7 @@ import { gitlab } from "../common";
 import { MergeRequest } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
 import { getErrorMessage, showErrorToast } from "../utils";
-import { ProjectCommitList } from "./commits/list";
+import { MRCommitList } from "./commits/list";
 import { MRPipelineList } from "./mr_pipelines";
 import { findTodoForMR, useTodos } from "./todo/utils";
 
@@ -193,37 +193,12 @@ export function MRTodoAndCopySection(props: {
   shortcut?: Keyboard.Shortcut;
   finished?: () => void;
 }): React.ReactElement {
+  const mr = props.mr;
   return (
     <ActionPanel.Section>
       <MRTodoAction mr={props.mr} shortcut={props.shortcut} finished={props.finished} />
-      <MergeRequestCopyActions mr={props.mr} />
+      <Action.CopyToClipboard title="Copy URL" content={mr.web_url} shortcut={{ modifiers: ["cmd"], key: "c" }} />
     </ActionPanel.Section>
-  );
-}
-
-export function MergeRequestCopyActions(props: { mr: MergeRequest }) {
-  const mr = props.mr;
-  return (
-    <ActionPanel.Submenu title="Copy" icon={Icon.Clipboard} shortcut={{ modifiers: ["cmd"], key: "c" }}>
-      <Action.CopyToClipboard
-        title="Link"
-        content={mr.web_url}
-        shortcut={{ modifiers: ["cmd"], key: "l" }}
-        icon={{ source: Icon.Link, tintColor: Color.PrimaryText }}
-      />
-      <Action.CopyToClipboard
-        title={`!${mr.iid}`}
-        content={mr.iid}
-        shortcut={{ modifiers: ["cmd"], key: "i" }}
-        icon={{ source: Icon.Hashtag, tintColor: Color.PrimaryText }}
-      />
-      <Action.CopyToClipboard
-        title="Title"
-        content={mr.title}
-        shortcut={{ modifiers: ["cmd"], key: "t" }}
-        icon={{ source: Icon.Text, tintColor: Color.PrimaryText }}
-      />
-    </ActionPanel.Submenu>
   );
 }
 
@@ -252,7 +227,7 @@ export function ShowMRCommitsAction(props: { mr: MergeRequest }) {
       title="Show Commits"
       icon={{ source: GitLabIcons.commit, tintColor: Color.PrimaryText }}
       shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
-      target={<ProjectCommitList projectID={mr.project_id} refName={mr.source_branch} />}
+      target={<MRCommitList projectID={mr.project_id} mrIID={mr.iid} navigationTitle={mr.title} />}
     />
   );
 }

@@ -1,7 +1,6 @@
-import { useState, useEffect } from "react";
-import { useCache } from "../../cache";
+import { useCachedPromise } from "@raycast/utils";
 import { gitlab } from "../../common";
-import { CommitStatus } from "./list";
+import { CommitStatus } from "./types";
 
 export async function getCommitStatus(projectID: number, sha: string): Promise<CommitStatus | undefined> {
   const status: CommitStatus | undefined = await gitlab
@@ -20,23 +19,14 @@ export async function getCommitStatus(projectID: number, sha: string): Promise<C
   return status;
 }
 
-export function useCommitStatus(projectID: number, sha?: string): { commitStatus: CommitStatus | undefined } {
-  const [commitStatus, setCommitStatus] = useState<CommitStatus | undefined>();
-  const { data } = useCache<CommitStatus | undefined>(
-    `project_commit_status_${projectID}_${sha}`,
-    async (): Promise<CommitStatus | undefined> => {
-      if (sha) {
-        return await getCommitStatus(projectID, sha);
-      }
-      return undefined;
-    },
-    {
-      deps: [projectID, sha],
-      secondsToRefetch: 30,
-    },
+export function useCommitStatus(
+  projectID: number,
+  sha?: string,
+): { commitStatus: CommitStatus | undefined; isLoading: boolean } {
+  const { data, isLoading } = useCachedPromise(
+    (pid: number, commitSha: string) => getCommitStatus(pid, commitSha),
+    [projectID, sha ?? ""],
+    { execute: !!sha },
   );
-  useEffect(() => {
-    setCommitStatus(data);
-  }, [data]);
-  return { commitStatus };
+  return { commitStatus: data, isLoading };
 }

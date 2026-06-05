@@ -2,14 +2,7 @@ import { Action, ActionPanel, List, Icon, Image, Color } from "@raycast/api";
 import { useEffect, useMemo, useState } from "react";
 import { getCIRefreshInterval, getGitLabGQL, gitlab } from "../common";
 import { gql } from "@apollo/client";
-import {
-  capitalizeFirstLetter,
-  formatPipelineListAccessoryDate,
-  getErrorMessage,
-  getIdFromGqlId,
-  now,
-  showErrorToast,
-} from "../utils";
+import { capitalizeFirstLetter, formatDate, getErrorMessage, getIdFromGqlId, now, showErrorToast } from "../utils";
 import { JobList } from "./jobs";
 import {
   CancelPipelineAction,
@@ -133,7 +126,7 @@ function getPipelineListAccessory(pipeline: Pipeline): List.Item.Accessory | und
     : startedAt
       ? `Started ${d.toLocaleString()}`
       : `Created ${d.toLocaleString()}`;
-  return { text: formatPipelineListAccessoryDate(d), tooltip };
+  return { text: formatDate(d), tooltip };
 }
 
 export function PipelineListItem(props: {
@@ -175,7 +168,7 @@ export function PipelineListItem(props: {
             />
             <GitLabOpenInBrowserAction url={pipeline.webUrl} />
             <Action.CopyToClipboard
-              title="Copy Pipeline URL"
+              title="Copy URL"
               content={pipeline.webUrl}
               shortcut={{ modifiers: ["cmd"], key: "c" }}
             />

@@ -30,11 +30,7 @@ function mrScopeIcon(scope: MRScope, isActive: boolean): Image.ImageLike {
 
 export function mergeRequestScopeSubmenu(scope: MRScope, onSelectScope: (scope: MRScope) => void) {
   return (
-    <ActionPanel.Submenu
-      title="Filter Scope"
-      shortcut={{ modifiers: ["cmd"], key: "f" }}
-      icon={Icon.Filter}
-    >
+    <ActionPanel.Submenu title="Filter Scope" shortcut={{ modifiers: ["cmd"], key: "f" }} icon={Icon.Filter}>
       {MR_SCOPE_OPTIONS.map(({ value, title }) => (
         <Action
           key={value}

@@ -1,9 +1,9 @@
 import { Action, ActionPanel, Color, Image, List } from "@raycast/api";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import urljoin from "url-join";
 import { useCache } from "../../cache";
 import { getCIRefreshInterval, gitlab } from "../../common";
-import { Project, User } from "../../gitlabapi";
+import { Project } from "../../gitlabapi";
 import { GitLabIcons } from "../../icons";
 import { capitalizeFirstLetter, showErrorToast } from "../../utils";
 import { GitLabOpenInBrowserAction } from "../actions";
@@ -13,6 +13,7 @@ import { MyProjectsDropdown } from "../project";
 import { CommitListItem } from "./item";
 import { useCommitStatus } from "./utils";
 import { RefreshCommitsAction } from "./actions";
+import { usePaginatedMergeRequestCommits, usePaginatedProjectCommits } from "./data";
 import useInterval from "use-interval";
 
 function EventCommitListItem(props: { event: Event; onRefresh?: () => void }) {
@@ -126,64 +127,61 @@ export function RecentCommitsList() {
   );
 }
 
-export interface CommitStatus {
-  status: string;
-  author: User;
-  ref?: string;
-  allow_failure: boolean;
+export type { Commit, CommitStatus } from "./types";
+
+function ProjectCommitListEmptyView() {
+  return <List.EmptyView title="No Commits" icon={{ source: GitLabIcons.commit, tintColor: Color.PrimaryText }} />;
 }
 
-export interface Commit {
-  id: string;
-  short_id: string;
-  title: string;
-  created_at: string;
-  message: string;
-  committer_name: string;
-  author_name: string;
-  committed_date: string;
-  web_url: string;
-}
-
-async function getProjectCommits(projectID: number, refName?: string): Promise<Commit[] | undefined> {
-  let args: Record<string, string> | undefined;
-  if (refName) {
-    args = {
-      ref_name: refName,
-    };
-  }
-  const commits: Commit[] = await gitlab.fetch(`projects/${projectID}/repository/commits`, args).then((d) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    return d.map((data: any) => data as Commit);
+export function MRCommitList(props: { projectID: number; mrIID: number; navigationTitle?: string }) {
+  const { projectID, mrIID } = props;
+  const cacheKey = `mr_commits_${projectID}_${mrIID}`;
+  const { commits, isLoading, error, pagination } = usePaginatedMergeRequestCommits({
+    cacheKey,
+    projectID,
+    mrIID,
   });
-  return commits;
+
+  useEffect(() => {
+    if (!error) {
+      return;
+    }
+    showErrorToast(error, "Could not fetch Merge Request commits");
+  }, [error]);
+
+  return (
+    <List isLoading={isLoading} pagination={pagination} navigationTitle={props.navigationTitle}>
+      {(commits ?? []).map((e) => (
+        <CommitListItem key={e.id} commit={e} projectID={projectID} />
+      ))}
+      <ProjectCommitListEmptyView />
+    </List>
+  );
 }
 
 export function ProjectCommitList(props: { projectID: number; refName?: string; navigationTitle?: string }) {
   const projectID = props.projectID;
   const refName = props.refName;
-  let cacheKey = `project_commits_${projectID}`;
-  if (refName) {
-    cacheKey += `_${refName}`;
-  }
-  const { data, error, isLoading } = useCache<Commit[] | undefined>(
+  const cacheKey = refName ? `project_commits_${projectID}_${refName}` : `project_commits_${projectID}`;
+  const { commits, isLoading, error, pagination } = usePaginatedProjectCommits({
     cacheKey,
-    async (): Promise<Commit[] | undefined> => {
-      return await getProjectCommits(projectID, refName);
-    },
-    {
-      deps: [projectID, refName],
-      secondsToRefetch: 60,
-    },
-  );
-  if (error) {
+    projectID,
+    refName,
+  });
+
+  useEffect(() => {
+    if (!error) {
+      return;
+    }
     showErrorToast(error, "Could not fetch commits from Project");
-  }
+  }, [error]);
+
   return (
-    <List isLoading={isLoading} navigationTitle={props.navigationTitle}>
-      {data?.map((e) => (
+    <List isLoading={isLoading} pagination={pagination} navigationTitle={props.navigationTitle}>
+      {(commits ?? []).map((e) => (
         <CommitListItem key={e.id} commit={e} projectID={projectID} />
       ))}
+      <ProjectCommitListEmptyView />
     </List>
   );
 }

@@ -163,7 +163,7 @@ export function JobListItem(props: { job: Job; projectFullPath: string; onRefres
         <ActionPanel>
           <ActionPanel.Section>
             <GitLabOpenInBrowserAction url={jobUrl} />
-            <Action.CopyToClipboard title="Copy Job URL" content={jobUrl} shortcut={{ modifiers: ["cmd"], key: "c" }} />
+            <Action.CopyToClipboard title="Copy URL" content={jobUrl} shortcut={{ modifiers: ["cmd"], key: "c" }} />
             <RetryJobAction job={props.job} />
             {isManualJob(job) ? <RunJobAction job={props.job} onRefreshJobs={props.onRefreshJobs} /> : null}
             {isCancelableJob(job) ? <CancelJobAction job={props.job} onRefreshJobs={props.onRefreshJobs} /> : null}
