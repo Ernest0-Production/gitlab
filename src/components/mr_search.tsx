@@ -120,7 +120,7 @@ export function SearchMyMergeRequests() {
   const [mrState, setMrState] = useCachedState<MRState>("mr-search-state", MRState.opened);
   const [scope, setScope] = useCachedState<MRScope>("mr-search-scope", MRScope.all);
   const [orderBy, setOrderBy] = useCachedState<MRSearchOrderBy>("mr-search-order-by", MR_DEFAULT_ORDER_BY);
-  const [search, setSearch] = useState<string>();
+  const [search, setSearch] = useState<string>("");
   const { isShowingDetail, toggleListDetails } = useMRListDetails();
 
   const project = useMemo(() => myprojects?.find((p) => `${p.id}` === projectId), [myprojects, projectId]);
@@ -213,29 +213,11 @@ export function SearchMyMergeRequests() {
     [myprojects, projectId, onProjectChange],
   );
 
-  if (projectsLoading) {
-    return <List isLoading={true} searchBarPlaceholder={mrSearchBarPlaceholder} />;
-  }
-
-  if (!myprojects || myprojects.length === 0) {
-    return (
-      <List searchBarPlaceholder={mrSearchBarPlaceholder}>
-        <List.EmptyView
-          title="No Projects"
-          description="You have no GitLab projects with membership."
-          icon={{ source: GitLabIcons.project, tintColor: Color.PrimaryText }}
-        />
-      </List>
-    );
-  }
-
-  if (!project) {
-    return <List isLoading={true} searchBarPlaceholder={mrSearchBarPlaceholder} />;
-  }
+  const hasProjects = !!myprojects && myprojects.length > 0;
 
   return (
     <List
-      isLoading={isLoading}
+      isLoading={projectsLoading || isLoading || (hasProjects && !project)}
       pagination={pagination}
       searchText={search}
       onSearchTextChange={setSearch}
@@ -245,31 +227,41 @@ export function SearchMyMergeRequests() {
       searchBarAccessory={searchBarAccessory}
       actions={listFilterActions}
     >
-      {(data ?? []).map((m) => (
-        <MRListItem
-          key={m.id}
-          mr={m}
-          refreshData={performRefetch}
-          showCIStatus={true}
-          isShowingDetail={isShowingDetail}
-          onToggleListDetails={toggleListDetails}
-          filterAction={filterAction}
-          scopeAction={scopeAction}
-          sortAction={sortAction}
-          refreshAction={refreshAction}
+      {!projectsLoading && !hasProjects ? (
+        <List.EmptyView
+          title="No Projects"
+          description="You have no GitLab projects with membership."
+          icon={{ source: GitLabIcons.project, tintColor: Color.PrimaryText }}
         />
-      ))}
-      <SearchMergeRequestsEmptyView
-        mrState={mrState}
-        onSelectState={setMrState}
-        scope={scope}
-        onSelectScope={setScope}
-        orderBy={orderBy}
-        onSelectOrderBy={setOrderBy}
-        onRefresh={performRefetch}
-        isShowingDetail={isShowingDetail}
-        onToggleListDetails={toggleListDetails}
-      />
+      ) : (
+        <>
+            {(data ?? []).map((m) => (
+              <MRListItem
+                key={m.id}
+                mr={m}
+                refreshData={performRefetch}
+                showCIStatus={true}
+                isShowingDetail={isShowingDetail}
+                onToggleListDetails={toggleListDetails}
+                filterAction={filterAction}
+                scopeAction={scopeAction}
+                sortAction={sortAction}
+                refreshAction={refreshAction}
+              />
+            ))}
+            <SearchMergeRequestsEmptyView
+              mrState={mrState}
+              onSelectState={setMrState}
+              scope={scope}
+              onSelectScope={setScope}
+              orderBy={orderBy}
+              onSelectOrderBy={setOrderBy}
+              onRefresh={performRefetch}
+              isShowingDetail={isShowingDetail}
+              onToggleListDetails={toggleListDetails}
+            />
+        </>
+      )}
     </List>
   );
 }

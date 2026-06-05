@@ -18,7 +18,7 @@ import {
 export function SearchMyIssues() {
   const [scope, setScope] = useState<string>(IssueScope.created_by_me);
   const state = IssueState.all;
-  const [search, setSearch] = useState<string>();
+  const [search, setSearch] = useState<string>("");
   const params: Record<string, any> = { state, scope };
   const qd = getIssueQuery(search);
   params.search = qd.query || "";
@@ -40,13 +40,10 @@ export function SearchMyIssues() {
   if (error) {
     showErrorToast(getErrorMessage(error), "Could not fetch Issues");
   }
-  if (isLoading === undefined) {
-    return <List isLoading={true} searchBarPlaceholder="" />;
-  }
   const title = search ? "Search Results" : "Created Recently";
   return (
     <List
-      isLoading={isLoading}
+      isLoading={isLoading === undefined ? true : isLoading}
       searchText={search}
       onSearchTextChange={setSearch}
       throttle
