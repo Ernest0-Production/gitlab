@@ -15,9 +15,9 @@ type Input = {
    */
   state?: "opened" | "closed" | "merged" | "all";
   /**
-   * all | assigned_to_me | created_by_me | reviewed_by_me
+   * all | assigned_to_me | created_by_me | reviews_for_me
    */
-  scope?: "all" | "assigned_to_me" | "created_by_me" | "reviewed_by_me";
+  scope?: "all" | "assigned_to_me" | "created_by_me" | "reviews_for_me";
   /**
    * Comma-separated labels to include
    */

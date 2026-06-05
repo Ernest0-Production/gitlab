@@ -19,6 +19,7 @@ import { useCachedState } from "@raycast/utils";
 export enum MRScope {
   created_by_me = "created_by_me",
   assigned_to_me = "assigned_to_me",
+  reviews_for_me = "reviews_for_me",
   all = "all",
 }
 
@@ -314,6 +315,7 @@ export function MRListItem(props: {
   showCIStatus?: boolean;
   showAuthor?: boolean;
   filterAction?: React.ReactNode;
+  scopeAction?: React.ReactNode;
   sortAction?: React.ReactNode;
   refreshAction?: React.ReactNode;
 }) {
@@ -387,13 +389,14 @@ export function MRListItem(props: {
           </ActionPanel.Section>
           <MRTodoAndCopySection shortcut={{ modifiers: ["cmd"], key: "t" }} mr={mr} finished={props.refreshData} />
           <MRItemActions mr={mr} onDataChange={props.refreshData} />
-          {props.filterAction || props.sortAction || props.refreshAction ? (
-            <ActionPanel.Section>
+          {props.filterAction || props.scopeAction || props.sortAction ? (
+            <ActionPanel.Section title="Filters">
               {props.filterAction}
+              {props.scopeAction}
               {props.sortAction}
-              {props.refreshAction}
             </ActionPanel.Section>
           ) : null}
+          {props.refreshAction ? <ActionPanel.Section>{props.refreshAction}</ActionPanel.Section> : null}
         </ActionPanel>
       }
     />

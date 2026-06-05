@@ -70,13 +70,6 @@ function mrSearchOrderByIcon(orderBy: MRSearchOrderBy, isActive: boolean): Image
   return mrOrderBySemanticIcon(orderBy);
 }
 
-function mrSortSubmenuIcon(orderBy: MRSearchOrderBy): Image.ImageLike {
-  if (!isMROrderBy(orderBy)) {
-    return Icon.List;
-  }
-  return mrOrderBySemanticIcon(orderBy);
-}
-
 export function appendMROrderByParams(params: Record<string, unknown>, orderBy: MRSearchOrderBy): void {
   if (orderBy === MR_DEFAULT_ORDER_BY) {
     return;
@@ -87,7 +80,7 @@ export function appendMROrderByParams(params: Record<string, unknown>, orderBy: 
 
 export function mergeRequestSortSubmenu(orderBy: MRSearchOrderBy, onSelectOrderBy: (orderBy: MRSearchOrderBy) => void) {
   return (
-    <ActionPanel.Submenu title="Sort by" shortcut={{ modifiers: ["cmd"], key: "s" }} icon={mrSortSubmenuIcon(orderBy)}>
+    <ActionPanel.Submenu title="Sort by" icon={Icon.ChevronUpDown}>
       <ActionPanel.Section>
         <Action
           title="Default"
