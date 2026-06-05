@@ -1,17 +1,23 @@
-import { Action, ActionPanel, Color, Icon, List } from "@raycast/api";
+import { Action, ActionPanel, Color, Icon, Image, List } from "@raycast/api";
 import { GitLabIcons } from "../../icons";
+import { useUserAvatar } from "../../hooks";
 import { copySecondaryShortcut, copyShortcut, formatDate } from "../../utils";
 import { GitLabOpenInBrowserAction } from "../actions";
 import { Commit } from "./types";
 
 export function CommitListItem(props: { commit: Commit }) {
   const commit = props.commit;
+  const { avatarUrl } = useUserAvatar(commit.author_email);
+
+  const icon: Image.ImageLike = avatarUrl
+    ? { source: avatarUrl, mask: Image.Mask.Circle }
+    : { source: GitLabIcons.commit, tintColor: Color.SecondaryText };
 
   return (
     <List.Item
       key={commit.id}
       title={commit.title}
-      icon={{ value: { source: GitLabIcons.commit, tintColor: Color.SecondaryText }, tooltip: commit.author_name }}
+      icon={{ value: icon, tooltip: commit.author_name }}
       accessories={[
         {
           text: formatDate(commit.created_at),

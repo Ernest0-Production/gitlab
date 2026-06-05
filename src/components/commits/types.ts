@@ -15,6 +15,7 @@ export interface Commit {
   message: string;
   committer_name: string;
   author_name: string;
+  author_email?: string;
   committed_date: string;
   web_url: string;
 }
