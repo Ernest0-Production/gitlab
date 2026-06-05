@@ -33,7 +33,7 @@ export function mergeRequestScopeSubmenu(scope: MRScope, onSelectScope: (scope: 
     <ActionPanel.Submenu
       title="Filter Scope"
       shortcut={{ modifiers: ["cmd"], key: "f" }}
-      icon={mrScopeSemanticIcon(scope)}
+      icon={Icon.Filter}
     >
       {MR_SCOPE_OPTIONS.map(({ value, title }) => (
         <Action

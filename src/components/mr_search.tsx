@@ -36,8 +36,8 @@ function mergeRequestFilterSection(
   return (
     <>
       <ActionPanel.Section title="Filters">
-        {mergeRequestStateFilterSubmenu(mrState, onSelectState)}
         {mergeRequestScopeSubmenu(scope, onSelectScope)}
+        {mergeRequestStateFilterSubmenu(mrState, onSelectState)}
         {mergeRequestSortSubmenu(orderBy, onSelectOrderBy)}
       </ActionPanel.Section>
       <ActionPanel.Section>
