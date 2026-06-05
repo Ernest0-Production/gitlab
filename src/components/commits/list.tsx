@@ -1,17 +1,16 @@
-import { Action, ActionPanel, Color, Image, List } from "@raycast/api";
+import { Action, ActionPanel, Color, List } from "@raycast/api";
 import { useEffect, useState } from "react";
 import urljoin from "url-join";
 import { useCache } from "../../cache";
 import { getCIRefreshInterval, gitlab } from "../../common";
 import { Project } from "../../gitlabapi";
 import { GitLabIcons } from "../../icons";
-import { capitalizeFirstLetter, showErrorToast } from "../../utils";
+import { showErrorToast } from "../../utils";
 import { GitLabOpenInBrowserAction } from "../actions";
 import { Event } from "../event";
-import { getCIJobStatusIcon, PipelineJobsListByCommit } from "../jobs";
+import { PipelineJobsListByCommit } from "../jobs";
 import { MyProjectsDropdown } from "../project";
 import { CommitListItem } from "./item";
-import { useCommitStatus } from "./utils";
 import { RefreshCommitsAction } from "./actions";
 import { usePaginatedMergeRequestCommits, usePaginatedProjectCommits } from "./data";
 import useInterval from "use-interval";
@@ -32,7 +31,6 @@ function EventCommitListItem(props: { event: Event; onRefresh?: () => void }) {
       secondsToRefetch: 15 * 60,
     },
   );
-  const { commitStatus: status } = useCommitStatus(e.project_id, commit);
   const webAction = (): React.ReactNode | undefined => {
     if (project) {
       const proUrl = project.web_url;
@@ -45,7 +43,7 @@ function EventCommitListItem(props: { event: Event; onRefresh?: () => void }) {
   };
 
   const action = (): React.ReactNode | undefined | null => {
-    if (project && commit && status?.status) {
+    if (project && commit) {
       return (
         <Action.Push
           title="Open Pipeline"
@@ -57,19 +55,12 @@ function EventCommitListItem(props: { event: Event; onRefresh?: () => void }) {
     return null;
   };
 
-  const statusIcon: Image.ImageLike | undefined = status?.status
-    ? getCIJobStatusIcon(status.status, status.allow_failure)
-    : undefined;
-  const icon: Image.ImageLike | undefined = statusIcon
-    ? statusIcon
-    : { source: GitLabIcons.commit, tintColor: Color.Green };
-
   return (
     <List.Item
       title={title}
       subtitle={ref || commit}
       accessories={[{ text: project?.name_with_namespace }]}
-      icon={{ value: icon, tooltip: status?.status ? `Status: ${capitalizeFirstLetter(status.status)}` : "" }}
+      icon={{ value: { source: GitLabIcons.commit, tintColor: Color.SecondaryText } }}
       actions={
         <ActionPanel>
           <ActionPanel.Section>
@@ -152,7 +143,7 @@ export function MRCommitList(props: { projectID: number; mrIID: number; navigati
   return (
     <List isLoading={isLoading} pagination={pagination} navigationTitle={props.navigationTitle}>
       {(commits ?? []).map((e) => (
-        <CommitListItem key={e.id} commit={e} projectID={projectID} />
+        <CommitListItem key={e.id} commit={e} />
       ))}
       <ProjectCommitListEmptyView />
     </List>
@@ -179,7 +170,7 @@ export function ProjectCommitList(props: { projectID: number; refName?: string; 
   return (
     <List isLoading={isLoading} pagination={pagination} navigationTitle={props.navigationTitle}>
       {(commits ?? []).map((e) => (
-        <CommitListItem key={e.id} commit={e} projectID={projectID} />
+        <CommitListItem key={e.id} commit={e} />
       ))}
       <ProjectCommitListEmptyView />
     </List>

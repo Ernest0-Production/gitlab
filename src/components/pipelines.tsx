@@ -2,7 +2,15 @@ import { Action, ActionPanel, List, Icon, Image, Color } from "@raycast/api";
 import { useEffect, useMemo, useState } from "react";
 import { getCIRefreshInterval, getGitLabGQL, gitlab } from "../common";
 import { gql } from "@apollo/client";
-import { capitalizeFirstLetter, formatDate, getErrorMessage, getIdFromGqlId, now, showErrorToast } from "../utils";
+import {
+  capitalizeFirstLetter,
+  copyShortcut,
+  formatDate,
+  getErrorMessage,
+  getIdFromGqlId,
+  now,
+  showErrorToast,
+} from "../utils";
 import { JobList } from "./jobs";
 import {
   CancelPipelineAction,
@@ -167,11 +175,7 @@ export function PipelineListItem(props: {
               icon={{ source: Icon.Terminal, tintColor: Color.PrimaryText }}
             />
             <GitLabOpenInBrowserAction url={pipeline.webUrl} />
-            <Action.CopyToClipboard
-              title="Copy URL"
-              content={pipeline.webUrl}
-              shortcut={{ modifiers: ["cmd"], key: "c" }}
-            />
+            <Action.CopyToClipboard title="Copy URL" content={pipeline.webUrl} shortcut={copyShortcut} />
             <RetryPipelineAction pipeline={props.pipeline} onRetryFinished={props.onRefreshPipelines} />
             {isCancelablePipeline(pipeline) ? (
               <CancelPipelineAction pipeline={props.pipeline} onRefreshPipelines={props.onRefreshPipelines} />

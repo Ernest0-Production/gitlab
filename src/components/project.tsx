@@ -1,8 +1,9 @@
 import { ActionPanel, Color, Icon, Image, List } from "@raycast/api";
+import { useCachedPromise } from "@raycast/utils";
 import { useState } from "react";
 import { gitlab } from "../common";
 import { Project, searchData } from "../gitlabapi";
-import { daysInSeconds, getFirstChar, hashRecord, projectIconUrl, showErrorToast } from "../utils";
+import { daysInSeconds, getErrorMessage, getFirstChar, hashRecord, projectIconUrl, showErrorToast } from "../utils";
 import {
   CloneProjectInGitPod,
   CloneProjectInVSCodeAction,
@@ -152,33 +153,17 @@ export function ProjectList({ membership = true, starred = false }: ProjectListP
   );
 }
 
-export function useMyProjects(): { projects: Project[] | undefined; error?: string; isLoading?: boolean } {
-  const membership = true;
-  const starred = false;
+async function fetchMyProjects(): Promise<Project[]> {
+  return gitlab.getUserProjects({ search: "" }, true);
+}
 
-  const {
-    data: projects,
-    error,
+export function useMyProjects(): { projects: Project[] | undefined; error?: string; isLoading?: boolean } {
+  const { data, error, isLoading } = useCachedPromise(fetchMyProjects, []);
+  return {
+    projects: data,
+    error: error ? getErrorMessage(error) : undefined,
     isLoading,
-  } = useCache<Project[]>(
-    hashRecord({ membership: membership, starred: starred }, "projects"),
-    async () => {
-      let glProjects: Project[] = [];
-      if (starred) {
-        glProjects = await gitlab.getStarredProjects({ searchText: "", searchIn: "name" }, true);
-      } else {
-        if (membership) {
-          glProjects = await gitlab.getUserProjects({ search: "" }, true);
-        }
-      }
-      return glProjects;
-    },
-    {
-      deps: [],
-      secondsToInvalid: daysInSeconds(7),
-    },
-  );
-  return { projects, error, isLoading };
+  };
 }
 
 function MyProjectsDropdownItem(props: { project: Project }) {

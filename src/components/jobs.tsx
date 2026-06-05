@@ -2,7 +2,7 @@ import { Action, ActionPanel, List, Icon, Image, Color } from "@raycast/api";
 import { useEffect, useState } from "react";
 import { getCIRefreshInterval, getGitLabGQL, gitlab } from "../common";
 import { gql } from "@apollo/client";
-import { getErrorMessage, getIdFromGqlId, now, showErrorToast } from "../utils";
+import { copyShortcut, getErrorMessage, getIdFromGqlId, now, showErrorToast } from "../utils";
 import {
   CancelJobAction,
   DownloadJobArtifactsSubmenu,
@@ -163,7 +163,7 @@ export function JobListItem(props: { job: Job; projectFullPath: string; onRefres
         <ActionPanel>
           <ActionPanel.Section>
             <GitLabOpenInBrowserAction url={jobUrl} />
-            <Action.CopyToClipboard title="Copy URL" content={jobUrl} shortcut={{ modifiers: ["cmd"], key: "c" }} />
+            <Action.CopyToClipboard title="Copy URL" content={jobUrl} shortcut={copyShortcut} />
             <RetryJobAction job={props.job} />
             {isManualJob(job) ? <RunJobAction job={props.job} onRefreshJobs={props.onRefreshJobs} /> : null}
             {isCancelableJob(job) ? <CancelJobAction job={props.job} onRefreshJobs={props.onRefreshJobs} /> : null}

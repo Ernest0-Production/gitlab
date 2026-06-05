@@ -7,7 +7,7 @@ import { getErrorMessage, now, optimizeMarkdownText, Query, showErrorToast, toke
 import { getMRDiscussionMetadataLabel, useMRDiscussionStats } from "./mr_discussions";
 import { getMRStateListIcon } from "./mr_status";
 import { gql } from "@apollo/client";
-import { MRItemActions, MRTodoAndCopySection, ShowMRCommitsAction, ShowMRPipelinesAction } from "./mr_actions";
+import { MRCopySection, MRItemActions, ShowMRCommitsAction, ShowMRPipelinesAction } from "./mr_actions";
 import { GitLabOpenInBrowserAction } from "./actions";
 import { getCIJobStatusIcon, getMRPipelineStatusTooltip } from "./jobs";
 import { useMRPipelines } from "./mr_pipelines";
@@ -112,12 +112,12 @@ interface MRDetailData {
 export function MRDetail(props: { mr: MergeRequest }) {
   const mr = props.mr;
   const { mrdetail, error, isLoading } = useDetail(props.mr.id);
-  const { stats: discussionStats } = useMRDiscussionStats(mr);
+  const { stats: discussionStats, isLoading: discussionsLoading } = useMRDiscussionStats(mr);
   if (error) {
     showErrorToast(error, "Could not get Merge Request Details");
   }
 
-  const discussionLabel = getMRDiscussionMetadataLabel(discussionStats);
+  const discussionLabel = getMRDiscussionMetadataLabel(mr, discussionStats, discussionsLoading);
 
   const desc = (mrdetail?.description ? mrdetail.description : props.mr.description) || "";
 
@@ -141,7 +141,7 @@ export function MRDetail(props: { mr: MergeRequest }) {
             <ShowMRCommitsAction mr={props.mr} />
             <ShowMRPipelinesAction mr={props.mr} />
           </ActionPanel.Section>
-          <MRTodoAndCopySection mr={props.mr} />
+          <MRCopySection mr={props.mr} />
           <MRItemActions mr={props.mr} />
         </ActionPanel>
       }
@@ -153,13 +153,13 @@ export function MRDetail(props: { mr: MergeRequest }) {
 export function MRListDetail(props: { mr: MergeRequest }) {
   const mr = props.mr;
   const { mrdetail, error, isLoading } = useDetail(props.mr.id);
-  const { stats: discussionStats } = useMRDiscussionStats(mr);
+  const { stats: discussionStats, isLoading: discussionsLoading } = useMRDiscussionStats(mr);
   const { isShowingMetadata } = useMRListMetadata();
   if (error) {
     showErrorToast(error, "Could not get Merge Request Details");
   }
 
-  const discussionLabel = getMRDiscussionMetadataLabel(discussionStats);
+  const discussionLabel = getMRDiscussionMetadataLabel(mr, discussionStats, discussionsLoading);
 
   const lines: string[] = [];
   lines.push(`# ${mr.title}`);
@@ -373,7 +373,6 @@ export function MRListItem(props: {
     <List.Item
       id={mr.id.toString()}
       title={mr.title}
-      subtitle={showAuthor && !isShowingDetail ? mr.author?.name : undefined}
       icon={icon}
       accessories={accessories}
       detail={isShowingDetail && <MRListDetail mr={mr} />}
@@ -387,8 +386,8 @@ export function MRListItem(props: {
             <MRListDetailsToggleAction isShowingDetail={isShowingDetail} onToggle={toggleListDetails} />
             <MRListMetadataToggleAction isShowingDetail={isShowingDetail} />
           </ActionPanel.Section>
-          <MRTodoAndCopySection shortcut={{ modifiers: ["cmd"], key: "t" }} mr={mr} finished={props.refreshData} />
-          <MRItemActions mr={mr} onDataChange={props.refreshData} />
+          <MRCopySection mr={mr} showCopyMarkdown />
+          <MRItemActions mr={mr} onDataChange={props.refreshData} todoShortcut={{ modifiers: ["cmd"], key: "t" }} />
           {props.filterAction || props.scopeAction || props.sortAction ? (
             <ActionPanel.Section title="Filters">
               {props.filterAction}

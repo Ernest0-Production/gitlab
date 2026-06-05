@@ -45,7 +45,14 @@ export function formatMRDiscussionStatsLabel(stats: MRDiscussionStats): string {
   return `${stats.resolved}/${stats.resolvableTotal}`;
 }
 
-export function getMRDiscussionMetadataLabel(stats: MRDiscussionStats | undefined): string | undefined {
+export function getMRDiscussionMetadataLabel(
+  mr: MergeRequest,
+  stats: MRDiscussionStats | undefined,
+  isLoading?: boolean,
+): string | undefined {
+  if (isLoading && (mr.user_notes_count ?? 0) > 0) {
+    return "Loading...";
+  }
   if (stats && stats.resolvableTotal > 0) {
     return formatMRDiscussionStatsLabel(stats);
   }

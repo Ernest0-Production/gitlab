@@ -3,7 +3,7 @@ import React from "react";
 import { gitlab } from "../common";
 import { MergeRequest } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
-import { getErrorMessage, showErrorToast } from "../utils";
+import { copyMarkdownShortcut, copyShortcut, getErrorMessage, showErrorToast } from "../utils";
 import { MRCommitList } from "./commits/list";
 import { MRPipelineList } from "./mr_pipelines";
 import { findTodoForMR, useTodos } from "./todo/utils";
@@ -188,21 +188,35 @@ function MRTodoAction(props: {
   );
 }
 
-export function MRTodoAndCopySection(props: {
-  mr: MergeRequest;
-  shortcut?: Keyboard.Shortcut;
-  finished?: () => void;
-}): React.ReactElement {
+export function formatMRMarkdownClipboard(mr: MergeRequest): string {
+  return `[${mr.title}](${mr.web_url})`;
+}
+
+export function CopyMRMarkdownAction(props: { mr: MergeRequest }): React.ReactElement {
+  return (
+    <Action.CopyToClipboard
+      title="Copy Markdown"
+      content={formatMRMarkdownClipboard(props.mr)}
+      shortcut={copyMarkdownShortcut}
+    />
+  );
+}
+
+export function MRCopySection(props: { mr: MergeRequest; showCopyMarkdown?: boolean }): React.ReactElement {
   const mr = props.mr;
   return (
     <ActionPanel.Section>
-      <MRTodoAction mr={props.mr} shortcut={props.shortcut} finished={props.finished} />
-      <Action.CopyToClipboard title="Copy URL" content={mr.web_url} shortcut={{ modifiers: ["cmd"], key: "c" }} />
+      <Action.CopyToClipboard title="Copy URL" content={mr.web_url} shortcut={copyShortcut} />
+      {props.showCopyMarkdown ? <CopyMRMarkdownAction mr={mr} /> : null}
     </ActionPanel.Section>
   );
 }
 
-export function MRItemActions(props: { mr: MergeRequest; onDataChange?: () => void }) {
+export function MRItemActions(props: {
+  mr: MergeRequest;
+  onDataChange?: () => void;
+  todoShortcut?: Keyboard.Shortcut;
+}) {
   const mr = props.mr;
   return (
     <React.Fragment>
@@ -212,6 +226,7 @@ export function MRItemActions(props: { mr: MergeRequest; onDataChange?: () => vo
         </ActionPanel.Section>
       ) : null}
       <ActionPanel.Section>
+        <MRTodoAction mr={mr} shortcut={props.todoShortcut} finished={props.onDataChange} />
         <RebaseMRAction shortcut={{ modifiers: ["cmd", "shift"], key: "r" }} mr={mr} finished={props.onDataChange} />
         <MergeMRAction shortcut={{ modifiers: ["cmd", "shift"], key: "enter" }} mr={mr} finished={props.onDataChange} />
         {mr.state === "opened" && <CloseMRAction mr={mr} finished={props.onDataChange} />}

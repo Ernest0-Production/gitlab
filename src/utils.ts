@@ -1,4 +1,4 @@
-import { Clipboard, Image, LocalStorage, showToast, Toast } from "@raycast/api";
+import { Clipboard, Image, Keyboard, LocalStorage, showToast, Toast } from "@raycast/api";
 import { Project } from "./gitlabapi";
 import { getSVGText, GitLabIcons } from "./icons";
 import * as fs from "fs/promises";
@@ -12,6 +12,9 @@ import { emojiSymbol } from "./components/status/utils";
 
 TimeAgo.addDefaultLocale(en);
 const timeAgo = new TimeAgo("en-US");
+
+export const copyShortcut: Keyboard.Shortcut = { modifiers: ["cmd"], key: "." };
+export const copyMarkdownShortcut: Keyboard.Shortcut = { modifiers: ["cmd", "ctrl"], key: "." };
 
 export function projectIconUrl(project: Project): string | undefined {
   let result: string | undefined;
