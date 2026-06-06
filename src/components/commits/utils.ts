@@ -24,7 +24,7 @@ export function useCommitStatus(
   sha?: string,
 ): { commitStatus: CommitStatus | undefined; isLoading: boolean } {
   const { data, isLoading } = useCachedPromise(
-    (pid: number, commitSha: string) => getCommitStatus(pid, commitSha),
+    (projectId: number, commitSha: string) => getCommitStatus(projectId, commitSha),
     [projectID, sha ?? ""],
     { execute: !!sha },
   );

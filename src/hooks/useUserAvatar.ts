@@ -11,14 +11,6 @@ const activeAvatarLoads = new Map<string, Promise<string | undefined>>();
 
 const avatarSize = 64;
 
-function normalizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
-
-function cacheKey(email: string): string {
-  return `avatar_${email}`;
-}
-
 async function fetchAvatarUrl(email: string): Promise<string | undefined> {
   const data = await gitlab.fetch("avatar", { email, size: `${avatarSize}` });
   const url = data?.avatar_url as string | undefined;
@@ -26,11 +18,11 @@ async function fetchAvatarUrl(email: string): Promise<string | undefined> {
 }
 
 async function resolveAvatarUrl(rawEmail: string): Promise<string | undefined> {
-  const email = normalizeEmail(rawEmail);
+  const email = rawEmail.trim().toLowerCase();
   if (!email) {
     return undefined;
   }
-  const key = cacheKey(email);
+  const key = `avatar_${email}`;
 
   // 1. An identical request is already in flight: await the same promise.
   const active = activeAvatarLoads.get(email);
@@ -59,7 +51,7 @@ async function resolveAvatarUrl(rawEmail: string): Promise<string | undefined> {
 }
 
 export function useUserAvatar(email?: string): { avatarUrl?: string; isLoading: boolean } {
-  const { data, isLoading } = useCachedPromise((e: string) => resolveAvatarUrl(e), [email ?? ""], {
+  const { data, isLoading } = useCachedPromise((avatarEmail: string) => resolveAvatarUrl(avatarEmail), [email ?? ""], {
     execute: !!email,
   });
   return { avatarUrl: data, isLoading };

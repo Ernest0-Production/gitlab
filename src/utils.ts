@@ -50,18 +50,6 @@ export function projectIcon(project: Project): Image.ImageLike {
   return { source: result, mask: Image.Mask.Circle, fallback: svgSource() };
 }
 
-export function toDateString(d: string): string {
-  const date = new Date(d);
-  const mo = new Intl.DateTimeFormat("en", { month: "short" }).format(date);
-  const da = new Intl.DateTimeFormat("en", { day: "2-digit" }).format(date);
-  return `${da}. ${mo}`;
-}
-
-export function toLongDateString(d: string) {
-  const date = new Date(d);
-  return date.toLocaleDateString();
-}
-
 export function getIdFromGqlId(id: string): number {
   const splits = id.split("/");
   return parseInt(splits.pop() || "");
@@ -188,7 +176,7 @@ export function hashRecord(rec: Record<string, unknown>, prefix?: string | undef
 }
 
 export function capitalizeFirstLetter(name: string): string {
-  if (!name || name.length <= 0) {
+  if (!name) {
     return name;
   }
   return name.replace(/^./, name[0].toUpperCase());
@@ -289,6 +277,12 @@ export function getErrorMessage(error: unknown): string {
 export function formatDate(input: Date | string): string {
   const date = typeof input === "string" ? new Date(input) : input;
   return timeAgo.format(date) as string;
+}
+
+/** Absolute date/time string used for tooltips (the relative form is `formatDate`). */
+export function formatDateTime(input: Date | string): string {
+  const date = typeof input === "string" ? new Date(input) : input;
+  return date.toLocaleString();
 }
 
 export function now(): Date {

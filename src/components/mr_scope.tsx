@@ -28,16 +28,16 @@ function mrScopeIcon(scope: MRScope, isActive: boolean): Image.ImageLike {
   return mrScopeSemanticIcon(scope);
 }
 
-export function mergeRequestScopeSubmenu(scope: MRScope, onSelectScope: (scope: MRScope) => void) {
+export function MergeRequestScopeSubmenu(props: { scope: MRScope; onSelect: (scope: MRScope) => void }) {
   return (
     <ActionPanel.Submenu title="Filter Scope" shortcut={{ modifiers: ["cmd"], key: "f" }} icon={Icon.Filter}>
       {MR_SCOPE_OPTIONS.map(({ value, title }) => (
         <Action
           key={value}
           title={title}
-          icon={mrScopeIcon(value, scope === value)}
-          autoFocus={scope === value}
-          onAction={() => onSelectScope(value)}
+          icon={mrScopeIcon(value, props.scope === value)}
+          autoFocus={props.scope === value}
+          onAction={() => props.onSelect(value)}
         />
       ))}
     </ActionPanel.Submenu>

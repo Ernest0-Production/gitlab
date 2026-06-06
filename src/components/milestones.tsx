@@ -1,12 +1,10 @@
 import { gql } from "@apollo/client";
 import { ActionPanel, Color, List } from "@raycast/api";
-import { useEffect, useState } from "react";
+import { usePromise } from "@raycast/utils";
 import { getGitLabGQL } from "../common";
 import { Group, Project } from "../gitlabapi";
 import { getErrorMessage, getIdFromGqlId, showErrorToast } from "../utils";
 import { GitLabOpenInBrowserAction } from "./actions";
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 const GET_MILESTONES = gql`
   query GetProjectMilestones($fullPath: ID!) {
@@ -50,13 +48,35 @@ const GET_GROUP_MILESTONES = gql`
   }
 `;
 
+interface MilestoneListEntry {
+  id: number;
+  title: string;
+  dueDate?: string;
+  dueDateTime?: number;
+  state: string;
+  expired?: boolean;
+  webUrl: string;
+  closedIssuesCount: number;
+  totalIssuesCount: number;
+}
+
+interface GqlMilestoneNode {
+  id: string;
+  title: string;
+  dueDate?: string;
+  state: string;
+  expired?: boolean;
+  webPath: string;
+  stats: { closedIssuesCount: number; totalIssuesCount: number };
+}
+
 function getColorByRatio(ratio: number): Color {
   const colors = [Color.Red, Color.Orange, Color.Yellow, Color.Blue, Color.Green];
   const colorIndex = Math.floor(ratio * (colors.length - 1));
   return colors[colorIndex];
 }
 
-export function MilestoneListItem(props: { milestone: any }) {
+export function MilestoneListItem(props: { milestone: MilestoneListEntry }) {
   const milestone = props.milestone;
   const issueCounter = `${milestone.closedIssuesCount}/${milestone.totalIssuesCount}`;
   const issueRatio =
@@ -66,7 +86,7 @@ export function MilestoneListItem(props: { milestone: any }) {
   const issuePercent = `${(issueRatio * 100).toFixed(0)}%`;
   let subtitle = "";
   if (milestone.dueDateTime) {
-    subtitle = milestone.dueDate;
+    subtitle = milestone.dueDate ?? "";
     if (milestone.expired && milestone.state !== "closed") {
       subtitle += ` ⚠️ ${milestone.expired ? " [expired]" : ""}`;
     }
@@ -74,7 +94,7 @@ export function MilestoneListItem(props: { milestone: any }) {
   const ratioColor = getColorByRatio(issueRatio);
   return (
     <List.Item
-      id={milestone.id}
+      id={`${milestone.id}`}
       title={milestone.title}
       subtitle={subtitle}
       accessories={[{ text: issueCounter }, { tag: { value: issuePercent, color: ratioColor } }]}
@@ -93,13 +113,13 @@ export function MilestoneList(props: { project?: Project; group?: Group; navigat
   if (fullPath.length <= 0) {
     fullPath = props.group ? props.group.full_path : "";
   }
-  const { milestones, error, isLoading } = useSearch("", fullPath, isGroup);
+  const { milestones, error, isLoading } = useSearch(fullPath, isGroup);
   if (error) {
     showErrorToast(error, "Cannot search Milestones");
   }
-  const closeMilestones = milestones.filter((m) => m.state === "closed");
+  const closeMilestones = milestones.filter((milestone) => milestone.state === "closed");
   const openMilestones = milestones
-    .filter((m) => m.state !== "closed")
+    .filter((milestone) => milestone.state !== "closed")
     .sort((a, b) => (a.dueDateTime || 0) - (b.dueDateTime || 0));
 
   return (
@@ -119,71 +139,35 @@ export function MilestoneList(props: { project?: Project; group?: Group; navigat
 }
 
 export function useSearch(
-  query: string | undefined,
   projectFullPath: string,
   isGroup: boolean,
 ): {
-  milestones: any[];
+  milestones: MilestoneListEntry[];
   error?: string;
   isLoading: boolean;
 } {
-  const [milestones, setMilestones] = useState<any[]>([]);
-  const [error, setError] = useState<string>();
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-
-  useEffect(() => {
-    // FIXME In the future version, we don't need didUnmount checking
-    // https://github.com/facebook/react/pull/22114
-    let didUnmount = false;
-
-    async function fetchData() {
-      if (query === null || didUnmount) {
-        return;
-      }
-
-      setIsLoading(true);
-      setError(undefined);
-
-      try {
-        const query = isGroup ? GET_GROUP_MILESTONES : GET_MILESTONES;
-        const data = await getGitLabGQL().client.query({ query: query, variables: { fullPath: projectFullPath } });
-        let milestoneRoot;
-        if (isGroup) {
-          milestoneRoot = data.data.group;
-        } else {
-          milestoneRoot = data.data.project;
-        }
-        const glData: Record<string, any>[] = milestoneRoot.milestones.nodes.map((p: any) => ({
-          id: getIdFromGqlId(p.id),
-          title: p.title,
-          dueDate: p.dueDate,
-          dueDateTime: p.dueDate ? new Date(p.dueDate).getTime() : undefined,
-          state: p.state,
-          expired: p.expired,
-          webUrl: `${getGitLabGQL().url}/${p.webPath}`,
-          closedIssuesCount: p.stats.closedIssuesCount,
-          totalIssuesCount: p.stats.totalIssuesCount,
-        }));
-        if (!didUnmount) {
-          setMilestones(glData);
-        }
-      } catch (e) {
-        if (!didUnmount) {
-          setError(getErrorMessage(e));
-        }
-      } finally {
-        if (!didUnmount) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchData();
-
-    return () => {
-      didUnmount = true;
-    };
-  }, [query, projectFullPath]);
-
-  return { milestones, error, isLoading };
+  const { data, error, isLoading } = usePromise(
+    async (fullPath: string, group: boolean): Promise<MilestoneListEntry[]> => {
+      const gqlQuery = group ? GET_GROUP_MILESTONES : GET_MILESTONES;
+      const data = await getGitLabGQL().client.query({ query: gqlQuery, variables: { fullPath } });
+      const milestoneRoot = group ? data.data.group : data.data.project;
+      return milestoneRoot.milestones.nodes.map(
+        (node: GqlMilestoneNode): MilestoneListEntry => ({
+          id: getIdFromGqlId(node.id),
+          title: node.title,
+          dueDate: node.dueDate,
+          dueDateTime: node.dueDate ? new Date(node.dueDate).getTime() : undefined,
+          state: node.state,
+          expired: node.expired,
+          webUrl: `${getGitLabGQL().url}/${node.webPath}`,
+          closedIssuesCount: node.stats.closedIssuesCount,
+          totalIssuesCount: node.stats.totalIssuesCount,
+        }),
+      );
+    },
+    [projectFullPath, isGroup],
+    // The error is surfaced via `error` and toasted by the caller in render.
+    { onError: () => undefined },
+  );
+  return { milestones: data ?? [], error: error ? getErrorMessage(error) : undefined, isLoading };
 }

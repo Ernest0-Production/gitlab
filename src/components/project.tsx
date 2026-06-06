@@ -3,7 +3,7 @@ import { useCachedPromise } from "@raycast/utils";
 import { useState } from "react";
 import { gitlab } from "../common";
 import { Project, searchData } from "../gitlabapi";
-import { daysInSeconds, getErrorMessage, getFirstChar, hashRecord, projectIconUrl, showErrorToast } from "../utils";
+import { getErrorMessage, getFirstChar, projectIconUrl, showErrorToast } from "../utils";
 import {
   CloneProjectInGitPod,
   CloneProjectInVSCodeAction,
@@ -25,7 +25,6 @@ import {
   ShowProjectReadmeAction,
 } from "./project_actions";
 import { GitLabIcons, getTextIcon, useImage } from "../icons";
-import { useCache } from "../cache";
 
 export enum ProjectScope {
   membership = "membership",
@@ -103,35 +102,29 @@ export function ProjectListEmptyView() {
 
 export function ProjectList({ membership = true, starred = false }: ProjectListProps) {
   const [searchText, setSearchText] = useState<string>();
-  const { data, error, isLoading } = useCache<Project[]>(
-    hashRecord({ membership: membership, starred: starred }, "projects"),
-    async () => {
-      let glProjects: Project[] = [];
-      if (starred) {
-        glProjects = await gitlab.getStarredProjects({ searchText: "", searchIn: "name" }, true);
-      } else {
-        if (membership) {
-          glProjects = await gitlab.getUserProjects({ search: "" }, true);
-        }
+  const { data, error, isLoading } = useCachedPromise(
+    async (isStarred: boolean, isMembership: boolean): Promise<Project[]> => {
+      if (isStarred) {
+        return gitlab.getStarredProjects({ searchText: "", searchIn: "name" }, true);
       }
-      return glProjects;
+      if (isMembership) {
+        return gitlab.getUserProjects({ search: "" }, true);
+      }
+      return [];
     },
-    {
-      deps: [searchText, membership, starred],
-      onFilter: async (projects) => {
-        return searchData<Project[]>(projects, {
-          search: searchText || "",
-          keys: ["name_with_namespace"],
-          limit: 50,
-        });
-      },
-      secondsToInvalid: daysInSeconds(7),
-    },
+    [starred, membership],
+    { onError: () => undefined },
   );
 
   if (error) {
-    showErrorToast(error, "Cannot search Project");
+    showErrorToast(getErrorMessage(error), "Cannot search Project");
   }
+
+  const projects: Project[] = searchData<Project[]>(data ?? [], {
+    search: searchText || "",
+    keys: ["name_with_namespace"],
+    limit: 50,
+  });
 
   return (
     <List
@@ -142,9 +135,9 @@ export function ProjectList({ membership = true, starred = false }: ProjectListP
     >
       <List.Section
         title={searchText && searchText.length > 0 ? "Search Results" : "Projects"}
-        subtitle={`${data?.length}`}
+        subtitle={`${projects.length}`}
       >
-        {data?.map((project) => (
+        {projects.map((project) => (
           <ProjectListItem key={project.id} project={project} />
         ))}
       </List.Section>
@@ -157,8 +150,12 @@ async function fetchMyProjects(): Promise<Project[]> {
   return gitlab.getUserProjects({ search: "" }, true);
 }
 
-export function useMyProjects(): { projects: Project[] | undefined; error?: string; isLoading?: boolean } {
-  const { data, error, isLoading } = useCachedPromise(fetchMyProjects, []);
+export function useMyProjects(options?: { onError?: (error: Error) => void }): {
+  projects: Project[] | undefined;
+  error?: string;
+  isLoading?: boolean;
+} {
+  const { data, error, isLoading } = useCachedPromise(fetchMyProjects, [], { onError: options?.onError });
   return {
     projects: data,
     error: error ? getErrorMessage(error) : undefined,
@@ -167,19 +164,19 @@ export function useMyProjects(): { projects: Project[] | undefined; error?: stri
 }
 
 function MyProjectsDropdownItem(props: { project: Project }) {
-  const pro = props.project;
-  const { localFilepath } = useImage(projectIconUrl(pro));
+  const project = props.project;
+  const { localFilepath } = useImage(projectIconUrl(project));
   return (
     <List.Dropdown.Item
-      title={pro.name_with_namespace}
-      icon={localFilepath ? { source: localFilepath } : getProjectTextIcon(pro)}
-      value={`${pro.id}`}
+      title={project.name_with_namespace}
+      icon={localFilepath ? { source: localFilepath } : getProjectTextIcon(project)}
+      value={`${project.id}`}
     />
   );
 }
 
 export function MyProjectsDropdown(props: {
-  onChange: (pro: Project | undefined) => void;
+  onChange: (project: Project | undefined) => void;
   projects?: Project[];
   value?: string;
   storeValue?: boolean;
@@ -199,8 +196,8 @@ export function MyProjectsDropdown(props: {
             props.onChange(undefined);
             return;
           }
-          const pro = myprojects.find((p) => `${p.id}` === newValue);
-          props.onChange(pro);
+          const selectedProject = myprojects.find((project) => `${project.id}` === newValue);
+          props.onChange(selectedProject);
         }}
       >
         {includeAllItem ? (
@@ -209,8 +206,8 @@ export function MyProjectsDropdown(props: {
           </List.Dropdown.Section>
         ) : null}
         <List.Dropdown.Section>
-          {myprojects.map((pro) => (
-            <MyProjectsDropdownItem key={`${pro.id}`} project={pro} />
+          {myprojects.map((project) => (
+            <MyProjectsDropdownItem key={`${project.id}`} project={project} />
           ))}
         </List.Dropdown.Section>
       </List.Dropdown>

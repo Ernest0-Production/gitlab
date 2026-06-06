@@ -2,8 +2,8 @@ import { Action, showToast, Toast, Form, Icon, popToRoot, Image, ActionPanel } f
 import { Project } from "./gitlabapi";
 import { gitlab } from "./common";
 import { useState } from "react";
+import { useCachedPromise } from "@raycast/utils";
 import { getErrorMessage, projectIcon, showErrorToast, toFormValues } from "./utils";
-import { useCache } from "./cache";
 import { useProject, useMilestones } from "./hooks";
 
 interface IssueFormValues {
@@ -40,28 +40,21 @@ function IssueForm() {
     data: projects,
     error: errorProjects,
     isLoading: isLoadingProjects,
-  } = useCache<Project[]>(
-    "issueFormProjects",
-    async (): Promise<Project[]> => {
-      const pros = (await gitlab.getUserProjects({}, true)) || [];
-      return pros;
-    },
-    {
-      deps: [],
-    },
-  );
+  } = useCachedPromise(async (): Promise<Project[]> => (await gitlab.getUserProjects({}, true)) || [], [], {
+    onError: () => undefined,
+  });
   const { projectinfo, errorProjectInfo, isLoadingProjectInfo } = useProject(selectedProject);
   const members = projectinfo?.members || [];
   const labels = projectinfo?.labels || [];
 
   let project: Project | undefined;
   if (selectedProject) {
-    project = projects?.find((pro) => pro.id.toString() === selectedProject);
+    project = projects?.find((candidate) => candidate.id.toString() === selectedProject);
   }
   const { milestoneInfo, errorMilestoneInfo, isLoadingMilestoneInfo } = useMilestones(project?.group_id);
 
   const isLoading = isLoadingProjects || isLoadingProjectInfo || isLoadingMilestoneInfo;
-  const error = errorProjects || errorProjectInfo || errorMilestoneInfo;
+  const error = (errorProjects ? getErrorMessage(errorProjects) : undefined) || errorProjectInfo || errorMilestoneInfo;
 
   if (error) {
     showErrorToast(error, "Cannot create Issue");
@@ -101,11 +94,11 @@ function IssueForm() {
       </Form.TagPicker>
       <Form.Dropdown id="milestone_id" title="Milestone">
         <Form.Dropdown.Item key="_empty" value="" title="-" />
-        {projectinfo?.milestones?.map((m) => (
-          <Form.Dropdown.Item key={m.id} value={m.id.toString()} title={m.title} />
+        {projectinfo?.milestones?.map((milestone) => (
+          <Form.Dropdown.Item key={milestone.id} value={milestone.id.toString()} title={milestone.title} />
         ))}
-        {milestoneInfo?.map((m) => (
-          <Form.Dropdown.Item key={m.id} value={m.id.toString()} title={m.title} />
+        {milestoneInfo?.map((milestone) => (
+          <Form.Dropdown.Item key={milestone.id} value={milestone.id.toString()} title={milestone.title} />
         ))}
       </Form.Dropdown>
     </Form>
@@ -136,6 +129,8 @@ function ProjectDropdown(props: {
 }
 
 function ProjectDropdownItem(props: { project: Project }) {
-  const pro = props.project;
-  return <Form.Dropdown.Item value={pro.id.toString()} title={pro.name_with_namespace} icon={projectIcon(pro)} />;
+  const project = props.project;
+  return (
+    <Form.Dropdown.Item value={project.id.toString()} title={project.name_with_namespace} icon={projectIcon(project)} />
+  );
 }

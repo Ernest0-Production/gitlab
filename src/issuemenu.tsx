@@ -44,7 +44,7 @@ export default function MenuCommand() {
   const showItemsCount = preferences.showtext as boolean;
   const maxIssues = getBoundedPreferenceNumber({ name: "maxitems" });
 
-  const { issues, isLoading, error } = useMyIssues(IssueScope.assigned_to_me, IssueState.opened, undefined, {
+  const { issues, isLoading, error } = useMyIssues(IssueScope.assigned_to_me, IssueState.opened, {
     includeLabels,
     excludeLabels,
   });
@@ -71,16 +71,16 @@ export default function MenuCommand() {
             <MenuBarItem title={`... ${hidden} more assigned`} onAction={() => launchMyIssues()} />
           )}
         >
-          {issues?.map((m) => (
+          {issues?.map((issue) => (
             <MenuBarItem
-              key={m.iid}
+              key={issue.iid}
               icon={{
                 source: GitLabIcons.issue,
                 tintColor: { light: "#000", dark: "#FFF", adjustContrast: false },
               }}
-              title={`#${m.iid} ${m.title}`}
-              tooltip={m.reference_full}
-              onAction={() => open(m.web_url)}
+              title={`#${issue.iid} ${issue.title}`}
+              tooltip={issue.reference_full}
+              onAction={() => open(issue.web_url)}
             />
           ))}
         </MenuBarSection>

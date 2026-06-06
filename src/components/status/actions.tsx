@@ -116,8 +116,8 @@ export function StatusPresetSetWithDurationAction(props: {
 
   return (
     <ActionPanel.Submenu title="Set Status with Duration" icon={{ source: Icon.Clock, tintColor: Color.PrimaryText }}>
-      {Object.keys(clearDurations).map((k) => (
-        <Action key={k + "_"} title={clearDurationText(k)} onAction={() => handle(k)} />
+      {Object.keys(clearDurations).map((durationKey) => (
+        <Action key={durationKey + "_"} title={clearDurationText(durationKey)} onAction={() => handle(durationKey)} />
       ))}
     </ActionPanel.Submenu>
   );

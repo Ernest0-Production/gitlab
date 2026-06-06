@@ -1,11 +1,11 @@
 import { Action, ActionPanel, Color, List } from "@raycast/api";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useCachedPromise } from "@raycast/utils";
 import urljoin from "url-join";
-import { useCache } from "../../cache";
 import { getCIRefreshInterval, gitlab } from "../../common";
 import { Project } from "../../gitlabapi";
 import { GitLabIcons } from "../../icons";
-import { showErrorToast } from "../../utils";
+import { getErrorMessage, showErrorToast } from "../../utils";
 import { GitLabOpenInBrowserAction } from "../actions";
 import { Event } from "../event";
 import { PipelineJobsListByCommit } from "../jobs";
@@ -16,21 +16,13 @@ import { usePaginatedMergeRequestCommits, usePaginatedProjectCommits } from "./d
 import useInterval from "use-interval";
 
 function EventCommitListItem(props: { event: Event; onRefresh?: () => void }) {
-  const e = props.event;
-  const commit = e.push_data?.commit_to;
-  const ref = e.push_data?.ref;
-  const title = e.push_data?.commit_title || "no title";
-  const { data: project } = useCache<Project | undefined>(
-    `event_project_${e.project_id}`,
-    async (): Promise<Project | undefined> => {
-      const pro = await gitlab.getProject(e.project_id);
-      return pro;
-    },
-    {
-      deps: [e.project_id],
-      secondsToRefetch: 15 * 60,
-    },
-  );
+  const event = props.event;
+  const commit = event.push_data?.commit_to;
+  const ref = event.push_data?.ref;
+  const title = event.push_data?.commit_title || "no title";
+  const { data: project } = useCachedPromise((projectID: number) => gitlab.getProject(projectID), [event.project_id], {
+    onError: () => undefined,
+  });
   const webAction = (): React.ReactNode | undefined => {
     if (project) {
       const proUrl = project.web_url;
@@ -60,7 +52,7 @@ function EventCommitListItem(props: { event: Event; onRefresh?: () => void }) {
       title={title}
       subtitle={ref || commit}
       accessories={[{ text: project?.name_with_namespace }]}
-      icon={{ value: { source: GitLabIcons.commit, tintColor: Color.SecondaryText } }}
+      icon={{ source: GitLabIcons.commit, tintColor: Color.SecondaryText }}
       actions={
         <ActionPanel>
           <ActionPanel.Section>
@@ -82,36 +74,29 @@ function RecentCommitsListEmptyView() {
 
 export function RecentCommitsList() {
   const [project, setProject] = useState<Project>();
-  const { data, error, isLoading, performRefetch } = useCache<Event[]>(
-    "events_pushed",
+  const { data, error, isLoading, revalidate } = useCachedPromise(
     async (): Promise<Event[]> => {
-      const events: Event[] = await gitlab.fetch("events", { action: "pushed" }).then((d) => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return d.map((ev: any) => ev as Event);
-      });
-      const result = events.filter((e) => e.action_name === "pushed to" || e.action_name === "pushed new");
-      return result;
+      const events = (await gitlab.fetch("events", { action: "pushed" })) as Event[];
+      return events.filter((event) => event.action_name === "pushed to" || event.action_name === "pushed new");
     },
-    {
-      deps: [],
-      secondsToRefetch: 5,
-    },
+    [],
+    { onError: () => undefined },
   );
   useInterval(() => {
-    performRefetch();
+    revalidate();
   }, getCIRefreshInterval());
   if (error) {
-    showErrorToast(error, "Could not fetch Events");
+    showErrorToast(getErrorMessage(error), "Could not fetch Events");
   }
-  if (isLoading === undefined) {
+  if (isLoading && data === undefined) {
     return <List isLoading={true} searchBarPlaceholder="" />;
   }
-  const commits = project ? data?.filter((e) => e.project_id === project.id) : data;
+  const commits = project ? data?.filter((event) => event.project_id === project.id) : data;
 
   return (
     <List isLoading={isLoading} searchBarAccessory={<MyProjectsDropdown onChange={setProject} />}>
-      {commits?.map((e) => (
-        <EventCommitListItem event={e} key={`${e.id}`} onRefresh={performRefetch} />
+      {commits?.map((event) => (
+        <EventCommitListItem event={event} key={`${event.id}`} onRefresh={revalidate} />
       ))}
       <RecentCommitsListEmptyView />
     </List>
@@ -133,17 +118,14 @@ export function MRCommitList(props: { projectID: number; mrIID: number; navigati
     mrIID,
   });
 
-  useEffect(() => {
-    if (!error) {
-      return;
-    }
+  if (error) {
     showErrorToast(error, "Could not fetch Merge Request commits");
-  }, [error]);
+  }
 
   return (
     <List isLoading={isLoading} pagination={pagination} navigationTitle={props.navigationTitle}>
-      {(commits ?? []).map((e) => (
-        <CommitListItem key={e.id} commit={e} />
+      {(commits ?? []).map((commit) => (
+        <CommitListItem key={commit.id} commit={commit} />
       ))}
       <ProjectCommitListEmptyView />
     </List>
@@ -160,17 +142,14 @@ export function ProjectCommitList(props: { projectID: number; refName?: string; 
     refName,
   });
 
-  useEffect(() => {
-    if (!error) {
-      return;
-    }
+  if (error) {
     showErrorToast(error, "Could not fetch commits from Project");
-  }, [error]);
+  }
 
   return (
     <List isLoading={isLoading} pagination={pagination} navigationTitle={props.navigationTitle}>
-      {(commits ?? []).map((e) => (
-        <CommitListItem key={e.id} commit={e} />
+      {(commits ?? []).map((commit) => (
+        <CommitListItem key={commit.id} commit={commit} />
       ))}
       <ProjectCommitListEmptyView />
     </List>

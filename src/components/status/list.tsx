@@ -1,5 +1,5 @@
 import { ActionPanel, List } from "@raycast/api";
-import { useCache } from "../../cache";
+import { useCachedPromise } from "@raycast/utils";
 import { gitlab } from "../../common";
 import { Status } from "../../gitlabapi";
 import { formatDate, getErrorMessage, showErrorToast } from "../../utils";
@@ -20,17 +20,9 @@ import {
 } from "./actions";
 
 export default function StatusList() {
-  const { data, error, isLoading } = useCache<Status | undefined>(
-    "userstatus",
-    async () => {
-      return await gitlab.getUserStatus();
-    },
-    {
-      deps: [],
-      secondsToRefetch: 0,
-      secondsToInvalid: 0,
-    },
-  );
+  const { data, error, isLoading } = useCachedPromise(() => gitlab.getUserStatus(), [], {
+    onError: () => undefined,
+  });
   if (error) {
     showErrorToast(getErrorMessage(error), "Could not fetch Status");
   }
@@ -53,13 +45,13 @@ export default function StatusList() {
         />
       </List.Section>
       <List.Section title="Presets">
-        {presets.map((p, i) => (
+        {presets.map((preset, index) => (
           <StatusPresetListItem
-            key={`${p.message}_${p.emoji}_${i}`}
-            status={p}
+            key={`${preset.message}_${preset.emoji}_${index}`}
+            status={preset}
             presets={presets}
             setPresets={setPresets}
-            index={i}
+            index={index}
             setCurrentStatus={setCurrentStatus}
             setSelectedId={setSelectedId}
           />
@@ -130,22 +122,27 @@ export function StatusPresetListItem(props: {
   setCurrentStatus: React.Dispatch<React.SetStateAction<Status | undefined>>;
   setSelectedId: React.Dispatch<React.SetStateAction<string | undefined>>;
 }) {
-  const s = props.status;
+  const status = props.status;
   const presets = props.presets || [];
   return (
     <List.Item
       id={`preset_${props.index}`}
-      title={s.message}
-      icon={emojiSymbol(s.emoji)}
-      subtitle={clearDurationText(s.clear_status_after)}
+      title={status.message}
+      icon={emojiSymbol(status.emoji)}
+      subtitle={clearDurationText(status.clear_status_after)}
       actions={
         <ActionPanel>
           <ActionPanel.Section>
-            <StatusPresetSetAction status={s} setCurrentStatus={props.setCurrentStatus} />
-            <StatusPresetSetWithDurationAction status={s} setCurrentStatus={props.setCurrentStatus} />
+            <StatusPresetSetAction status={status} setCurrentStatus={props.setCurrentStatus} />
+            <StatusPresetSetWithDurationAction status={status} setCurrentStatus={props.setCurrentStatus} />
           </ActionPanel.Section>
           <ActionPanel.Section>
-            <StatusPresetEditAction status={s} presets={presets} index={props.index} setPresets={props.setPresets} />
+            <StatusPresetEditAction
+              status={status}
+              presets={presets}
+              index={props.index}
+              setPresets={props.setPresets}
+            />
             <StatusPresetDeleteAction presets={presets} index={props.index} setPresets={props.setPresets} />
           </ActionPanel.Section>
           <ActionPanel.Section>

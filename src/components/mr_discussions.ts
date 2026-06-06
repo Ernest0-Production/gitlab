@@ -1,7 +1,6 @@
-import { useCache } from "../cache";
+import { useCachedPromise } from "@raycast/utils";
 import { gitlab } from "../common";
 import { MRDiscussion, MergeRequest } from "../gitlabapi";
-import { daysInSeconds } from "../utils";
 
 interface MRDiscussionStats {
   resolved: number;
@@ -12,18 +11,18 @@ function isDiscussionResolvable(discussion: MRDiscussion): boolean {
   if (discussion.resolvable === true) {
     return true;
   }
-  return discussion.notes?.some((n) => n.resolvable && !n.system) ?? false;
+  return discussion.notes?.some((note) => note.resolvable && !note.system) ?? false;
 }
 
 function isDiscussionResolved(discussion: MRDiscussion): boolean {
   if (discussion.resolved === true) {
     return true;
   }
-  const resolvableNotes = discussion.notes?.filter((n) => n.resolvable && !n.system) ?? [];
+  const resolvableNotes = discussion.notes?.filter((note) => note.resolvable && !note.system) ?? [];
   if (resolvableNotes.length === 0) {
     return false;
   }
-  return resolvableNotes.every((n) => n.resolved);
+  return resolvableNotes.every((note) => note.resolved);
 }
 
 function countMRDiscussionStats(discussions: MRDiscussion[]): MRDiscussionStats {
@@ -64,24 +63,20 @@ export function useMRDiscussionStats(mr: MergeRequest): {
   isLoading: boolean | undefined;
 } {
   const notesCount = mr.user_notes_count ?? 0;
-  const { data, isLoading } = useCache<MRDiscussionStats | undefined>(
-    `mrdiscussions_${mr.project_id}_${mr.iid}`,
-    async (): Promise<MRDiscussionStats | undefined> => {
-      if (notesCount <= 0) {
+  const { data, isLoading } = useCachedPromise(
+    async (projectID: number, iid: number, count: number): Promise<MRDiscussionStats | undefined> => {
+      if (count <= 0) {
         return undefined;
       }
-      const discussions = await gitlab.getMergeRequestDiscussions(mr.project_id, mr.iid);
+      const discussions = await gitlab.getMergeRequestDiscussions(projectID, iid);
       const stats = countMRDiscussionStats(discussions);
       if (stats.resolvableTotal <= 0) {
         return undefined;
       }
       return stats;
     },
-    {
-      deps: [mr.project_id, mr.iid, notesCount],
-      secondsToRefetch: 30,
-      secondsToInvalid: daysInSeconds(7),
-    },
+    [mr.project_id, mr.iid, notesCount],
+    { onError: () => undefined },
   );
   return { stats: data, isLoading };
 }

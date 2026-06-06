@@ -61,15 +61,15 @@ export function CloneProjectInVSCodeAction(props: {
   shortcut?: Keyboard.Shortcut;
   project: Project;
 }): React.ReactElement | null {
-  const pro = props.project;
+  const project = props.project;
   const code = getVSCodeAppPath();
-  if (code && (pro.http_url_to_repo || pro.ssh_url_to_repo)) {
+  if (code && (project.http_url_to_repo || project.ssh_url_to_repo)) {
     return (
       <Action.Push
         title="Clone in VS Code"
         icon={{ fileIcon: code }}
         shortcut={props.shortcut}
-        target={<CloneInVSCodeList project={pro} />}
+        target={<CloneInVSCodeList project={project} />}
       />
     );
   } else {
@@ -81,9 +81,9 @@ export function CloneProjectInGitPod(props: {
   shortcut?: Keyboard.Shortcut;
   project: Project;
 }): React.ReactElement | null {
-  const pro = props.project;
-  const url = `https://gitpod.io#${pro.web_url}`;
-  if (pro.http_url_to_repo || pro.ssh_url_to_repo) {
+  const project = props.project;
+  const url = `https://gitpod.io#${project.web_url}`;
+  if (project.http_url_to_repo || project.ssh_url_to_repo) {
     return (
       <GitLabOpenInBrowserAction
         title="Clone in Gitpod"
@@ -174,14 +174,14 @@ function CloneUrlList(props: { project: Project }) {
 }
 
 export function CopyCloneUrlToClipboardAction(props: { shortcut?: Keyboard.Shortcut; project: Project }) {
-  const pro = props.project;
-  if (pro.http_url_to_repo || pro.ssh_url_to_repo) {
+  const project = props.project;
+  if (project.http_url_to_repo || project.ssh_url_to_repo) {
     return (
       <Action.Push
         title="Copy Clone URL"
         shortcut={props.shortcut}
         icon={{ source: Icon.Link, tintColor: Color.PrimaryText }}
-        target={<CloneUrlList project={pro} />}
+        target={<CloneUrlList project={project} />}
       />
     );
   } else {

@@ -1,10 +1,9 @@
 import { ActionPanel, Color, Action, Icon, List, getPreferenceValues } from "@raycast/api";
-import { useEffect, useState } from "react";
-import { useCache } from "../cache";
+import { useCachedPromise } from "@raycast/utils";
 import { getGitLabGQL, gitlab } from "../common";
 import { dataToProject, Group, Milestone, Project } from "../gitlabapi";
 import { getTextIcon, GitLabIcons, useImage } from "../icons";
-import { getFirstChar, hashRecord, showErrorToast } from "../utils";
+import { getErrorMessage, getFirstChar, showErrorToast } from "../utils";
 import { GitLabOpenInBrowserAction } from "./actions";
 import { EpicList } from "./epics";
 import { IssueList, IssueScope, IssueState } from "./issues";
@@ -12,9 +11,7 @@ import { MilestoneList } from "./milestones";
 import { MRList, MRScope, MRState } from "./mr";
 import { ProjectListItem } from "./project";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-function groupIconUrl(group: any): string | undefined {
+function groupIconUrl(group: Group): string | undefined {
   let result: string | undefined;
   // TODO check also namespace for icon
   if (group.avatar_url) {
@@ -29,7 +26,7 @@ function webUrl(group: Group, partial: string) {
   return getGitLabGQL().urlJoin(`groups/${group.full_path}/${partial}`);
 }
 
-export function GroupListItem(props: { group: any; nameOnly?: boolean }) {
+export function GroupListItem(props: { group: Group; nameOnly?: boolean }) {
   const group = props.group;
   const { localFilepath: localImageFilepath } = useImage(groupIconUrl(group));
   return (
@@ -152,42 +149,30 @@ export function useMyGroups(args?: { query?: string; parentGroupID?: number; top
 } {
   const query = args?.query;
   const parentGroupID = args?.parentGroupID;
-  const params: Record<string, any> = { min_access_level: "10" };
-  if ((parentGroupID === undefined || parentGroupID <= 0) && args?.top_level_only === true) {
-    params.top_level_only = true;
-  }
-  const paramsHash = hashRecord(params);
-  const [groupsinfo, setGroupsInfo] = useState<GroupInfo | undefined>();
-  const { data, isLoading, error } = useCache<GroupInfo | undefined>(
-    parentGroupID && parentGroupID > 0
-      ? `mygroups_${parentGroupID}_${paramsHash}`
-      : `mygroups_${paramsHash}_${args?.top_level_only}`,
-    async () => {
-      const subgroupFilter = parentGroupID && parentGroupID > 0 ? `/${parentGroupID}/subgroups` : "";
-      const gldata = ((await gitlab.fetch(`groups${subgroupFilter}`, params, true)) as Group[]) || [];
+  const topLevelOnly = args?.top_level_only === true;
+  const { data, isLoading, error } = useCachedPromise(
+    async (parentID: number | undefined, topLevelOnly: boolean): Promise<GroupInfo> => {
+      const params: Record<string, string> = { min_access_level: "10" };
+      if ((parentID === undefined || parentID <= 0) && topLevelOnly) {
+        params.top_level_only = "true";
+      }
+      const subgroupFilter = parentID && parentID > 0 ? `/${parentID}/subgroups` : "";
+      const groups = ((await gitlab.fetch(`groups${subgroupFilter}`, params, true)) as Group[]) || [];
 
-      let projectsdata: Project[] = [];
-      if (parentGroupID && parentGroupID > 0) {
-        const projectsdatagl =
-          (await gitlab.fetch(`groups/${parentGroupID}/projects`, { search: query || "", min_access_level: "30" })) ||
-          [];
-        projectsdata = projectsdatagl.map((p: any) => dataToProject(p));
+      let projects: Project[] = [];
+      if (parentID && parentID > 0) {
+        const projectsdata = ((await gitlab.fetch(`groups/${parentID}/projects`, {
+          search: query || "",
+          min_access_level: "30",
+        })) || []) as Parameters<typeof dataToProject>[0][];
+        projects = projectsdata.map((raw) => dataToProject(raw));
       }
-      if (groupsinfo) {
-        return { ...groupsinfo, groups: gldata, projects: projectsdata };
-      } else {
-        return { groups: gldata, projects: projectsdata };
-      }
+      return { groups, projects };
     },
-    {
-      secondsToInvalid: 900,
-      deps: [parentGroupID],
-    },
+    [parentGroupID, topLevelOnly],
+    { onError: () => undefined },
   );
-  useEffect(() => {
-    setGroupsInfo(data);
-  }, [query, data, args?.top_level_only]);
-  return { groupsinfo, isLoading, error };
+  return { groupsinfo: data, isLoading, error: error ? getErrorMessage(error) : undefined };
 }
 
 export interface GroupInfo {

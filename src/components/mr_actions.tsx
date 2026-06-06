@@ -8,9 +8,7 @@ import { MRCommitList } from "./commits/list";
 import { MRPipelineList } from "./mr_pipelines";
 import { findTodoForMR, useTodos } from "./todo/utils";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-async function createNote(mr: MergeRequest, body: string): Promise<any> {
+async function createNote(mr: MergeRequest, body: string): Promise<void> {
   return await gitlab.post(`projects/${mr.project_id}/merge_requests/${mr.iid}/notes`, { body: body });
 }
 

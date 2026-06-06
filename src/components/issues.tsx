@@ -1,19 +1,19 @@
 import { Action, ActionPanel, List, Color, Detail, Image, Icon } from "@raycast/api";
 import { gql } from "@apollo/client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { usePromise } from "@raycast/utils";
 import { getGitLabGQL, gitlab } from "../common";
 import { Group, Issue, Project } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
 import {
   capitalizeFirstLetter,
   formatDate,
+  formatDateTime,
   getErrorMessage,
-  now,
   optimizeMarkdownText,
   Query,
   showErrorToast,
   tokenizeQueryText,
-  toLongDateString,
 } from "../utils";
 import { IssueItemActions } from "./issue_actions";
 import { GitLabOpenInBrowserAction } from "./actions";
@@ -112,12 +112,12 @@ export function IssueDetail(props: { issue: Issue }) {
           )}
           <Detail.Metadata.TagList title="Assignee">
             {issue.assignees.length > 0 ? (
-              issue.assignees.map((a) => (
+              issue.assignees.map((assignee) => (
                 <Detail.Metadata.TagList.Item
-                  key={a.id}
-                  text={a.name}
-                  icon={userIcon(a)}
-                  onAction={userTagOnAction(a)}
+                  key={assignee.id}
+                  text={assignee.name}
+                  icon={userIcon(assignee)}
+                  onAction={userTagOnAction(assignee)}
                 />
               ))
             ) : (
@@ -129,12 +129,8 @@ export function IssueDetail(props: { issue: Issue }) {
           {issue.milestone && <Detail.Metadata.Label title="Milestone" text={issue.milestone.title} />}
           {issue.labels.length > 0 && (
             <Detail.Metadata.TagList title="Labels">
-              {issue.labels?.map((i) => (
-                <Detail.Metadata.TagList.Item
-                  key={i.id || (i as any)}
-                  text={i.name || (i as any) || "?"}
-                  color={i.color}
-                />
+              {issue.labels?.map((label) => (
+                <Detail.Metadata.TagList.Item key={label.id} text={label.name || "?"} color={label.color} />
               ))}
             </Detail.Metadata.TagList>
           )}
@@ -149,60 +145,27 @@ function useDetail(issueID: number): {
   error?: string;
   isLoading: boolean;
 } {
-  const [issueDetail, setIssueDetail] = useState<IssueDetailData>();
-  const [error, setError] = useState<string>();
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-
-  useEffect(() => {
-    // FIXME In the future version, we don't need didUnmount checking
-    // https://github.com/facebook/react/pull/22114
-    let didUnmount = false;
-
-    async function fetchData() {
-      if (issueID <= 0 || didUnmount) {
-        return;
+  const { data, error, isLoading } = usePromise(
+    async (issueId: number): Promise<IssueDetailData> => {
+      const data = await getGitLabGQL().client.query({
+        query: GET_ISSUE_DETAIL,
+        variables: { id: `gid://gitlab/Issue/${issueId}` },
+      });
+      const desc = data.data.issue.description || "<no description>";
+      const webUrl = (data.data.issue.webUrl as string) || "";
+      let projectWebUrl: string | undefined;
+      const index = webUrl.indexOf("/-/");
+      if (index > 1) {
+        projectWebUrl = webUrl.substring(0, index);
       }
+      return { description: desc, projectWebUrl };
+    },
+    [issueID],
+    // The error is surfaced via `error` and toasted by the caller in render.
+    { execute: issueID > 0, onError: () => undefined },
+  );
 
-      setIsLoading(true);
-      setError(undefined);
-
-      try {
-        const data = await getGitLabGQL().client.query({
-          query: GET_ISSUE_DETAIL,
-          variables: { id: `gid://gitlab/Issue/${issueID}` },
-        });
-        const desc = data.data.issue.description || "<no description>";
-        const webUrl = (data.data.issue.webUrl as string) || "";
-        let projectWebUrl: string | undefined;
-        const index = webUrl.indexOf("/-/");
-        if (index > 1) {
-          projectWebUrl = webUrl.substring(0, index);
-        }
-        if (!didUnmount) {
-          setIssueDetail({
-            description: desc,
-            projectWebUrl: projectWebUrl,
-          });
-        }
-      } catch (e) {
-        if (!didUnmount) {
-          setError(getErrorMessage(e));
-        }
-      } finally {
-        if (!didUnmount) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchData();
-
-    return () => {
-      didUnmount = true;
-    };
-  }, [issueID]);
-
-  return { issueDetail, error, isLoading };
+  return { issueDetail: data, error: error ? getErrorMessage(error) : undefined, isLoading };
 }
 
 export function IssueListItem(props: { issue: Issue; refreshData: () => void }) {
@@ -237,7 +200,7 @@ export function IssueListItem(props: { issue: Issue; refreshData: () => void }) 
           tag: issue.milestone ? issue.milestone.title : "",
           tooltip: issue.milestone ? `Milestone: ${issue.milestone.title}` : undefined,
         },
-        { date: new Date(issue.updated_at), tooltip: `Updated: ${toLongDateString(issue.updated_at)}` },
+        { date: new Date(issue.updated_at), tooltip: `Updated: ${formatDateTime(issue.updated_at)}` },
         {
           icon: { source: issue.author?.avatar_url || "", mask: Image.Mask.Circle },
           tooltip: issue.author ? `Author: ${issue.author?.name}` : undefined,
@@ -412,69 +375,31 @@ export function useSearch(
   isLoading: boolean;
   refresh: () => void;
 } {
-  const [issues, setIssues] = useState<Issue[]>();
-  const [error, setError] = useState<string>();
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [timestamp, setTimestamp] = useState<Date>(now());
+  const { data, error, isLoading, revalidate } = usePromise(
+    async (
+      queryText: string,
+      issueScope: IssueScope,
+      issueState: IssueState,
+      project?: Project,
+      group?: Group,
+    ): Promise<Issue[]> => {
+      const parsedQuery = getIssueQuery(queryText);
+      const requestParams: Record<string, any> = {
+        state: issueState,
+        scope: issueScope,
+        search: parsedQuery.query || "",
+        in: "title",
+      };
+      injectQueryNamedParameters(requestParams, parsedQuery, issueScope, false);
+      injectQueryNamedParameters(requestParams, parsedQuery, issueScope, true);
+      return group ? gitlab.getGroupIssues(requestParams, group.id) : gitlab.getIssues(requestParams, project);
+    },
+    [query ?? "", scope, state, project, group],
+    // The error is surfaced via `error` and toasted by the caller in render.
+    { onError: () => undefined },
+  );
 
-  const refresh = () => {
-    setTimestamp(now());
-  };
-
-  useEffect(() => {
-    // FIXME In the future version, we don't need didUnmount checking
-    // https://github.com/facebook/react/pull/22114
-    let didUnmount = false;
-
-    async function fetchData() {
-      if (query === null || didUnmount) {
-        return;
-      }
-
-      setIsLoading(true);
-      setError(undefined);
-
-      try {
-        const qd = getIssueQuery(query);
-        query = qd.query;
-        const requestParams: Record<string, any> = {
-          state: state,
-          scope: scope,
-          search: query || "",
-          in: "title",
-        };
-        injectQueryNamedParameters(requestParams, qd, scope, false);
-        injectQueryNamedParameters(requestParams, qd, scope, true);
-        if (group) {
-          const glIssues = await gitlab.getGroupIssues(requestParams, group.id);
-          if (!didUnmount) {
-            setIssues(glIssues);
-          }
-        } else {
-          const glIssues = await gitlab.getIssues(requestParams, project);
-          if (!didUnmount) {
-            setIssues(glIssues);
-          }
-        }
-      } catch (e) {
-        if (!didUnmount) {
-          setError(getErrorMessage(e));
-        }
-      } finally {
-        if (!didUnmount) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchData();
-
-    return () => {
-      didUnmount = true;
-    };
-  }, [query, timestamp, project]);
-
-  return { issues, error, isLoading, refresh };
+  return { issues: data, error: error ? getErrorMessage(error) : undefined, isLoading, refresh: revalidate };
 }
 
 export function useIssue(
@@ -485,45 +410,12 @@ export function useIssue(
   error?: string;
   isLoading: boolean;
 } {
-  const [issue, setIssue] = useState<Issue>();
-  const [error, setError] = useState<string>();
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const { data, error, isLoading } = usePromise(
+    (projectId: number, issueId: number) => gitlab.getIssue(projectId, issueId, {}),
+    [projectID, issueID],
+    // The error is surfaced via `error` and toasted by the caller in render.
+    { onError: () => undefined },
+  );
 
-  useEffect(() => {
-    // FIXME In the future version, we don't need didUnmount checking
-    // https://github.com/facebook/react/pull/22114
-    let didUnmount = false;
-
-    async function fetchData() {
-      if (didUnmount) {
-        return;
-      }
-
-      setIsLoading(true);
-      setError(undefined);
-
-      try {
-        const glIssue = await gitlab.getIssue(projectID, issueID, {});
-        if (!didUnmount) {
-          setIssue(glIssue);
-        }
-      } catch (e) {
-        if (!didUnmount) {
-          setError(getErrorMessage(e));
-        }
-      } finally {
-        if (!didUnmount) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchData();
-
-    return () => {
-      didUnmount = true;
-    };
-  }, [projectID, issueID]);
-
-  return { issue, error, isLoading };
+  return { issue: data, error: error ? getErrorMessage(error) : undefined, isLoading };
 }

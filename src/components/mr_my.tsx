@@ -1,5 +1,5 @@
 import { ActionPanel, List } from "@raycast/api";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { MergeRequest, Project } from "../gitlabapi";
 import { showErrorToast } from "../utils";
 import {
@@ -33,15 +33,7 @@ function MyMRList(props: {
 }) {
   const mrs = props.mrs;
 
-  const refresh = () => {
-    props.performRefetch();
-  };
-
   const { isShowingDetail, toggleListDetails } = useMRListDetails();
-  const refreshAction = useMemo(
-    () => <RefreshMergeRequestsAction onRefresh={props.performRefetch} />,
-    [props.performRefetch],
-  );
 
   return (
     <List
@@ -59,7 +51,9 @@ function MyMRList(props: {
             <MRListDetailsToggleAction isShowingDetail={isShowingDetail} onToggle={toggleListDetails} />
             <MRListMetadataToggleAction isShowingDetail={isShowingDetail} />
           </ActionPanel.Section>
-          <ActionPanel.Section>{refreshAction}</ActionPanel.Section>
+          <ActionPanel.Section>
+            <RefreshMergeRequestsAction onRefresh={props.performRefetch} />
+          </ActionPanel.Section>
         </ActionPanel>
       }
     >
@@ -68,12 +62,12 @@ function MyMRList(props: {
           <MRListItem
             key={mr.id}
             mr={mr}
-            refreshData={refresh}
+            refreshData={props.performRefetch}
             showCIStatus={true}
             showAuthor={false}
             isShowingDetail={isShowingDetail}
             onToggleListDetails={toggleListDetails}
-            refreshAction={refreshAction}
+            refreshAction={<RefreshMergeRequestsAction onRefresh={props.performRefetch} />}
           />
         ))}
       </List.Section>
@@ -95,7 +89,7 @@ export function MyMergeRequests(props: {
   if (error) {
     showErrorToast(error, "Cannot search Merge Requests");
   }
-  const mrs: MergeRequest[] | undefined = project ? raw?.filter((m) => m.project_id === project.id) : raw;
+  const mrs: MergeRequest[] | undefined = project ? raw?.filter((mr) => mr.project_id === project.id) : raw;
   const title =
     scope == MRScope.assigned_to_me ? "Your assigned Merge Requests" : "Your Recently Created Merge Requests";
   return (

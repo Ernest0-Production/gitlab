@@ -2,8 +2,8 @@ import { ActionPanel, List, Color, Detail, Action, Image, Icon, Keyboard } from 
 import { getMRHeadPipelineStatus, Group, MergeRequest, Project } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
 import { getGitLabGQL, gitlab } from "../common";
-import { useCallback, useEffect, useState } from "react";
-import { getErrorMessage, now, optimizeMarkdownText, Query, showErrorToast, tokenizeQueryText } from "../utils";
+import { useCallback, useState } from "react";
+import { getErrorMessage, optimizeMarkdownText, Query, showErrorToast, tokenizeQueryText } from "../utils";
 import { getMRDiscussionMetadataLabel, useMRDiscussionStats } from "./mr_discussions";
 import { getMRStateListIcon } from "./mr_status";
 import { gql } from "@apollo/client";
@@ -12,7 +12,7 @@ import { GitLabOpenInBrowserAction } from "./actions";
 import { getCIJobStatusIcon, getMRPipelineStatusTooltip } from "./jobs";
 import { useMRPipelines } from "./mr_pipelines";
 import { MRDetailMetadata, MRListDetailMetadata } from "./mr_metadata";
-import { useCachedState } from "@raycast/utils";
+import { useCachedState, usePromise } from "@raycast/utils";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -181,55 +181,21 @@ function useDetail(issueID: number): {
   error?: string;
   isLoading: boolean;
 } {
-  const [mrdetail, setMRDetail] = useState<MRDetailData>();
-  const [error, setError] = useState<string>();
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const { data, error, isLoading } = usePromise(
+    async (mrId: number): Promise<MRDetailData> => {
+      const data = await getGitLabGQL().client.query({
+        query: GET_MR_DETAIL,
+        variables: { id: `gid://gitlab/MergeRequest/${mrId}` },
+      });
+      const desc = data.data.mergeRequest.description || "<no description>";
+      return { projectWebUrl: data.data.mergeRequest.project.webUrl, description: desc };
+    },
+    [issueID],
+    // The error is surfaced via `error` and toasted by the caller in render.
+    { execute: issueID > 0, onError: () => undefined },
+  );
 
-  useEffect(() => {
-    // FIXME In the future version, we don't need didUnmount checking
-    // https://github.com/facebook/react/pull/22114
-    let didUnmount = false;
-
-    async function fetchData() {
-      if (issueID <= 0 || didUnmount) {
-        return;
-      }
-
-      setIsLoading(true);
-      setError(undefined);
-
-      try {
-        const data = await getGitLabGQL().client.query({
-          query: GET_MR_DETAIL,
-          variables: { id: `gid://gitlab/MergeRequest/${issueID}` },
-        });
-        const desc = data.data.mergeRequest.description || "<no description>";
-        const projectWebUrl = data.data.mergeRequest.project.webUrl;
-        if (!didUnmount) {
-          setMRDetail({
-            projectWebUrl: projectWebUrl,
-            description: desc,
-          });
-        }
-      } catch (e) {
-        if (!didUnmount) {
-          setError(getErrorMessage(e));
-        }
-      } finally {
-        if (!didUnmount) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchData();
-
-    return () => {
-      didUnmount = true;
-    };
-  }, [issueID]);
-
-  return { mrdetail, error, isLoading };
+  return { mrdetail: data, error: error ? getErrorMessage(error) : undefined, isLoading };
 }
 
 interface MRListProps {
@@ -512,69 +478,31 @@ export function useSearch(
   isLoading: boolean;
   refresh: () => void;
 } {
-  const [mrs, setMRs] = useState<MergeRequest[]>([]);
-  const [error, setError] = useState<string>();
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [timestamp, setTimestamp] = useState<Date>(now());
+  const { data, error, isLoading, revalidate } = usePromise(
+    async (
+      queryText: string,
+      mrScope: MRScope,
+      mrState: MRState,
+      project?: Project,
+      group?: Group,
+    ): Promise<MergeRequest[]> => {
+      const parsedQuery = getMRQuery(queryText);
+      const params: Record<string, any> = {
+        state: mrState,
+        scope: mrScope,
+        search: parsedQuery.query || "",
+        in: "title",
+      };
+      injectMRQueryNamedParameters(params, parsedQuery, mrScope, false);
+      injectMRQueryNamedParameters(params, parsedQuery, mrScope, true);
+      return group ? gitlab.getGroupMergeRequests(params, group) : gitlab.getMergeRequests(params, project);
+    },
+    [query ?? "", scope, state, project, group],
+    // The error is surfaced via `error` and toasted by the caller in render.
+    { onError: () => undefined },
+  );
 
-  const refresh = () => {
-    setTimestamp(now());
-  };
-
-  useEffect(() => {
-    // FIXME In the future version, we don't need didUnmount checking
-    // https://github.com/facebook/react/pull/22114
-    let didUnmount = false;
-
-    async function fetchData() {
-      if (query === null || didUnmount) {
-        return;
-      }
-
-      setIsLoading(true);
-      setError(undefined);
-
-      try {
-        const qd = getMRQuery(query);
-        query = qd.query;
-        const params: Record<string, any> = {
-          state: state,
-          scope: scope,
-          search: query || "",
-          in: "title",
-        };
-        injectMRQueryNamedParameters(params, qd, scope, false);
-        injectMRQueryNamedParameters(params, qd, scope, true);
-        if (group) {
-          const glMRs = await gitlab.getGroupMergeRequests(params, group);
-          if (!didUnmount) {
-            setMRs(glMRs);
-          }
-        } else {
-          const glMRs = await gitlab.getMergeRequests(params, project);
-          if (!didUnmount) {
-            setMRs(glMRs);
-          }
-        }
-      } catch (e) {
-        if (!didUnmount) {
-          setError(getErrorMessage(e));
-        }
-      } finally {
-        if (!didUnmount) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchData();
-
-    return () => {
-      didUnmount = true;
-    };
-  }, [query, project, timestamp]);
-
-  return { mrs, error, isLoading, refresh };
+  return { mrs: data ?? [], error: error ? getErrorMessage(error) : undefined, isLoading, refresh: revalidate };
 }
 
 export function useMR(
@@ -585,45 +513,12 @@ export function useMR(
   error?: string;
   isLoading: boolean;
 } {
-  const [mr, setMR] = useState<MergeRequest>();
-  const [error, setError] = useState<string>();
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const { data, error, isLoading } = usePromise(
+    (projectId: number, mrId: number) => gitlab.getMergeRequest(projectId, mrId, {}),
+    [projectID, mrID],
+    // The error is surfaced via `error` and toasted by the caller in render.
+    { onError: () => undefined },
+  );
 
-  useEffect(() => {
-    // FIXME In the future version, we don't need didUnmount checking
-    // https://github.com/facebook/react/pull/22114
-    let didUnmount = false;
-
-    async function fetchData() {
-      if (didUnmount) {
-        return;
-      }
-
-      setIsLoading(true);
-      setError(undefined);
-
-      try {
-        const glMr = await gitlab.getMergeRequest(projectID, mrID, {});
-        if (!didUnmount) {
-          setMR(glMr);
-        }
-      } catch (e) {
-        if (!didUnmount) {
-          setError(getErrorMessage(e));
-        }
-      } finally {
-        if (!didUnmount) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchData();
-
-    return () => {
-      didUnmount = true;
-    };
-  }, [projectID, mrID]);
-
-  return { mr, error, isLoading };
+  return { mr: data, error: error ? getErrorMessage(error) : undefined, isLoading };
 }

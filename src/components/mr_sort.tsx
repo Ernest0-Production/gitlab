@@ -78,15 +78,18 @@ export function appendMROrderByParams(params: Record<string, unknown>, orderBy: 
   params.sort = "desc";
 }
 
-export function mergeRequestSortSubmenu(orderBy: MRSearchOrderBy, onSelectOrderBy: (orderBy: MRSearchOrderBy) => void) {
+export function MergeRequestSortSubmenu(props: {
+  orderBy: MRSearchOrderBy;
+  onSelect: (orderBy: MRSearchOrderBy) => void;
+}) {
   return (
     <ActionPanel.Submenu title="Sort by" icon={Icon.ChevronUpDown}>
       <ActionPanel.Section>
         <Action
           title="Default"
-          icon={mrSearchOrderByIcon(MR_DEFAULT_ORDER_BY, orderBy === MR_DEFAULT_ORDER_BY)}
-          autoFocus={orderBy === MR_DEFAULT_ORDER_BY}
-          onAction={() => onSelectOrderBy(MR_DEFAULT_ORDER_BY)}
+          icon={mrSearchOrderByIcon(MR_DEFAULT_ORDER_BY, props.orderBy === MR_DEFAULT_ORDER_BY)}
+          autoFocus={props.orderBy === MR_DEFAULT_ORDER_BY}
+          onAction={() => props.onSelect(MR_DEFAULT_ORDER_BY)}
         />
       </ActionPanel.Section>
       <ActionPanel.Section>
@@ -94,9 +97,9 @@ export function mergeRequestSortSubmenu(orderBy: MRSearchOrderBy, onSelectOrderB
           <Action
             key={value}
             title={title}
-            icon={mrSearchOrderByIcon(value, orderBy === value)}
-            autoFocus={orderBy === value}
-            onAction={() => onSelectOrderBy(value)}
+            icon={mrSearchOrderByIcon(value, props.orderBy === value)}
+            autoFocus={props.orderBy === value}
+            onAction={() => props.onSelect(value)}
           />
         ))}
       </ActionPanel.Section>

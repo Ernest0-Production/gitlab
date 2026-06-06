@@ -1,14 +1,14 @@
 import { Action, ActionPanel, List, Icon, Image, Color } from "@raycast/api";
-import { useEffect, useMemo, useState } from "react";
+import { usePromise } from "@raycast/utils";
 import { getCIRefreshInterval, getGitLabGQL, gitlab } from "../common";
 import { gql } from "@apollo/client";
 import {
   capitalizeFirstLetter,
   copyShortcut,
   formatDate,
+  formatDateTime,
   getErrorMessage,
   getIdFromGqlId,
-  now,
   showErrorToast,
 } from "../utils";
 import { JobList } from "./jobs";
@@ -25,6 +25,21 @@ import { GitLabIcons } from "../icons";
 import { Pipeline } from "../gitlabapi";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+interface GqlPipelineNode {
+  id: string;
+  iid: string;
+  project: { id: string };
+  status: string;
+  path: string;
+  ref: string;
+  sha: string;
+  startedAt?: string;
+  duration?: number;
+  createdAt: string;
+  updatedAt: string;
+  finishedAt?: string;
+}
 
 const GET_PIPELINES = gql`
   query GetProjectPipeplines($fullPath: ID!) {
@@ -127,14 +142,14 @@ function getPipelineListAccessory(pipeline: Pipeline): List.Item.Accessory | und
   if (!iso) {
     return undefined;
   }
-  const d = new Date(iso);
+  const timestamp = new Date(iso);
   const durationSuffix = finishedAt && pipeline.duration ? ` · ${pipeline.duration}s` : "";
   const tooltip = finishedAt
-    ? `Finished ${d.toLocaleString()}${durationSuffix}`
+    ? `Finished ${formatDateTime(timestamp)}${durationSuffix}`
     : startedAt
-      ? `Started ${d.toLocaleString()}`
-      : `Created ${d.toLocaleString()}`;
-  return { text: formatDate(d), tooltip };
+      ? `Started ${formatDateTime(timestamp)}`
+      : `Created ${formatDateTime(timestamp)}`;
+  return { text: formatDate(timestamp), tooltip };
 }
 
 export function PipelineListItem(props: {
@@ -198,55 +213,24 @@ function useProjectPipelineRunContext(projectFullPath: string): {
   projectId: string;
   defaultBranch: string;
 } {
-  const [projectId, setProjectId] = useState("");
-  const [defaultBranch, setDefaultBranch] = useState("");
+  const { data } = usePromise(
+    async (fullPath: string) => {
+      const project = await gitlab.fetch(`projects/${encodeURIComponent(fullPath)}`);
+      return { projectId: `${project.id}`, defaultBranch: (project.default_branch as string) ?? "" };
+    },
+    [projectFullPath],
+    // Failure falls back to empty context below; no toast (matches the previous silent catch).
+    { onError: () => undefined },
+  );
 
-  useEffect(() => {
-    let didUnmount = false;
-    async function fetchProject() {
-      try {
-        const project = await gitlab.fetch(`projects/${encodeURIComponent(projectFullPath)}`);
-        if (!didUnmount) {
-          setProjectId(`${project.id}`);
-          setDefaultBranch(project.default_branch ?? "");
-        }
-      } catch {
-        if (!didUnmount) {
-          setProjectId("");
-          setDefaultBranch("");
-        }
-      }
-    }
-    fetchProject();
-    return () => {
-      didUnmount = true;
-    };
-  }, [projectFullPath]);
-
-  return { projectId, defaultBranch };
+  return { projectId: data?.projectId ?? "", defaultBranch: data?.defaultBranch ?? "" };
 }
 
 export function PipelineList(props: { projectFullPath: string; navigationTitle?: string }) {
-  const { pipelines, error, isLoading, refresh } = useSearch("", props.projectFullPath);
+  const { pipelines, error, isLoading, refresh } = useSearch(props.projectFullPath);
   const { projectId, defaultBranch } = useProjectPipelineRunContext(props.projectFullPath);
   const runRef = pipelines[0]?.ref || defaultBranch;
   const runProjectId = pipelines[0]?.projectId || projectId;
-
-  const listActions = useMemo(
-    () => (
-      <ActionPanel>
-        <ActionPanel.Section>
-          <RunPipelineAction
-            projectId={runProjectId}
-            ref={runRef}
-            onFinished={refresh}
-            shortcut={{ modifiers: ["cmd"], key: "n" }}
-          />
-        </ActionPanel.Section>
-      </ActionPanel>
-    ),
-    [runProjectId, runRef, refresh],
-  );
 
   useInterval(() => {
     refresh();
@@ -255,7 +239,22 @@ export function PipelineList(props: { projectFullPath: string; navigationTitle?:
     showErrorToast(error, "Cannot search Pipelines");
   }
   return (
-    <List isLoading={isLoading} navigationTitle={props.navigationTitle || "Pipelines"} actions={listActions}>
+    <List
+      isLoading={isLoading}
+      navigationTitle={props.navigationTitle || "Pipelines"}
+      actions={
+        <ActionPanel>
+          <ActionPanel.Section>
+            <RunPipelineAction
+              projectId={runProjectId}
+              ref={runRef}
+              onFinished={refresh}
+              shortcut={{ modifiers: ["cmd"], key: "n" }}
+            />
+          </ActionPanel.Section>
+        </ActionPanel>
+      }
+    >
       <List.Section title="Pipelines">
         {pipelines?.map((pipeline) => (
           <PipelineListItem
@@ -272,79 +271,40 @@ export function PipelineList(props: { projectFullPath: string; navigationTitle?:
   );
 }
 
-export function useSearch(
-  query: string | undefined,
-  projectFullPath: string,
-): {
+export function useSearch(projectFullPath: string): {
   pipelines: Pipeline[];
   error?: string;
   isLoading: boolean;
   refresh: () => void;
 } {
-  const [pipelines, setPipelines] = useState<any[]>([]);
-  const [error, setError] = useState<string>();
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [timestamp, setTimestamp] = useState<Date>(now());
+  const { data, error, isLoading, revalidate } = usePromise(
+    async (fullPath: string): Promise<Pipeline[]> => {
+      const data = await getGitLabGQL().client.query({
+        query: GET_PIPELINES,
+        variables: { fullPath },
+        fetchPolicy: "network-only",
+      });
+      return data.data.project.pipelines.nodes.map((pipeline: GqlPipelineNode) =>
+        normalizePipelineForList({
+          id: getIdFromGqlId(pipeline.id),
+          iid: pipeline.iid,
+          project_id: getIdFromGqlId(pipeline.project.id),
+          status: pipeline.status,
+          ref: pipeline.ref,
+          web_url: `${getGitLabGQL().url}${pipeline.path}`,
+          created_at: pipeline.createdAt,
+          updated_at: pipeline.updatedAt,
+          started_at: pipeline.startedAt,
+          duration: pipeline.duration,
+          finished_at: pipeline.finishedAt,
+          sha: pipeline.sha,
+        }),
+      );
+    },
+    [projectFullPath],
+    // The error is surfaced via `error` and toasted by the caller in render.
+    { onError: () => undefined },
+  );
 
-  const refresh = () => {
-    setTimestamp(now());
-  };
-
-  useEffect(() => {
-    // FIXME In the future version, we don't need didUnmount checking
-    // https://github.com/facebook/react/pull/22114
-    let didUnmount = false;
-
-    async function fetchData() {
-      if (query === null || didUnmount) {
-        return;
-      }
-
-      setIsLoading(true);
-      setError(undefined);
-
-      try {
-        const data = await getGitLabGQL().client.query({
-          query: GET_PIPELINES,
-          variables: { fullPath: projectFullPath },
-          fetchPolicy: "network-only",
-        });
-        const glData: Pipeline[] = data.data.project.pipelines.nodes.map((p: any) =>
-          normalizePipelineForList({
-            id: getIdFromGqlId(p.id),
-            iid: p.iid,
-            project_id: getIdFromGqlId(p.project.id),
-            status: p.status,
-            ref: p.ref,
-            web_url: `${getGitLabGQL().url}${p.path}`,
-            created_at: p.createdAt,
-            updated_at: p.updatedAt,
-            started_at: p.startedAt,
-            duration: p.duration,
-            finished_at: p.finishedAt,
-            sha: p.sha,
-          }),
-        );
-        if (!didUnmount) {
-          setPipelines(glData);
-        }
-      } catch (e) {
-        if (!didUnmount) {
-          setError(getErrorMessage(e));
-        }
-      } finally {
-        if (!didUnmount) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchData();
-
-    return () => {
-      didUnmount = true;
-    };
-  }, [query, projectFullPath, timestamp]);
-
-  return { pipelines, error, isLoading, refresh };
+  return { pipelines: data ?? [], error: error ? getErrorMessage(error) : undefined, isLoading, refresh: revalidate };
 }

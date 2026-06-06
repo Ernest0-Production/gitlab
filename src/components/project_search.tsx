@@ -1,14 +1,10 @@
 import { List, getPreferenceValues } from "@raycast/api";
-import { useEffect, useState } from "react";
+import { usePromise } from "@raycast/utils";
+import { useState } from "react";
 import { gitlab } from "../common";
 import { Project } from "../gitlabapi";
 import { getErrorMessage, showErrorToast } from "../utils";
 import { ProjectListEmptyView, ProjectListItem, ProjectScope } from "./project";
-
-function activeProjects(): boolean {
-  const prefs = getPreferenceValues();
-  return (prefs.active as boolean) || false;
-}
 
 export function ProjectSearchList() {
   const [searchText, setSearchText] = useState<string>();
@@ -50,48 +46,15 @@ export function useSearch(
   error?: string;
   isLoading: boolean;
 } {
-  const [projects, setProjects] = useState<Project[]>();
-  const [error, setError] = useState<string>();
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const active = activeProjects();
-
-  useEffect(() => {
-    // FIXME In the future version, we don't need didUnmount checking
-    // https://github.com/facebook/react/pull/22114
-    let didUnmount = false;
-
-    async function fetchData() {
-      if (query === null || didUnmount) {
-        return;
-      }
-
-      setIsLoading(true);
-      setError(undefined);
-
-      try {
-        const membership = scope === ProjectScope.membership ? "true" : "false";
-        const glProjects = await gitlab.getProjects({ searchText: query || "", searchIn: "title", membership, active });
-
-        if (!didUnmount) {
-          setProjects(glProjects);
-        }
-      } catch (e) {
-        if (!didUnmount) {
-          setError(getErrorMessage(e));
-        }
-      } finally {
-        if (!didUnmount) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchData();
-
-    return () => {
-      didUnmount = true;
-    };
-  }, [query, scope, active]);
-
-  return { projects, error, isLoading };
+  const active = (getPreferenceValues().active as boolean) || false;
+  const { data, error, isLoading } = usePromise(
+    (searchQuery: string, projectScope: string, isActive: boolean) => {
+      const membership = projectScope === ProjectScope.membership ? "true" : "false";
+      return gitlab.getProjects({ searchText: searchQuery, searchIn: "title", membership, active: isActive });
+    },
+    [query ?? "", scope, active],
+    // The error is surfaced via `error` and toasted by the caller in render.
+    { onError: () => undefined },
+  );
+  return { projects: data, error: error ? getErrorMessage(error) : undefined, isLoading };
 }

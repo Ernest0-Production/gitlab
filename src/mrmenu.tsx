@@ -61,18 +61,6 @@ function getLabelFilterPreference(preferenceName: string): string[] {
     .filter((label) => label.length > 0);
 }
 
-function getAssignedLabelsPreference(): string[] {
-  return getLabelFilterPreference("assignedLabels");
-}
-
-function getCreatedLabelsPreference(): string[] {
-  return getLabelFilterPreference("createdLabels");
-}
-
-function getReviewLabelsPreference(): string[] {
-  return getLabelFilterPreference("reviewLabels");
-}
-
 export default function MenuCommand() {
   const {
     mrsAssigned,
@@ -128,15 +116,15 @@ export default function MenuCommand() {
               <MenuBarItem title={`... ${hidden} more created`} onAction={() => launchCreatedMergeRequests()} />
             )}
           >
-            {mrsCreated?.map((m) => (
+            {mrsCreated?.map((mr) => (
               <MenuBarItem
                 icon={{
                   source: GitLabIcons.merge_request,
                   tintColor: { light: "#000", dark: "#FFF", adjustContrast: false },
                 }}
-                title={`!${m.iid} ${m.title}`}
-                tooltip={m.reference_full}
-                onAction={() => open(m.web_url)}
+                title={`!${mr.iid} ${mr.title}`}
+                tooltip={mr.reference_full}
+                onAction={() => open(mr.web_url)}
               />
             ))}
           </MenuBarSection>
@@ -167,15 +155,15 @@ export default function MenuCommand() {
               <MenuBarItem title={`... ${hidden} more assigned`} onAction={() => launchAssignedMergeRequests()} />
             )}
           >
-            {mrsAssigned?.map((m) => (
+            {mrsAssigned?.map((mr) => (
               <MenuBarItem
                 icon={{
                   source: GitLabIcons.merge_request,
                   tintColor: { light: "#000", dark: "#FFF", adjustContrast: false },
                 }}
-                title={`!${m.iid} ${m.title}`}
-                tooltip={m.reference_full}
-                onAction={() => open(m.web_url)}
+                title={`!${mr.iid} ${mr.title}`}
+                tooltip={mr.reference_full}
+                onAction={() => open(mr.web_url)}
               />
             ))}
           </MenuBarSection>
@@ -206,15 +194,15 @@ export default function MenuCommand() {
               <MenuBarItem title={`... ${hidden} more to review`} onAction={() => launchReviewsCommand()} />
             )}
           >
-            {mrsReview?.map((m) => (
+            {mrsReview?.map((mr) => (
               <MenuBarItem
                 icon={{
                   source: GitLabIcons.merge_request,
                   tintColor: { light: "#000", dark: "#FFF", adjustContrast: false },
                 }}
-                title={`!${m.iid} ${m.title}`}
-                tooltip={m.reference_full}
-                onAction={() => open(m.web_url)}
+                title={`!${mr.iid} ${mr.title}`}
+                tooltip={mr.reference_full}
+                onAction={() => open(mr.web_url)}
               />
             ))}
           </MenuBarSection>
@@ -237,9 +225,9 @@ function useMenuMergeRequests(): {
   createdLabelsFilter: string[];
   reviewLabelsFilter: string[];
 } {
-  const assignedLabelsFilter = useMemo(() => getAssignedLabelsPreference(), []);
-  const reviewLabelsFilter = useMemo(() => getReviewLabelsPreference(), []);
-  const createdLabelsFilter = useMemo(() => getCreatedLabelsPreference(), []);
+  const assignedLabelsFilter = useMemo(() => getLabelFilterPreference("assignedLabels"), []);
+  const reviewLabelsFilter = useMemo(() => getLabelFilterPreference("reviewLabels"), []);
+  const createdLabelsFilter = useMemo(() => getLabelFilterPreference("createdLabels"), []);
 
   const {
     mrs: mrsAssigned,

@@ -7,7 +7,7 @@ import { GitLabOpenInBrowserAction } from "./actions";
 import { useTodos } from "./todo/utils";
 import { MyProjectsDropdown } from "./project";
 import { useState } from "react";
-import { capitalizeFirstLetter, getErrorMessage, isWindows, showErrorToast } from "../utils";
+import { capitalizeFirstLetter, formatDateTime, getErrorMessage, isWindows, showErrorToast } from "../utils";
 
 function userToIcon(user?: User): Image.ImageLike {
   let result = "";
@@ -44,11 +44,11 @@ const targetTypeSouce: Record<string, string> = {
   epic: GitLabIcons.epic,
 };
 
-function getTargetTypeSource(tt: string): string {
-  if (!tt) {
+function getTargetTypeSource(targetType: string): string {
+  if (!targetType) {
     return GitLabIcons.todo;
   }
-  let result = targetTypeSouce[tt.toLowerCase()];
+  let result = targetTypeSouce[targetType.toLowerCase()];
   if (!result) {
     result = GitLabIcons.todo;
   }
@@ -133,7 +133,7 @@ export function TodoListItem(props: { todo: Todo; refreshData: () => void }) {
       subtitle={subtitle}
       accessories={[
         { tag: getPrettyTodoActionName(todo), tooltip: `Reason: ${getPrettyTodoActionName(todo)}` },
-        { date: updatedAt, tooltip: updatedAt ? `Updated: ${updatedAt.toLocaleString()}` : undefined },
+        { date: updatedAt, tooltip: updatedAt ? `Updated: ${formatDateTime(updatedAt)}` : undefined },
         { icon: userToIcon(todo.author), tooltip: todo.author?.name },
       ]}
       icon={{ value: getTodoIcon(todo), tooltip: todo.target_type }}

@@ -1,14 +1,12 @@
-import { Action, ActionPanel, Color, Icon, Image, List, getPreferenceValues } from "@raycast/api";
+import { Action, ActionPanel, Color, Icon, Image, List } from "@raycast/api";
 import { useState } from "react";
-import { useCache } from "../cache";
+import { useCachedPromise } from "@raycast/utils";
 import { gitlab } from "../common";
 import { Epic, Group, searchData } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
-import { capitalizeFirstLetter, showErrorToast, toLongDateString } from "../utils";
+import { capitalizeFirstLetter, formatDateTime, getErrorMessage, showErrorToast } from "../utils";
 import { GitLabOpenInBrowserAction } from "./actions";
 import { CreateEpicTodoAction } from "./epic_actions";
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 function getIcon(state: string): Image {
   if (state == "opened") {
@@ -18,12 +16,7 @@ function getIcon(state: string): Image {
   }
 }
 
-export function includeGroupAncestorPreference(): boolean {
-  const prefs = getPreferenceValues();
-  return (prefs.includeEpicAncestor as boolean) || false;
-}
-
-function getEpicGroupName(epic: any): string | undefined {
+function getEpicGroupName(epic: Epic): string | undefined {
   const f: string | undefined = epic?.references?.full;
   if (!f) {
     return;
@@ -53,7 +46,7 @@ function ActionToggleGroupName(props: { show?: boolean; callback?: (newValue: bo
 }
 
 export function EpicListItem(props: {
-  epic: any;
+  epic: Epic;
   displayGroup?: boolean;
   onChangeDisplayGroup?: (newValue?: boolean) => void;
 }) {
@@ -77,8 +70,13 @@ export function EpicListItem(props: {
           icon: epic.downvotes ? "👎" : undefined,
           tooltip: epic.downvotes ? `Downvotes: ${epic.downvotes}` : undefined,
         },
-        { date: new Date(epic.updated_at), tooltip: `Updated: ${toLongDateString(epic.updated_at)}` },
-        { icon: { source: epic.author.avatar_url || "", mask: Image.Mask.Circle }, tooltip: epic.author?.name },
+        ...(epic.updated_at
+          ? [{ date: new Date(epic.updated_at), tooltip: `Updated: ${formatDateTime(epic.updated_at)}` }]
+          : []),
+        {
+          icon: epic.author ? { source: epic.author.avatar_url || "", mask: Image.Mask.Circle } : undefined,
+          tooltip: epic.author?.name,
+        },
       ]}
       icon={{ value: icon, tooltip: epic.state ? `Status: ${capitalizeFirstLetter(epic.state)}` : "" }}
       actions={
@@ -99,32 +97,19 @@ export function EpicListItem(props: {
 
 export function EpicList(props: { group: Group }) {
   const [searchText, setSearchText] = useState<string>();
-  const { data, error, isLoading } = useCache<Epic[]>(
-    `group_${props.group.id}_epics`,
-    async () => {
-      const data =
-        (await gitlab.fetch(
-          `groups/${props.group.id}/epics`,
-          {
-            min_access_level: "30",
-            state: "opened",
-          },
-          true,
-        )) || [];
-      return data;
+  const { data, error, isLoading } = useCachedPromise(
+    async (groupID: number): Promise<Epic[]> => {
+      return (await gitlab.fetch(`groups/${groupID}/epics`, { min_access_level: "30", state: "opened" }, true)) || [];
     },
-    {
-      deps: [searchText],
-      onFilter: async (epics) => {
-        return searchData<Epic>(epics, { search: searchText || "", keys: ["title"], limit: 50 });
-      },
-    },
+    [props.group.id],
+    { onError: () => undefined },
   );
 
   if (error) {
-    showErrorToast(error, "Cannot search Epics");
+    showErrorToast(getErrorMessage(error), "Cannot search Epics");
   }
 
+  const epics: Epic[] = searchData<Epic>(data ?? [], { search: searchText || "", keys: ["title"], limit: 50 });
   const navTitle = `Epics ${props.group.full_path}`;
   return (
     <List
@@ -135,10 +120,10 @@ export function EpicList(props: { group: Group }) {
       navigationTitle={navTitle}
     >
       <List.Section
-        title={data ? `Recent Epics ${data.length}` : undefined}
-        subtitle={data ? `${data.length}` : undefined}
+        title={data ? `Recent Epics ${epics.length}` : undefined}
+        subtitle={data ? `${epics.length}` : undefined}
       >
-        {data?.map((epic) => (
+        {epics.map((epic) => (
           <EpicListItem key={epic.id} epic={epic} />
         ))}
       </List.Section>

@@ -1,61 +1,28 @@
-import { useState, useEffect } from "react";
-import { Milestone } from "../gitlabapi";
+import { usePromise, useCachedPromise } from "@raycast/utils";
+import { Group, Milestone } from "../gitlabapi";
 import { gitlab } from "../common";
 import { getErrorMessage } from "../utils";
-import { useCache } from "../cache";
 
-export function useMilestones(grpId?: number): {
+export function useMilestones(groupId?: number): {
   milestoneInfo?: Milestone[];
   errorMilestoneInfo?: string;
   isLoadingMilestoneInfo: boolean;
 } {
-  const [milestoneInfo, setMilestoneInfo] = useState<Milestone[]>();
-  const [errorMilestoneInfo, setError] = useState<string>();
-  const [isLoadingMilestoneInfo, setIsLoading] = useState<boolean>(false);
+  const { data: groups } = useCachedPromise(() => gitlab.getGroups(), [], { onError: () => undefined });
 
-  const cachedGroups = useCache("user_groups", async () => await gitlab.getGroups(), { deps: [] });
-  const { data: groups } = cachedGroups;
+  const { data, error, isLoading } = usePromise(
+    async (id: number, groupList: Group[]): Promise<Milestone[]> => {
+      const group = groupList.find((candidate) => candidate.id === id);
+      return group ? await gitlab.getGroupMilestones(group) : [];
+    },
+    [groupId ?? 0, groups ?? []],
+    // Errors are surfaced via `errorMilestoneInfo`; the caller owns the toast.
+    { execute: !!groupId && groupId > 0 && !!groups, onError: () => undefined },
+  );
 
-  useEffect(() => {
-    let didUnmount = false;
-
-    async function fetchData() {
-      if (!grpId || didUnmount || !groups) {
-        return;
-      }
-
-      setIsLoading(true);
-      setError(undefined);
-
-      try {
-        if (grpId > 0) {
-          console.log(`get groupinfo for group id '${grpId}'`);
-          const group = groups?.find((g) => g.id === grpId);
-          const milestones = group ? await gitlab.getGroupMilestones(group) : [];
-
-          if (!didUnmount) {
-            setMilestoneInfo(milestones);
-          }
-        } else {
-          console.log("no project selected");
-        }
-      } catch (e) {
-        if (!didUnmount) {
-          setError(getErrorMessage(e));
-        }
-      } finally {
-        if (!didUnmount) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchData();
-
-    return () => {
-      didUnmount = true;
-    };
-  }, [grpId, groups]);
-
-  return { milestoneInfo, errorMilestoneInfo, isLoadingMilestoneInfo };
+  return {
+    milestoneInfo: data,
+    errorMilestoneInfo: error ? getErrorMessage(error) : undefined,
+    isLoadingMilestoneInfo: isLoading,
+  };
 }

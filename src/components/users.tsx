@@ -1,7 +1,8 @@
 import { Action, ActionPanel, Image, List, open } from "@raycast/api";
+import { usePromise } from "@raycast/utils";
 import { User } from "../gitlabapi";
 import { gitlab } from "../common";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { getErrorMessage, showErrorToast } from "../utils";
 import { GitLabOpenInBrowserAction } from "./actions";
 
@@ -47,48 +48,13 @@ export function useSearch(query: string | undefined): {
   error?: string;
   isLoading: boolean;
 } {
-  const [users, setUsers] = useState<User[]>();
-  const [error, setError] = useState<string>();
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-
-  useEffect(() => {
-    // FIXME In the future version, we don't need didUnmount checking
-    // https://github.com/facebook/react/pull/22114
-    let didUnmount = false;
-
-    async function fetchData() {
-      if (query === null || didUnmount) {
-        return;
-      }
-
-      setIsLoading(true);
-      setError(undefined);
-
-      try {
-        const glUsers = await gitlab.getUsers({ searchText: query || "", searchIn: "title" });
-
-        if (!didUnmount) {
-          setUsers(glUsers);
-        }
-      } catch (e) {
-        if (!didUnmount) {
-          setError(getErrorMessage(e));
-        }
-      } finally {
-        if (!didUnmount) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchData();
-
-    return () => {
-      didUnmount = true;
-    };
-  }, [query]);
-
-  return { users, error, isLoading };
+  const { data, error, isLoading } = usePromise(
+    (searchQuery: string) => gitlab.getUsers({ searchText: searchQuery, searchIn: "title" }),
+    [query ?? ""],
+    // The error is surfaced via `error` and toasted by the caller in render.
+    { onError: () => undefined },
+  );
+  return { users: data, error: error ? getErrorMessage(error) : undefined, isLoading };
 }
 
 export function userIcon(user: User): Image.ImageLike {

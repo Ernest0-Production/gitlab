@@ -37,8 +37,8 @@ export function StatusForm(props: {
 function StatusDurationDropDown(props: { id: string; defaultValue: string | undefined }) {
   return (
     <Form.Dropdown id={props.id} title="Duration" defaultValue={props.defaultValue}>
-      {Object.keys(clearDurations).map((k) => (
-        <Form.Dropdown.Item key={k + "_"} title={clearDurationText(k)} value={k} />
+      {Object.keys(clearDurations).map((durationKey) => (
+        <Form.Dropdown.Item key={durationKey + "_"} title={clearDurationText(durationKey)} value={durationKey} />
       ))}
     </Form.Dropdown>
   );
@@ -48,8 +48,8 @@ function StatusEmojiDropDown(props: { id: string; title: string; defaultValue?: 
   return (
     <Form.Dropdown id={props.id} title={props.title} defaultValue={props.defaultValue}>
       <Form.Dropdown.Item key="-" title="-" value="" />
-      {getAllEmojiSymbolAliases().map((k) => (
-        <Form.Dropdown.Item key={k} title={`:${k}:`} value={k} icon={emojiSymbol(k)} />
+      {getAllEmojiSymbolAliases().map((alias) => (
+        <Form.Dropdown.Item key={alias} title={`:${alias}:`} value={alias} icon={emojiSymbol(alias)} />
       ))}
     </Form.Dropdown>
   );

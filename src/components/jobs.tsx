@@ -1,8 +1,8 @@
 import { Action, ActionPanel, List, Icon, Image, Color } from "@raycast/api";
-import { useEffect, useState } from "react";
+import { usePromise } from "@raycast/utils";
 import { getCIRefreshInterval, getGitLabGQL, gitlab } from "../common";
 import { gql } from "@apollo/client";
-import { copyShortcut, getErrorMessage, getIdFromGqlId, now, showErrorToast } from "../utils";
+import { copyShortcut, getErrorMessage, getIdFromGqlId, showErrorToast } from "../utils";
 import {
   CancelJobAction,
   DownloadJobArtifactsSubmenu,
@@ -184,12 +184,7 @@ export function JobList(props: {
   pipelineIID?: string | undefined;
   navigationTitle?: string;
 }) {
-  const { stages, error, isLoading, refresh } = useSearch(
-    "",
-    props.projectFullPath,
-    props.pipelineID,
-    props.pipelineIID,
-  );
+  const { stages, error, isLoading, refresh } = useSearch(props.projectFullPath, props.pipelineID, props.pipelineIID);
   useInterval(() => {
     refresh();
   }, getCIRefreshInterval());
@@ -235,7 +230,6 @@ function jobArtifactsFromJson(artifacts: JobArtifact[] | undefined): JobArtifact
 }
 
 export function useSearch(
-  query: string | undefined,
   projectFullPath: string,
   pipelineID: number,
   pipelineIID?: string | undefined,
@@ -245,97 +239,62 @@ export function useSearch(
   isLoading: boolean;
   refresh: () => void;
 } {
-  const [stages, setStages] = useState<Record<string, Job[]> | undefined>();
-  const [error, setError] = useState<string>();
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [timestamp, setTimestamp] = useState<Date>(now());
-
-  const refresh = () => {
-    setTimestamp(now());
-  };
-
-  useEffect(() => {
-    // FIXME In the future version, we don't need didUnmount checking
-    // https://github.com/facebook/react/pull/22114
-    let didUnmount = false;
-
-    async function fetchData() {
-      if (query === null || didUnmount) {
-        return;
+  const { data, error, isLoading, revalidate } = usePromise(
+    async (fullPath: string, pid: number, piid?: string): Promise<Record<string, Job[]> | undefined> => {
+      if (pid) {
+        const projectUE = encodeURIComponent(fullPath);
+        const jobs: RESTJob[] = await gitlab
+          .fetch(`projects/${projectUE}/pipelines/${pid}/jobs`)
+          .then((data) => data as RESTJob[]);
+        jobs.sort((a, b) => a.id - b.id);
+        const stages: Record<string, Job[]> = {};
+        for (const job of jobs) {
+          if (!stages[job.stage]) {
+            stages[job.stage] = [];
+          }
+          stages[job.stage].push({
+            id: `${job.id}`,
+            projectId: job.pipeline.project_id,
+            name: job.name,
+            status: job.status,
+            allowFailure: job.allowFailure,
+            artifacts: jobArtifactsFromJson(job.artifacts),
+          });
+        }
+        return stages;
       }
-
-      setIsLoading(true);
-      setError(undefined);
-
-      try {
-        if (pipelineID) {
-          const projectUE = encodeURIComponent(projectFullPath);
-          const jobs: RESTJob[] = await gitlab
-            .fetch(`projects/${projectUE}/pipelines/${pipelineID}/jobs`)
-            .then((data) => data as RESTJob[]);
-          jobs.sort((a, b) => a.id - b.id);
-          const stages: Record<string, Job[]> = {};
-          for (const job of jobs) {
-            if (!stages[job.stage]) {
-              stages[job.stage] = [];
-            }
-            stages[job.stage].push({
-              id: `${job.id}`,
-              projectId: job.pipeline.project_id,
+      if (piid) {
+        const data = await getGitLabGQL().client.query({
+          query: GET_PIPELINE_JOBS,
+          variables: { fullPath, pipelineIID: piid },
+          fetchPolicy: "network-only",
+        });
+        const stages: Record<string, Job[]> = {};
+        for (const stage of data.data.project.pipeline.stages.nodes) {
+          if (!stages[stage.name]) {
+            stages[stage.name] = [];
+          }
+          for (const job of stage.jobs.nodes) {
+            stages[stage.name].push({
+              id: job.id,
+              projectId: getIdFromGqlId(job.pipeline.project.id),
               name: job.name,
               status: job.status,
               allowFailure: job.allowFailure,
-              artifacts: jobArtifactsFromJson(job.artifacts),
+              artifacts: [],
             });
           }
-          if (!didUnmount) {
-            setStages(stages);
-          }
-        } else if (pipelineIID) {
-          const data = await getGitLabGQL().client.query({
-            query: GET_PIPELINE_JOBS,
-            variables: { fullPath: projectFullPath, pipelineIID: pipelineIID },
-            fetchPolicy: "network-only",
-          });
-          const stages: Record<string, Job[]> = {};
-          for (const stage of data.data.project.pipeline.stages.nodes) {
-            if (!stages[stage.name]) {
-              stages[stage.name] = [];
-            }
-            for (const job of stage.jobs.nodes) {
-              stages[stage.name].push({
-                id: job.id,
-                projectId: getIdFromGqlId(job.pipeline.project.id),
-                name: job.name,
-                status: job.status,
-                allowFailure: job.allowFailure,
-                artifacts: [],
-              });
-            }
-          }
-          if (!didUnmount) {
-            setStages(stages);
-          }
         }
-      } catch (e) {
-        if (!didUnmount) {
-          setError(getErrorMessage(e));
-        }
-      } finally {
-        if (!didUnmount) {
-          setIsLoading(false);
-        }
+        return stages;
       }
-    }
+      return undefined;
+    },
+    [projectFullPath, pipelineID, pipelineIID],
+    // The error is surfaced via `error` and toasted by the caller in render.
+    { onError: () => undefined },
+  );
 
-    fetchData();
-
-    return () => {
-      didUnmount = true;
-    };
-  }, [query, projectFullPath, pipelineID, pipelineIID, timestamp]);
-
-  return { stages, error, isLoading, refresh };
+  return { stages: data, error: error ? getErrorMessage(error) : undefined, isLoading, refresh: revalidate };
 }
 
 interface Pipeline {
@@ -392,47 +351,13 @@ function useCommit(
   error?: string;
   isLoading: boolean;
 } {
-  const [commit, setCommit] = useState<Commit>();
-  const [error, setError] = useState<string>();
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const { data, error, isLoading } = usePromise(
+    (projectId: number, commitSha: string) =>
+      gitlab.fetch(`projects/${projectId}/repository/commits/${commitSha}`).then((data) => data as Commit),
+    [projectID, sha],
+    // The error is surfaced via `error` and toasted by the caller in render.
+    { onError: () => undefined },
+  );
 
-  useEffect(() => {
-    // FIXME In the future version, we don't need didUnmount checking
-    // https://github.com/facebook/react/pull/22114
-    let didUnmount = false;
-
-    async function fetchData() {
-      if (didUnmount) {
-        return;
-      }
-
-      setIsLoading(true);
-      setError(undefined);
-
-      try {
-        const glCommit = await gitlab.fetch(`projects/${projectID}/repository/commits/${sha}`).then((data) => {
-          return data as Commit;
-        });
-        if (!didUnmount) {
-          setCommit(glCommit);
-        }
-      } catch (e) {
-        if (!didUnmount) {
-          setError(getErrorMessage(e));
-        }
-      } finally {
-        if (!didUnmount) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchData();
-
-    return () => {
-      didUnmount = true;
-    };
-  }, [projectID, sha]);
-
-  return { commit, error, isLoading };
+  return { commit: data, error: error ? getErrorMessage(error) : undefined, isLoading };
 }

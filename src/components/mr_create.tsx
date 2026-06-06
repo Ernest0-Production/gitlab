@@ -2,8 +2,8 @@ import { showToast, Toast, Form, Icon, popToRoot, Image, ActionPanel, Action } f
 import { Project, Branch, Issue, TemplateDetail } from "../gitlabapi";
 import { gitlab } from "../common";
 import { useState, useEffect } from "react";
+import { usePromise, useCachedPromise } from "@raycast/utils";
 import { getErrorMessage, projectIcon, showErrorToast, stringToSlug, toFormValues } from "../utils";
-import { useCache } from "../cache";
 import { useProjectMR, useMilestones, ProjectInfoMR } from "../hooks";
 
 interface MRFormValues {
@@ -39,20 +39,19 @@ async function submit(values: MRFormValues) {
   }
 }
 
-async function getProjectBranches(projectID: number) {
-  const branches = ((await gitlab.fetch(`projects/${projectID}/repository/branches`, {}, true)) as Branch[]) || [];
-  const project = await gitlab.getProject(projectID);
-  return { branches, project };
-}
-
 export function IssueMRCreateForm({ issue, projectID, title }: { issue: Issue; projectID: number; title: string }) {
   const branchName = `${issue.iid}-${stringToSlug(issue.title)}`;
-  const [branches, setBranches] = useState<Branch[]>();
-  const [project, setProject] = useState<Project>();
-
-  useEffect(() => {
-    projectID && getProjectBranches(projectID).then((data) => (setProject(data?.project), setBranches(data?.branches))); // eslint-disable-line @typescript-eslint/no-unused-expressions
-  }, [projectID]);
+  const { data } = usePromise(
+    async (projectId: number) => {
+      const branches = ((await gitlab.fetch(`projects/${projectId}/repository/branches`, {}, true)) as Branch[]) || [];
+      const project = await gitlab.getProject(projectId);
+      return { branches, project };
+    },
+    [projectID],
+    { execute: !!projectID, onError: () => undefined },
+  );
+  const branches = data?.branches;
+  const project = data?.project;
 
   async function submit(values: { source_branch: string; target_branch: string }) {
     const { source_branch, target_branch } = values;
@@ -101,16 +100,9 @@ export function MRCreateForm(props: { project?: Project | undefined; branch?: st
     data: projects,
     error: errorProjects,
     isLoading: isLoadingProjects,
-  } = useCache<Project[]>(
-    "mrFormProjects",
-    async (): Promise<Project[]> => {
-      const pros = (await gitlab.getUserProjects({}, true)) || [];
-      return pros;
-    },
-    {
-      deps: [],
-    },
-  );
+  } = useCachedPromise(async (): Promise<Project[]> => (await gitlab.getUserProjects({}, true)) || [], [], {
+    onError: () => undefined,
+  });
   const { projectinfo, errorProjectInfo, isLoadingProjectInfo } = useProjectMR(selectedProject);
   const members = projectinfo?.members || [];
   const labels = projectinfo?.labels || [];
@@ -118,12 +110,12 @@ export function MRCreateForm(props: { project?: Project | undefined; branch?: st
 
   let project: Project | undefined;
   if (selectedProject) {
-    project = projects?.find((pro) => pro.id.toString() === selectedProject);
+    project = projects?.find((candidate) => candidate.id.toString() === selectedProject);
   }
   const { milestoneInfo, errorMilestoneInfo, isLoadingMilestoneInfo } = useMilestones(project?.group_id);
 
   const isLoading = isLoadingProjects || isLoadingProjectInfo || isLoadingMilestoneInfo;
-  const error = errorProjects || errorProjectInfo || errorMilestoneInfo;
+  const error = (errorProjects ? getErrorMessage(errorProjects) : undefined) || errorProjectInfo || errorMilestoneInfo;
   if (error) {
     showErrorToast(error, "Cannot create Merge Request");
   }
@@ -139,13 +131,13 @@ export function MRCreateForm(props: { project?: Project | undefined; branch?: st
   const [selectedTemplateName, setSelectedTemplateName] = useState<string>(NO_TEMPLATE);
   const [description, setDescription] = useState<string | undefined>(undefined);
 
-  const { data: selectedTemplateDetail } = useCache<TemplateDetail | undefined>(
-    `project_${project?.id}_selected_template_${selectedTemplateName}`,
-    async () => {
-      if (selectedTemplateName === NO_TEMPLATE) return undefined;
-      return await gitlab.getProjectMergeRequestTemplate(project?.id || 0, selectedTemplateName);
+  const { data: selectedTemplateDetail } = useCachedPromise(
+    async (templateName: string): Promise<TemplateDetail | undefined> => {
+      if (templateName === NO_TEMPLATE) return undefined;
+      return gitlab.getProjectMergeRequestTemplate(project?.id || 0, templateName);
     },
-    { deps: [selectedTemplateName] },
+    [selectedTemplateName],
+    { onError: () => undefined },
   );
 
   useEffect(() => {
@@ -217,11 +209,11 @@ export function MRCreateForm(props: { project?: Project | undefined; branch?: st
       </Form.TagPicker>
       <Form.Dropdown id="milestone_id" title="Milestone">
         <Form.Dropdown.Item key={"no_milestone"} value={""} title={"-"} />
-        {projectinfo?.milestones?.map((m) => (
-          <Form.Dropdown.Item key={m.id} value={m.id.toString()} title={m.title} />
+        {projectinfo?.milestones?.map((milestone) => (
+          <Form.Dropdown.Item key={milestone.id} value={milestone.id.toString()} title={milestone.title} />
         ))}
-        {milestoneInfo?.map((m) => (
-          <Form.Dropdown.Item key={m.id} value={m.id.toString()} title={m.title} />
+        {milestoneInfo?.map((milestone) => (
+          <Form.Dropdown.Item key={milestone.id} value={milestone.id.toString()} title={milestone.title} />
         ))}
       </Form.Dropdown>
       <Form.Checkbox
@@ -263,9 +255,9 @@ function SourceBranchDropdown(props: {
   value?: string | undefined;
 }) {
   if (props.project && props.info) {
-    const branches = props.info.branches.filter((b) => b.name !== "main");
+    const branches = props.info.branches.filter((branch) => branch.name !== "main");
     let value = undefined;
-    if (props.value && branches.find((b) => b.name === props.value)) {
+    if (props.value && branches.find((branch) => branch.name === props.value)) {
       value = props.value;
     } else {
       value = branches.length > 0 ? branches[0].name : "";
@@ -291,9 +283,9 @@ function TargetBranchDropdown(props: {
   info?: Pick<ProjectInfoMR, "branches"> | undefined;
 }) {
   if (props.project && props.info) {
-    const pro = props.project;
+    const project = props.project;
     const defaultBranch =
-      pro.default_branch && pro.default_branch.length > 0 ? props.project.default_branch : undefined;
+      project.default_branch && project.default_branch.length > 0 ? project.default_branch : undefined;
     return (
       <Form.Dropdown id="target_branch" title="Target branch" defaultValue={defaultBranch}>
         {props.info?.branches.map((branch) => (
@@ -307,6 +299,8 @@ function TargetBranchDropdown(props: {
 }
 
 function ProjectDropdownItem(props: { project: Project }) {
-  const pro = props.project;
-  return <Form.Dropdown.Item value={pro.id.toString()} title={pro.name_with_namespace} icon={projectIcon(pro)} />;
+  const project = props.project;
+  return (
+    <Form.Dropdown.Item value={project.id.toString()} title={project.name_with_namespace} icon={projectIcon(project)} />
+  );
 }

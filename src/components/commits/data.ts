@@ -5,8 +5,6 @@ import { gitlab } from "../../common";
 import { getErrorMessage } from "../../utils";
 import { Commit } from "./types";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 export type ListPagination = List.Props["pagination"];
 
 export function usePaginatedProjectCommits(options: {
@@ -40,7 +38,7 @@ export function usePaginatedProjectCommits(options: {
         paginationOptions.page + 1,
         20,
       );
-      const commits: Commit[] = pageData.map((item: any) => item as Commit);
+      const commits = pageData as Commit[];
       return { data: commits, hasMore };
     },
     [options.cacheKey],
@@ -83,7 +81,7 @@ export function usePaginatedMergeRequestCommits(options: {
         paginationOptions.page + 1,
         20,
       );
-      const commits: Commit[] = pageData.map((item: any) => item as Commit);
+      const commits = pageData as Commit[];
       return { data: commits, hasMore };
     },
     [options.cacheKey],

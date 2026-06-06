@@ -19,10 +19,6 @@ async function launchTodosCommand() {
   }
 }
 
-function getMaxTodosPreference(): number {
-  return getBoundedPreferenceNumber({ name: "maxtodos" });
-}
-
 export default function TodosMenuBarCommand(): React.ReactNode | null {
   const { todos, error, isLoading } = useTodos();
   const { grayicon, alwaysshow, showtext } = getPreferenceValues<Preferences.Todomenubar>();
@@ -54,17 +50,17 @@ export default function TodosMenuBarCommand(): React.ReactNode | null {
         />
       </MenuBarSection>
       <MenuBarSection
-        maxChildren={getMaxTodosPreference()}
+        maxChildren={getBoundedPreferenceNumber({ name: "maxtodos" })}
         moreElement={(hidden) => <MenuBarExtra.Item title={`... ${hidden} more`} onAction={launchTodosCommand} />}
       >
-        {todos?.map((t) => (
+        {todos?.map((todo) => (
           <MenuBarItem
-            key={t.id}
-            title={t.title ? t.title : "?"}
-            subtitle={getPrettyTodoActionName(t)}
-            icon={getTodoIcon(t, { light: "#000000", dark: "FFFFFF", adjustContrast: false })}
-            tooltip={t.project_with_namespace}
-            onAction={() => (t.target_url ? open(t.target_url) : launchTodosCommand())}
+            key={todo.id}
+            title={todo.title ? todo.title : "?"}
+            subtitle={getPrettyTodoActionName(todo)}
+            icon={getTodoIcon(todo, { light: "#000000", dark: "FFFFFF", adjustContrast: false })}
+            tooltip={todo.project_with_namespace}
+            onAction={() => (todo.target_url ? open(todo.target_url) : launchTodosCommand())}
           />
         ))}
       </MenuBarSection>

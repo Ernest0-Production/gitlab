@@ -1,7 +1,7 @@
 import { Action, ActionPanel, Color, Icon, Image, List } from "@raycast/api";
 import { GitLabIcons } from "../../icons";
 import { useUserAvatar } from "../../hooks";
-import { copySecondaryShortcut, copyShortcut, formatDate } from "../../utils";
+import { copySecondaryShortcut, copyShortcut, formatDate, formatDateTime } from "../../utils";
 import { GitLabOpenInBrowserAction } from "../actions";
 import { Commit } from "./types";
 
@@ -21,7 +21,7 @@ export function CommitListItem(props: { commit: Commit }) {
       accessories={[
         {
           text: formatDate(commit.created_at),
-          tooltip: `Created: ${new Date(commit.created_at).toLocaleString()}`,
+          tooltip: `Created: ${formatDateTime(commit.created_at)}`,
         },
       ]}
       actions={

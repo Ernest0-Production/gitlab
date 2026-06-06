@@ -1,6 +1,7 @@
 import { ActionPanel, List, Image, Color } from "@raycast/api";
-import { useEffect, useState } from "react";
-import { Project } from "../gitlabapi";
+import { usePromise } from "@raycast/utils";
+import { useState } from "react";
+import { Branch, Project } from "../gitlabapi";
 import { gitlab } from "../common";
 import { GitLabIcons } from "../icons";
 import { CreateMRAction, ShowBranchCommitsAction } from "./branch_actions";
@@ -8,8 +9,6 @@ import { GitLabOpenInBrowserAction } from "./actions";
 import { useCommitStatus } from "./commits/utils";
 import { getCIJobStatusIcon } from "./jobs";
 import { capitalizeFirstLetter, showErrorToast } from "../utils";
-
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 function getIcon(merged: boolean): Image {
   if (merged) {
@@ -19,9 +18,9 @@ function getIcon(merged: boolean): Image {
   }
 }
 
-export function BranchListItem(props: { branch: any; project: Project }) {
+export function BranchListItem(props: { branch: Branch; project: Project }) {
   const branch = props.branch;
-  const icon = getIcon(branch.merged as boolean);
+  const icon = getIcon(branch.merged === true);
   const isMergedStatus = branch.merged === true ? "Merged" : "Open";
   const project = props.project;
   const states = [];
@@ -79,50 +78,17 @@ export function useSearch(
   query: string | undefined,
   project: Project,
 ): {
-  branches: any[];
+  branches: Branch[];
   error?: string;
   isLoading: boolean;
 } {
-  const [branches, setBranches] = useState<any[]>([]);
-  const [error, setError] = useState<string>();
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-
-  useEffect(() => {
-    // FIXME In the future version, we don't need didUnmount checking
-    // https://github.com/facebook/react/pull/22114
-    let didUnmount = false;
-
-    async function fetchData() {
-      if (query === null || didUnmount) {
-        return;
-      }
-
-      setIsLoading(true);
-      setError(undefined);
-
-      try {
-        const glData =
-          (await gitlab.fetch(`projects/${project.id}/repository/branches`, { search: query || "" })) || [];
-        if (!didUnmount) {
-          setBranches(glData);
-        }
-      } catch (e: any) {
-        if (!didUnmount) {
-          setError(e.message);
-        }
-      } finally {
-        if (!didUnmount) {
-          setIsLoading(false);
-        }
-      }
-    }
-
-    fetchData();
-
-    return () => {
-      didUnmount = true;
-    };
-  }, [query, project]);
-
-  return { branches, error, isLoading };
+  const { data, error, isLoading } = usePromise(
+    async (searchQuery: string, projectId: number): Promise<Branch[]> => {
+      return (await gitlab.fetch(`projects/${projectId}/repository/branches`, { search: searchQuery })) || [];
+    },
+    [query ?? "", project.id],
+    // The error is surfaced via `error` and toasted by the caller in render.
+    { onError: () => undefined },
+  );
+  return { branches: data ?? [], error: error?.message, isLoading };
 }

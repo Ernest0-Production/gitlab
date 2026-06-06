@@ -9,10 +9,10 @@
 
 import { List } from "@raycast/api";
 import { useState } from "react";
-import { useCache } from "../cache";
+import { useCachedPromise } from "@raycast/utils";
 import { gitlab } from "../common";
 import { Issue, Project } from "../gitlabapi";
-import { daysInSeconds, showErrorToast } from "../utils";
+import { getErrorMessage, showErrorToast } from "../utils";
 import { IssueListEmptyView, IssueListItem, IssueScope, IssueState } from "./issues";
 import { MyProjectsDropdown } from "./project";
 
@@ -55,11 +55,11 @@ export function MyIssues(props: { scope: IssueScope; state: IssueState }) {
   const scope = props.scope;
   const state = props.state;
   const [project, setProject] = useState<Project>();
-  const { issues: raw, isLoading, error, performRefetch } = useMyIssues(scope, state, project);
+  const { issues: raw, isLoading, error, performRefetch } = useMyIssues(scope, state);
   if (error) {
     showErrorToast(error, "Cannot load Issues");
   }
-  const issues: Issue[] | undefined = project ? raw?.filter((i) => i.project_id === project.id) : raw;
+  const issues: Issue[] | undefined = project ? raw?.filter((issue) => issue.project_id === project.id) : raw;
   const title = scope == IssueScope.assigned_to_me ? "Your Assigned Issues" : "Your Recently Created Issues";
   return (
     <MyIssueList
@@ -75,7 +75,6 @@ export function MyIssues(props: { scope: IssueScope; state: IssueState }) {
 export function useMyIssues(
   scope: IssueScope,
   state: IssueState,
-  project: Project | undefined,
   params?: Record<string, any>,
 ): {
   issues: Issue[] | undefined;
@@ -87,23 +86,18 @@ export function useMyIssues(
     data: issues,
     isLoading,
     error,
-    performRefetch,
-  } = useCache<Issue[] | undefined>(
-    `myissues_${scope}_${state}_${params ? JSON.stringify(params) : ""}`,
-    async (): Promise<Issue[] | undefined> => {
-      // Merge state/scope with any additional params
+    revalidate,
+  } = useCachedPromise(
+    async (
+      scope: IssueScope,
+      state: IssueState,
+      params: Record<string, any> | undefined,
+    ): Promise<Issue[] | undefined> => {
       const apiParams = { state, scope, ...(params || {}) };
-      return await gitlab.getIssues(
-        apiParams,
-        undefined,
-        scope === IssueScope.assigned_to_me && state === IssueState.opened ? true : false,
-      );
+      return gitlab.getIssues(apiParams, undefined, scope === IssueScope.assigned_to_me && state === IssueState.opened);
     },
-    {
-      deps: [project?.id, scope, state, JSON.stringify(params)], // Use project?.id for stable dependency
-      secondsToRefetch: 10,
-      secondsToInvalid: daysInSeconds(7),
-    },
+    [scope, state, params],
+    { onError: () => undefined },
   );
-  return { issues, isLoading, error, performRefetch };
+  return { issues, isLoading, error: error ? getErrorMessage(error) : undefined, performRefetch: revalidate };
 }
