@@ -21,7 +21,6 @@ const MERGE_REQUEST_LIST_FIELDS = gql`
     updatedAt
     mergedAt
     closedAt
-    draft
     conflicts
     autoMergeEnabled
     forceRemoveSourceBranch
@@ -29,20 +28,17 @@ const MERGE_REQUEST_LIST_FIELDS = gql`
     sourceBranch
     targetBranch
     targetProjectId
-    userNotesCount
     resolvedDiscussionsCount
     resolvableDiscussionsCount
     author {
       id
       name
-      username
       avatarUrl
     }
     assignees {
       nodes {
         id
         name
-        username
         avatarUrl
       }
     }
@@ -50,7 +46,6 @@ const MERGE_REQUEST_LIST_FIELDS = gql`
       nodes {
         id
         name
-        username
         avatarUrl
       }
     }
@@ -59,20 +54,35 @@ const MERGE_REQUEST_LIST_FIELDS = gql`
         id
         title
         color
-        textColor
-        description
       }
     }
     milestone {
-      id
       title
     }
     headPipeline {
       id
       status
+      detailedStatus {
+        label
+        name
+      }
+    }
+    pipelines(first: 1) {
+      nodes {
+        id
+        status
+        detailedStatus {
+          label
+          name
+        }
+      }
     }
     userPermissions {
       canMerge
+    }
+    description
+    project {
+      webUrl
     }
   }
 `;
@@ -310,32 +320,12 @@ const CURRENT_USER_REVIEW_MERGE_REQUESTS = gql`
   }
 `;
 
-const MERGE_REQUEST_DETAIL_FIELDS = gql`
-  ${MERGE_REQUEST_LIST_FIELDS}
-  fragment MergeRequestDetailFields on MergeRequest {
-    ...MergeRequestListFields
-    description
-    project {
-      webUrl
-    }
-  }
-`;
-
-const MERGE_REQUEST_BY_ID = gql`
-  ${MERGE_REQUEST_DETAIL_FIELDS}
-  query MergeRequestById($id: MergeRequestID!) {
-    mergeRequest(id: $id) {
-      ...MergeRequestDetailFields
-    }
-  }
-`;
-
 const PROJECT_MERGE_REQUEST_BY_IID = gql`
-  ${MERGE_REQUEST_DETAIL_FIELDS}
+  ${MERGE_REQUEST_LIST_FIELDS}
   query ProjectMergeRequestByIid($fullPath: ID!, $iid: String!) {
     project(fullPath: $fullPath) {
       mergeRequest(iid: $iid) {
-        ...MergeRequestDetailFields
+        ...MergeRequestListFields
       }
     }
   }
@@ -351,8 +341,13 @@ type MRListSource =
 interface GqlUserNode {
   id: string;
   name: string;
-  username: string;
   avatarUrl?: string | null;
+}
+
+interface GqlPipelineNode {
+  id: string;
+  status: string;
+  detailedStatus?: { label?: string | null; name?: string | null } | null;
 }
 
 interface GqlMRListNode {
@@ -366,7 +361,6 @@ interface GqlMRListNode {
   updatedAt: string;
   mergedAt?: string | null;
   closedAt?: string | null;
-  draft: boolean;
   conflicts: boolean;
   autoMergeEnabled: boolean;
   forceRemoveSourceBranch?: boolean | null;
@@ -374,7 +368,6 @@ interface GqlMRListNode {
   sourceBranch: string;
   targetBranch: string;
   targetProjectId: number;
-  userNotesCount?: number | null;
   resolvedDiscussionsCount?: number | null;
   resolvableDiscussionsCount?: number | null;
   description?: string | null;
@@ -383,16 +376,12 @@ interface GqlMRListNode {
   assignees?: { nodes: GqlUserNode[] };
   reviewers?: { nodes: GqlUserNode[] };
   labels?: {
-    nodes: { id: string; title: string; color: string; textColor?: string | null; description?: string | null }[];
+    nodes: { id: string; title: string; color: string }[];
   };
-  milestone?: { id: string; title: string } | null;
-  headPipeline?: { id: string; status: string } | null;
+  milestone?: { title: string } | null;
+  headPipeline?: GqlPipelineNode | null;
+  pipelines?: { nodes: GqlPipelineNode[] };
   userPermissions?: { canMerge: boolean };
-}
-
-export interface MRDetailGqlData {
-  description: string;
-  projectWebUrl: string;
 }
 
 interface GqlMRConnection {
@@ -442,7 +431,6 @@ function gqlUserToUser(user: GqlUserNode | null | undefined): User | undefined {
   const mapped = new User();
   mapped.id = getIdFromGqlId(user.id);
   mapped.name = user.name;
-  mapped.username = user.username;
   mapped.avatar_url = resolveAvatarUrl(user.avatarUrl);
   return mapped;
 }
@@ -454,8 +442,31 @@ function pipelineStatusToRest(status: string | undefined): string | undefined {
   return status.toLowerCase();
 }
 
+function pipelineStatusFromGql(pipeline: GqlPipelineNode | null | undefined): string | undefined {
+  if (!pipeline) {
+    return undefined;
+  }
+  const fromStatus = pipelineStatusToRest(pipeline.status);
+  if (fromStatus) {
+    return fromStatus;
+  }
+  const detailed = pipeline.detailedStatus;
+  if (detailed?.name) {
+    return pipelineStatusToRest(detailed.name);
+  }
+  if (detailed?.label) {
+    return pipelineStatusToRest(detailed.label);
+  }
+  return undefined;
+}
+
+function mergeRequestListPipeline(node: GqlMRListNode): GqlPipelineNode | null | undefined {
+  return node.headPipeline ?? node.pipelines?.nodes?.[0];
+}
+
 export function gqlNodeToMergeRequest(node: GqlMRListNode): MergeRequest {
-  const headStatus = pipelineStatusToRest(node.headPipeline?.status);
+  const listPipeline = mergeRequestListPipeline(node);
+  const headStatus = pipelineStatusFromGql(listPipeline);
   return {
     title: node.title,
     web_url: node.webUrl,
@@ -471,6 +482,7 @@ export function gqlNodeToMergeRequest(node: GqlMRListNode): MergeRequest {
     reviewers: node.reviewers?.nodes.map((user) => gqlUserToUser(user)).filter((user): user is User => !!user) ?? [],
     project_id: node.targetProjectId,
     description: node.description ?? "",
+    project_web_url: node.project?.webUrl ?? "",
     reference_full: node.reference ?? "",
     labels:
       node.labels?.nodes.map(
@@ -478,28 +490,30 @@ export function gqlNodeToMergeRequest(node: GqlMRListNode): MergeRequest {
           id: getIdFromGqlId(label.id),
           name: label.title,
           color: label.color,
-          textColor: label.textColor ?? "",
-          description: label.description ?? "",
+          textColor: "",
+          description: "",
         }),
       ) ?? [],
     source_branch: node.sourceBranch,
     target_branch: node.targetBranch,
     merge_commit_sha: "",
     sha: "",
-    milestone: node.milestone ? { id: getIdFromGqlId(node.milestone.id), title: node.milestone.title } : undefined,
-    draft: node.draft,
+    milestone: node.milestone ? { id: 0, title: node.milestone.title } : undefined,
+    draft: false,
     has_conflicts: node.conflicts === true,
     force_remove_source_branch: node.forceRemoveSourceBranch ?? undefined,
     squash_on_merge: node.squashOnMerge ?? undefined,
     merge_when_pipeline_succeeds: node.autoMergeEnabled,
-    user_notes_count: node.userNotesCount ?? undefined,
+    user_notes_count: undefined,
     resolved_discussions_count: node.resolvedDiscussionsCount ?? undefined,
     resolvable_discussions_count: node.resolvableDiscussionsCount ?? undefined,
     user: node.userPermissions ? { can_merge: node.userPermissions.canMerge === true } : undefined,
-    head_pipeline:
-      node.headPipeline?.id && headStatus
-        ? { id: getIdFromGqlId(node.headPipeline.id), status: headStatus }
-        : undefined,
+    head_pipeline: headStatus
+      ? {
+          id: listPipeline?.id ? getIdFromGqlId(listPipeline.id) : 0,
+          status: headStatus,
+        }
+      : undefined,
   };
 }
 
@@ -845,28 +859,6 @@ export async function fetchMergeRequestsGqlList(options: {
 
   resetMRListGqlCursors(cacheKey);
   return all.slice(0, limit);
-}
-
-function detailFromGqlNode(node: GqlMRListNode): MRDetailGqlData {
-  return {
-    description: node.description || "<no description>",
-    projectWebUrl: node.project?.webUrl ?? "",
-  };
-}
-
-export async function fetchMergeRequestGqlByGlobalId(
-  id: number,
-): Promise<{ mr: MergeRequest; detail: MRDetailGqlData }> {
-  const response = await getGitLabGQL().client.query({
-    query: MERGE_REQUEST_BY_ID,
-    variables: { id: `gid://gitlab/MergeRequest/${id}` },
-    fetchPolicy: "network-only",
-  });
-  const node = response.data?.mergeRequest as GqlMRListNode | undefined;
-  if (!node) {
-    throw new Error("Merge request not found");
-  }
-  return { mr: gqlNodeToMergeRequest(node), detail: detailFromGqlNode(node) };
 }
 
 export async function fetchMergeRequestGqlByProjectIid(project: Project, iid: number): Promise<MergeRequest> {

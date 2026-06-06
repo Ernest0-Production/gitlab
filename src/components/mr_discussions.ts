@@ -58,7 +58,7 @@ export function getMRDiscussionMetadataLabel(
   stats: MRDiscussionStats | undefined,
   isLoading?: boolean,
 ): string | undefined {
-  if (isLoading && (mr.user_notes_count ?? 0) > 0) {
+  if (isLoading) {
     return "Loading...";
   }
   if (stats && stats.resolvableTotal > 0) {
@@ -72,13 +72,9 @@ export function useMRDiscussionStats(mr: MergeRequest): {
   isLoading: boolean | undefined;
 } {
   const listStats = discussionStatsFromMergeRequest(mr);
-  const hasListStats = listStats !== undefined || mr.resolvable_discussions_count === 0;
-  const notesCount = mr.user_notes_count ?? 0;
+  const hasListCounts = mr.resolved_discussions_count !== undefined && mr.resolvable_discussions_count !== undefined;
   const { data, isLoading } = useCachedPromise(
-    async (projectID: number, iid: number, count: number): Promise<MRDiscussionStats | undefined> => {
-      if (count <= 0) {
-        return undefined;
-      }
+    async (projectID: number, iid: number): Promise<MRDiscussionStats | undefined> => {
       const discussions = await gitlab.getMergeRequestDiscussions(projectID, iid);
       const stats = countMRDiscussionStats(discussions);
       if (stats.resolvableTotal <= 0) {
@@ -86,8 +82,8 @@ export function useMRDiscussionStats(mr: MergeRequest): {
       }
       return stats;
     },
-    [mr.project_id, mr.iid, notesCount],
-    { execute: !hasListStats && notesCount > 0, onError: () => undefined },
+    [mr.project_id, mr.iid],
+    { execute: !hasListCounts, onError: () => undefined },
   );
-  return { stats: listStats ?? data, isLoading: hasListStats ? false : isLoading };
+  return { stats: listStats ?? data, isLoading: hasListCounts ? false : isLoading };
 }

@@ -262,10 +262,16 @@ export function getMRHeadPipelineStatus(mr: MergeRequest | undefined): string | 
   return mr?.head_pipeline?.status;
 }
 
+function projectWebUrlFromMrWebUrl(webUrl: string): string {
+  const index = webUrl.indexOf("/-/");
+  return index > 1 ? webUrl.substring(0, index) : "";
+}
+
 export function jsonDataToMergeRequest(mr: GitLabMergeRequestJson): MergeRequest {
   return {
     title: mr.title,
     web_url: mr.web_url,
+    project_web_url: projectWebUrlFromMrWebUrl(mr.web_url),
     id: mr.id,
     iid: mr.iid,
     state: mr.state,
@@ -460,6 +466,7 @@ export interface MRHeadPipeline {
 export class MergeRequest {
   public title = "";
   public description = "";
+  public project_web_url = "";
   public web_url = "";
   public id = 0;
   public iid = 0;

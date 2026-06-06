@@ -3,14 +3,19 @@ import { getMRHeadPipelineStatus, Group, MergeRequest, Project } from "../gitlab
 import { GitLabIcons } from "../icons";
 import { useCallback, useMemo, useState } from "react";
 import { getErrorMessage, hashRecord, optimizeMarkdownText, Query, showErrorToast, tokenizeQueryText } from "../utils";
-import { getMRDiscussionMetadataLabel, useMRDiscussionStats } from "./mr_discussions";
+import {
+  getMRDiscussionMetadataLabel,
+  discussionStatsFromMergeRequest,
+  formatMRDiscussionStatsLabel,
+  useMRDiscussionStats,
+} from "./mr_discussions";
 import { getMRStateListIcon } from "./mr_status";
 import { MRCopySection, MRItemActions, ShowMRCommitsAction, ShowMRPipelinesAction } from "./mr_actions";
 import { GitLabOpenInBrowserAction } from "./actions";
 import { getCIJobStatusIcon, getMRPipelineStatusTooltip } from "./jobs";
 import { MRDetailMetadata, MRListDetailMetadata } from "./mr_metadata";
 import { useCachedState, usePromise } from "@raycast/utils";
-import { fetchMergeRequestGqlByGlobalId, fetchMergeRequestGqlByProjectIid, MRDetailGqlData } from "./mr_gql";
+import { fetchMergeRequestGqlByProjectIid } from "./mr_gql";
 import { usePaginatedMergeRequests } from "./mr_data";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -92,32 +97,21 @@ export function MRDetailFetch(props: { project: Project; mrId: number }) {
   }
 }
 
-type MRDetailData = MRDetailGqlData;
+function mrDescriptionMarkdown(mr: MergeRequest, lineBreak = "  \n"): string {
+  const desc = mr.description || "<no description>";
+  const lines = [`# ${mr.title}`, optimizeMarkdownText(desc, mr.project_web_url)];
+  return lines.join(lineBreak);
+}
 
 export function MRDetail(props: { mr: MergeRequest }) {
   const mr = props.mr;
-  const { mrdetail, error, isLoading } = useDetail(props.mr.id);
   const { stats: discussionStats, isLoading: discussionsLoading } = useMRDiscussionStats(mr);
-  if (error) {
-    showErrorToast(error, "Could not get Merge Request Details");
-  }
 
   const discussionLabel = getMRDiscussionMetadataLabel(mr, discussionStats, discussionsLoading);
 
-  const desc = (mrdetail?.description ? mrdetail.description : props.mr.description) || "";
-
-  const lines: string[] = [];
-  if (mr) {
-    lines.push(`# ${mr.title}`);
-    lines.push(optimizeMarkdownText(desc, mrdetail?.projectWebUrl));
-  }
-
-  const md = lines.join("  \n");
-
   return (
     <Detail
-      markdown={md}
-      isLoading={isLoading}
+      markdown={mrDescriptionMarkdown(mr)}
       navigationTitle={`${props.mr.reference_full}`}
       actions={
         <ActionPanel>
@@ -137,46 +131,17 @@ export function MRDetail(props: { mr: MergeRequest }) {
 
 export function MRListDetail(props: { mr: MergeRequest }) {
   const mr = props.mr;
-  const { mrdetail, error, isLoading } = useDetail(props.mr.id);
   const { stats: discussionStats, isLoading: discussionsLoading } = useMRDiscussionStats(mr);
   const { isShowingMetadata } = useMRListMetadata();
-  if (error) {
-    showErrorToast(error, "Could not get Merge Request Details");
-  }
 
   const discussionLabel = getMRDiscussionMetadataLabel(mr, discussionStats, discussionsLoading);
 
-  const lines: string[] = [];
-  lines.push(`# ${mr.title}`);
-
-  const desc = mrdetail?.description ?? props.mr.description ?? "";
-  lines.push(optimizeMarkdownText(desc, mrdetail?.projectWebUrl));
-
   return (
     <List.Item.Detail
-      markdown={lines.join("\n")}
-      isLoading={isLoading}
+      markdown={mrDescriptionMarkdown(mr, "\n")}
       metadata={isShowingMetadata ? <MRListDetailMetadata mr={mr} discussionLabel={discussionLabel} /> : undefined}
     />
   );
-}
-
-function useDetail(issueID: number): {
-  mrdetail?: MRDetailData;
-  error?: string;
-  isLoading: boolean;
-} {
-  const { data, error, isLoading } = usePromise(
-    async (mrId: number): Promise<MRDetailData> => {
-      const { detail } = await fetchMergeRequestGqlByGlobalId(mrId);
-      return detail;
-    },
-    [issueID],
-    // The error is surfaced via `error` and toasted by the caller in render.
-    { execute: issueID > 0, onError: () => undefined },
-  );
-
-  return { mrdetail: data, error: error ? getErrorMessage(error) : undefined, isLoading };
 }
 
 export function buildMRListParams(query: string | undefined, scope: MRScope, state: MRState): Record<string, any> {
@@ -302,21 +267,12 @@ export function MRListItem(props: {
     : undefined;
 
   const showCIStatus = props.showCIStatus === undefined || props.showCIStatus === true;
-  const pipelineStatus = showCIStatus && !mr.has_conflicts ? getMRHeadPipelineStatus(mr) : undefined;
+  const pipelineStatus = showCIStatus ? getMRHeadPipelineStatus(mr) : undefined;
+  const discussionStats = discussionStatsFromMergeRequest(mr);
+  const discussionAccessoryLabel = discussionStats ? formatMRDiscussionStatsLabel(discussionStats) : undefined;
   const accessories: List.Item.Accessory[] = [];
   if (!isShowingDetail) {
-    if (pipelineStatus) {
-      accessories.push({
-        icon: getCIJobStatusIcon(pipelineStatus, false),
-        tooltip: getMRPipelineStatusTooltip(pipelineStatus),
-      });
-    }
-
     accessories.push(
-      {
-        icon: mr.merge_when_pipeline_succeeds && mr.state === "opened" ? Icon.Rewind : undefined,
-        tooltip: mr.merge_when_pipeline_succeeds && mr.state === "opened" ? "Auto Merge" : undefined,
-      },
       ...(mr.has_conflicts
         ? [
             {
@@ -326,11 +282,34 @@ export function MRListItem(props: {
             },
           ]
         : []),
-      ...(mr.milestone?.title ? [{ tag: mr.milestone.title, tooltip: "Milestone" }] : []),
+      ...(discussionAccessoryLabel
+        ? [
+            {
+              text: discussionAccessoryLabel,
+              icon: { source: Icon.SpeechBubble, tintColor: Color.PrimaryText },
+              tooltip: "Resolved discussions",
+            },
+          ]
+        : []),
     );
+  }
+  if (pipelineStatus) {
+    accessories.push({
+      icon: getCIJobStatusIcon(pipelineStatus, false),
+      tooltip: getMRPipelineStatusTooltip(pipelineStatus),
+    });
   }
   if (showAuthor && accessoryIcon) {
     accessories.push({ icon: accessoryIcon, tooltip: mr.author?.name });
+  }
+  if (!isShowingDetail) {
+    accessories.push(
+      {
+        icon: mr.merge_when_pipeline_succeeds && mr.state === "opened" ? Icon.Rewind : undefined,
+        tooltip: mr.merge_when_pipeline_succeeds && mr.state === "opened" ? "Auto Merge" : undefined,
+      },
+      ...(mr.milestone?.title ? [{ tag: mr.milestone.title, tooltip: "Milestone" }] : []),
+    );
   }
 
   const showDetailsIcon = { source: Icon.ArrowRight, tintColor: Color.PrimaryText };
