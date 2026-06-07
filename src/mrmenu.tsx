@@ -48,14 +48,11 @@ function getMaxMergeRequestsPreference(): number {
 }
 
 function getShowItemsCountPreference(): boolean {
-  const prefs = getPreferenceValues();
-  return prefs.showtext as boolean;
+  return getPreferenceValues().showtext as boolean;
 }
 
 function getLabelFilterPreference(preferenceName: string): string[] {
-  const prefs = getPreferenceValues();
-  const labelsString = (prefs[preferenceName] as string) || "";
-  return labelsString
+  return ((getPreferenceValues()[preferenceName] as string) || "")
     .split(",")
     .map((label) => label.trim())
     .filter((label) => label.length > 0);
@@ -116,15 +113,15 @@ export default function MenuCommand() {
               <MenuBarItem title={`... ${hidden} more created`} onAction={() => launchCreatedMergeRequests()} />
             )}
           >
-            {mrsCreated?.map((mr) => (
+            {mrsCreated?.map((mergeRequest) => (
               <MenuBarItem
                 icon={{
                   source: GitLabIcons.merge_request,
                   tintColor: { light: "#000", dark: "#FFF", adjustContrast: false },
                 }}
-                title={`!${mr.iid} ${mr.title}`}
-                tooltip={mr.reference_full}
-                onAction={() => open(mr.web_url)}
+                title={`!${mergeRequest.iid} ${mergeRequest.title}`}
+                tooltip={mergeRequest.reference_full}
+                onAction={() => open(mergeRequest.web_url)}
               />
             ))}
           </MenuBarSection>
@@ -155,15 +152,15 @@ export default function MenuCommand() {
               <MenuBarItem title={`... ${hidden} more assigned`} onAction={() => launchAssignedMergeRequests()} />
             )}
           >
-            {mrsAssigned?.map((mr) => (
+            {mrsAssigned?.map((mergeRequest) => (
               <MenuBarItem
                 icon={{
                   source: GitLabIcons.merge_request,
                   tintColor: { light: "#000", dark: "#FFF", adjustContrast: false },
                 }}
-                title={`!${mr.iid} ${mr.title}`}
-                tooltip={mr.reference_full}
-                onAction={() => open(mr.web_url)}
+                title={`!${mergeRequest.iid} ${mergeRequest.title}`}
+                tooltip={mergeRequest.reference_full}
+                onAction={() => open(mergeRequest.web_url)}
               />
             ))}
           </MenuBarSection>
@@ -194,15 +191,15 @@ export default function MenuCommand() {
               <MenuBarItem title={`... ${hidden} more to review`} onAction={() => launchReviewsCommand()} />
             )}
           >
-            {mrsReview?.map((mr) => (
+            {mrsReview?.map((mergeRequest) => (
               <MenuBarItem
                 icon={{
                   source: GitLabIcons.merge_request,
                   tintColor: { light: "#000", dark: "#FFF", adjustContrast: false },
                 }}
-                title={`!${mr.iid} ${mr.title}`}
-                tooltip={mr.reference_full}
-                onAction={() => open(mr.web_url)}
+                title={`!${mergeRequest.iid} ${mergeRequest.title}`}
+                tooltip={mergeRequest.reference_full}
+                onAction={() => open(mergeRequest.web_url)}
               />
             ))}
           </MenuBarSection>

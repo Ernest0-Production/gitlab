@@ -7,25 +7,31 @@ import { IssueDetail } from "./issues";
 import { MRDetail } from "./mr";
 
 export function ShowTodoDetailsAction(props: { todo: Todo }): React.ReactNode | null {
-  const todo = props.todo;
-  const icon = { source: GitLabIcons.show_details, tintColor: Color.PrimaryText };
-  const mrShowDetailsIcon = { source: Icon.ArrowRight, tintColor: Color.PrimaryText };
-  if (todo.target_type === "MergeRequest") {
-    const mr = jsonDataToMergeRequest(todo.target);
-    return <Action.Push title="Show Details" target={<MRDetail mr={mr} />} icon={mrShowDetailsIcon} />;
-  } else if (todo.target_type === "Issue") {
-    const issue = jsonDataToIssue(todo.target);
-    return <Action.Push title="Show Details" target={<IssueDetail issue={issue} />} icon={icon} />;
+  if (props.todo.target_type === "MergeRequest") {
+    return (
+      <Action.Push
+        title="Show Details"
+        target={<MRDetail mr={jsonDataToMergeRequest(props.todo.target)} />}
+        icon={{ source: Icon.ArrowRight, tintColor: Color.PrimaryText }}
+      />
+    );
+  } else if (props.todo.target_type === "Issue") {
+    return (
+      <Action.Push
+        title="Show Details"
+        target={<IssueDetail issue={jsonDataToIssue(props.todo.target)} />}
+        icon={{ source: GitLabIcons.show_details, tintColor: Color.PrimaryText }}
+      />
+    );
   } else {
     return null;
   }
 }
 
 export function CloseTodoAction(props: { todo: Todo; finished?: () => void }) {
-  const todo = props.todo;
   async function handleAction() {
     try {
-      await gitlab.post(`todos/${todo.id}/mark_as_done`);
+      await gitlab.post(`todos/${props.todo.id}/mark_as_done`);
       showToast(Toast.Style.Success, "Done", "Todo is now marked as done");
       if (props.finished) {
         props.finished();

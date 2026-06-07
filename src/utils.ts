@@ -144,8 +144,8 @@ export function optimizeMarkdownText(text: string, baseUrl?: string): string {
       const matches = result.match(regexMdLinks);
       if (matches) {
         const singleMatch = /\[([^[]+)\]\((.*)\)/;
-        for (let i = 0; i < matches.length; i++) {
-          const text = singleMatch.exec(matches[i]);
+        for (let index = 0; index < matches.length; index++) {
+          const text = singleMatch.exec(matches[index]);
           if (text) {
             const word = text[1];
             const link = text[2].trim();
@@ -171,18 +171,18 @@ export function hashString(text: string): string {
   return sha256.digest("hex");
 }
 
-export function hashRecord(rec: Record<string, unknown>, prefix?: string | undefined): string {
+export function hashRecord(record: Record<string, unknown>, prefix?: string | undefined): string {
   const sha256 = crypto.createHash("sha256");
-  Object.entries(rec)
+  Object.entries(record)
     .sort()
-    .forEach(([k, v]) => {
-      sha256.update(`${k}${v}`);
+    .forEach(([key, value]) => {
+      sha256.update(`${key}${value}`);
     });
-  const h = sha256.digest("hex");
+  const hashHex = sha256.digest("hex");
   if (prefix) {
-    return `${prefix}_${h}`;
+    return `${prefix}_${hashHex}`;
   } else {
-    return h;
+    return hashHex;
   }
 }
 
@@ -194,21 +194,21 @@ export function capitalizeFirstLetter(name: string): string {
 }
 
 export function toFormValues(values: Record<string, unknown>): Record<string, string> {
-  const val: Record<string, string> = {};
-  for (const [k, v] of Object.entries(values)) {
-    if (v) {
-      if (Array.isArray(v)) {
-        if (v.length > 0) {
-          val[k] = v.join(",");
+  const formValues: Record<string, string> = {};
+  for (const [key, value] of Object.entries(values)) {
+    if (value) {
+      if (Array.isArray(value)) {
+        if (value.length > 0) {
+          formValues[key] = value.join(",");
         } else {
           continue;
         }
       } else {
-        val[k] = String(v);
+        formValues[key] = String(value);
       }
     }
   }
-  return val;
+  return formValues;
 }
 
 export function stringToSlug(str: string): string {
@@ -219,8 +219,8 @@ export function stringToSlug(str: string): string {
   const from = "åàáãäâèéëêìíïîòóöôùúüûñç·/_,:;";
   const to = "aaaaaaeeeeiiiioooouuuunc------";
 
-  for (let i = 0, l = from.length; i < l; i++) {
-    str = str.replace(new RegExp(from.charAt(i), "g"), to.charAt(i));
+  for (let index = 0, fromLength = from.length; index < fromLength; index++) {
+    str = str.replace(new RegExp(from.charAt(index), "g"), to.charAt(index));
   }
 
   str = str
@@ -244,26 +244,26 @@ export function tokenizeQueryText(query: string | undefined, namedKeywords: stri
   if (query) {
     const splits = query.split(" ");
     const texts: string[] = [];
-    for (const s of splits) {
-      if (s.indexOf("=") > 0) {
-        const parts = s.split("=");
+    for (const segment of splits) {
+      if (segment.indexOf("=") > 0) {
+        const parts = segment.split("=");
         const keyRaw = parts[0];
         const negative = keyRaw.endsWith("!");
         const key = (negative ? keyRaw.slice(0, keyRaw.length - 1) : keyRaw).toLocaleLowerCase();
         if (namedKeywords.includes(key)) {
-          const val = parts.slice(1).join("=");
-          if (val) {
+          const value = parts.slice(1).join("=");
+          if (value) {
             const pairs = negative ? negativePairs : positivePairs;
             if (key in pairs) {
-              pairs[key].push(val);
+              pairs[key].push(value);
             } else {
-              pairs[key] = [val];
+              pairs[key] = [value];
             }
           }
           continue;
         }
       }
-      texts.push(s);
+      texts.push(segment);
     }
     text = texts.join(" ");
   }
@@ -305,14 +305,14 @@ export function daysInSeconds(days: number): number {
 }
 
 export function showErrorToast(message: string, title?: string): Promise<Toast> {
-  const t = title || "Something went wrong";
+  const toastTitle = title || "Something went wrong";
   return showToast({
     style: Toast.Style.Failure,
-    title: t,
+    title: toastTitle,
     message: message,
     primaryAction: {
       title: "Copy Error Message",
-      onAction: (toast) => Clipboard.copy(`${t}: ${toast.message ?? ""}`),
+      onAction: (toast) => Clipboard.copy(`${toastTitle}: ${toast.message ?? ""}`),
       shortcut: { modifiers: ["cmd", "shift"], key: "c" },
     },
   });

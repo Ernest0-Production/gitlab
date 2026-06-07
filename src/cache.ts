@@ -15,8 +15,7 @@ export function cacheLog(message?: any, ...optionalParams: any[]): void {
 }
 
 export function getLargeCacheDirectory(): string {
-  const sp = environment.supportPath;
-  const cacheDir = path.join(sp, "cache");
+  const cacheDir = path.join(environment.supportPath, "cache");
   return cacheDir;
 }
 
@@ -48,8 +47,8 @@ export async function getLargeCacheObject(key: string, seconds: number): Promise
     } else {
       return cache_data.payload;
     }
-  } catch (e) {
-    cacheLog(`could not access cache file or not exists '${cacheFilePath}' ${e}`);
+  } catch (error) {
+    cacheLog(`could not access cache file or not exists '${cacheFilePath}' ${error}`);
   }
   return undefined;
 }
@@ -65,8 +64,8 @@ export async function setLargeCacheObject(key: string, payload: any): Promise<vo
     };
     const text = JSON.stringify(cache_data);
     await fs.writeFile(cacheFilePath, text, "utf-8");
-  } catch (e) {
-    cacheLog(e);
+  } catch (error) {
+    cacheLog(error);
     cacheLog(`could not write cache file '${cacheFilePath}'`);
   }
 }

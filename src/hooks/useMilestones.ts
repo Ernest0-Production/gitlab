@@ -8,7 +8,7 @@ export function useMilestones(groupId?: number): {
   errorMilestoneInfo?: string;
   isLoadingMilestoneInfo: boolean;
 } {
-  const { data: groups } = useCachedPromise(() => gitlab.getGroups(), [], { onError: () => undefined });
+  const { data: groups } = useCachedPromise(() => gitlab.getGroups(), []);
 
   const { data, error, isLoading } = usePromise(
     async (id: number, groupList: Group[]): Promise<Milestone[]> => {
@@ -16,8 +16,9 @@ export function useMilestones(groupId?: number): {
       return group ? await gitlab.getGroupMilestones(group) : [];
     },
     [groupId ?? 0, groups ?? []],
-    // Errors are surfaced via `errorMilestoneInfo`; the caller owns the toast.
-    { execute: !!groupId && groupId > 0 && !!groups, onError: () => undefined },
+    {
+      execute: !!groupId && groupId > 0 && !!groups,
+    },
   );
 
   return {

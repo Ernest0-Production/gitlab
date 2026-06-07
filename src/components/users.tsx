@@ -8,11 +8,7 @@ import { GitLabOpenInBrowserAction } from "./actions";
 
 export function UserList() {
   const [searchText, setSearchText] = useState<string>();
-  const { users, error, isLoading } = useSearch(searchText);
-
-  if (error) {
-    showErrorToast(error, "Cannot search Merge Requests");
-  }
+  const { users, isLoading } = useSearch(searchText);
 
   return (
     <List searchBarPlaceholder="Filter Users by name..." onSearchTextChange={setSearchText} isLoading={isLoading}>
@@ -24,19 +20,18 @@ export function UserList() {
 }
 
 export function UserListItem(props: { user: User }) {
-  const user = props.user;
   return (
     <List.Item
-      id={user.id.toString()}
-      title={user.name}
-      subtitle={user.username}
-      icon={{ source: user.avatar_url, mask: Image.Mask.Circle }}
+      id={props.user.id.toString()}
+      title={props.user.name}
+      subtitle={props.user.username}
+      icon={{ source: props.user.avatar_url, mask: Image.Mask.Circle }}
       actions={
         <ActionPanel>
-          <GitLabOpenInBrowserAction url={user.web_url} />
-          <Action.CopyToClipboard title="Copy User ID" content={user.id} />
-          <Action.CopyToClipboard title="Copy Username" content={user.username} />
-          <Action.CopyToClipboard title="Copy Name" content={user.name} />
+          <GitLabOpenInBrowserAction url={props.user.web_url} />
+          <Action.CopyToClipboard title="Copy User ID" content={props.user.id} />
+          <Action.CopyToClipboard title="Copy Username" content={props.user.username} />
+          <Action.CopyToClipboard title="Copy Name" content={props.user.name} />
         </ActionPanel>
       }
     />
@@ -50,9 +45,7 @@ export function useSearch(query: string | undefined): {
 } {
   const { data, error, isLoading } = usePromise(
     (searchQuery: string) => gitlab.getUsers({ searchText: searchQuery, searchIn: "title" }),
-    [query ?? ""],
-    // The error is surfaced via `error` and toasted by the caller in render.
-    { onError: () => undefined },
+    [query ?? ""]
   );
   return { users: data, error: error ? getErrorMessage(error) : undefined, isLoading };
 }

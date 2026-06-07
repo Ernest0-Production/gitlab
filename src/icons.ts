@@ -66,7 +66,7 @@ export function useImage(
       return gitlab.downloadFile(imageUrl, { localFilepath: imgFilepath });
     },
     [url ?? ""],
-    { execute: !!url, onError: () => undefined },
+    { execute: !!url },
   );
 
   return { localFilepath: data ?? defaultIcon, error: error ? getErrorMessage(error) : undefined, isLoading };
