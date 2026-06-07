@@ -14,8 +14,8 @@ import {
 import { GitLabIcons } from "./icons";
 import {
   getBoundedPreferenceNumber,
-  getCommandPreferences,
   getErrorMessage,
+  getPreferences,
   parseCommaSeparatedPreference,
   showErrorToast,
 } from "./utils";
@@ -48,16 +48,12 @@ async function launchCreatedMergeRequests(): Promise<void> {
   }
 }
 
-function getMrMenuPreferences(): Preferences.Mrmenu {
-  return getCommandPreferences<Preferences.Mrmenu>();
-}
-
 function getMaxMergeRequestsPreference(): number {
-  return getBoundedPreferenceNumber(getMrMenuPreferences().maxitems);
+  return getBoundedPreferenceNumber(getPreferences().maxitems);
 }
 
 function getShowItemsCountPreference(): boolean {
-  return getMrMenuPreferences().showtext;
+  return getPreferences().showtext ?? false;
 }
 
 export default function MenuCommand() {
@@ -224,7 +220,7 @@ function useMenuMergeRequests(): {
   createdLabelsFilter: string[];
   reviewLabelsFilter: string[];
 } {
-  const preferences = useMemo(() => getMrMenuPreferences(), []);
+  const preferences = useMemo(() => getPreferences(), []);
   const assignedLabelsFilter = useMemo(
     () => parseCommaSeparatedPreference(preferences.assignedLabels),
     [preferences.assignedLabels],

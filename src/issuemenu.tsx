@@ -13,7 +13,7 @@ import { MenuBarItem, MenuBarItemConfigureCommand, MenuBarRoot, MenuBarSection }
 import { useMyIssues } from "./components/issues_my";
 import { IssueScope, IssueState } from "./components/issues";
 import { GitLabIcons } from "./icons";
-import { getBoundedPreferenceNumber, getCommandPreferences, getErrorMessage, showErrorToast } from "./utils";
+import { getBoundedPreferenceNumber, getErrorMessage, getPreferences, showErrorToast } from "./utils";
 
 async function launchMyIssues(): Promise<void> {
   try {
@@ -30,7 +30,7 @@ async function launchMyIssues(): Promise<void> {
 
 export default function MenuCommand() {
   // Memoize preferences to avoid unnecessary re-renders and rendering loops
-  const preferences = useMemo(() => getCommandPreferences<Preferences.Issuemenu>(), []);
+  const preferences = useMemo(() => getPreferences(), []);
 
   const { issues, isLoading, error } = useMyIssues(IssueScope.assigned_to_me, IssueState.opened, {
     includeLabels:

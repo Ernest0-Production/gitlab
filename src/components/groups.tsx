@@ -3,7 +3,7 @@ import { useCachedPromise } from "@raycast/utils";
 import { getGitLabGQL, gitlab } from "../common";
 import { dataToProject, Group, Milestone, Project } from "../gitlabapi";
 import { getTextIcon, GitLabIcons } from "../icons";
-import { getCommandPreferences, getErrorMessage, getFirstChar, showErrorToast } from "../utils";
+import { getErrorMessage, getFirstChar, getPreferences, showErrorToast } from "../utils";
 import { GitLabOpenInBrowserAction } from "./actions";
 import { EpicList } from "./epics";
 import { IssueList, IssueScope, IssueState } from "./issues";
@@ -97,7 +97,7 @@ export function GroupListEmptyView() {
 }
 
 export function GroupList(props: { parentGroup?: Group }) {
-  const topLevelOnly = !getCommandPreferences<Preferences.GroupMy>().flatlist;
+  const topLevelOnly = !getPreferences().flatlist;
   const { groupsinfo, error, isLoading } = useMyGroups({
     parentGroupID: props.parentGroup ? props.parentGroup.id : 0,
     top_level_only: topLevelOnly,

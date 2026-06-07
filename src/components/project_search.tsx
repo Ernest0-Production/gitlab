@@ -3,7 +3,7 @@ import { usePromise } from "@raycast/utils";
 import { useState } from "react";
 import { gitlab } from "../common";
 import { Project } from "../gitlabapi";
-import { getCommandPreferences, getErrorMessage, showErrorToast } from "../utils";
+import { getErrorMessage, getPreferences, showErrorToast } from "../utils";
 import { ProjectListEmptyView, ProjectListItem, ProjectScope } from "./project";
 
 export function ProjectSearchList() {
@@ -42,7 +42,7 @@ export function useSearch(
   error?: string;
   isLoading: boolean;
 } {
-  const active = getCommandPreferences<Preferences.ProjectSearch>().active;
+  const active = getPreferences().active ?? false;
   const { data, error, isLoading } = usePromise(
     (searchQuery: string, projectScope: string, isActive: boolean) =>
       gitlab.getProjects({

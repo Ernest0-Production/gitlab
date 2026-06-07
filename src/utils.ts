@@ -270,14 +270,33 @@ export function daysInSeconds(days: number): number {
   return days * 24 * 60 * 60;
 }
 
-/** Extension-wide preferences from package.json (see raycast-env.d.ts). */
-export function getPreferences(): Preferences {
-  return getPreferenceValues();
+export interface Preferences {
+  instance: string;
+  token: string;
+  artifactDownloadDirectory?: string;
+  primaryaction: "browser" | "detail";
+  poptoroot: boolean;
+  includeEpicAncestor: boolean;
+  ignorecerts: boolean;
+  customcacert?: string;
+  customcert?: string;
+  excludeTodoAuthorUsernames?: string;
+  active?: boolean;
+  flatlist?: boolean;
+  maxtodos?: string;
+  alwaysshow?: boolean;
+  showtext?: boolean;
+  grayicon?: boolean;
+  maxitems?: string;
+  assignedLabels?: string;
+  createdLabels?: string;
+  reviewLabels?: string;
+  includeLabels?: string;
+  excludeLabels?: string;
 }
 
-/** Preferences for the active command, including command-specific fields. */
-export function getCommandPreferences<T extends Preferences = Preferences>(): T {
-  return getPreferenceValues<T>();
+export function getPreferences(): Preferences {
+  return getPreferenceValues<Preferences>();
 }
 
 export function parseCommaSeparatedPreference(value: string | undefined): string[] {
