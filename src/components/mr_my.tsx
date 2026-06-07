@@ -1,7 +1,7 @@
 import { ActionPanel, List } from "@raycast/api";
 import { useState } from "react";
 import { MergeRequest, Project } from "../gitlabapi";
-import { showErrorToast } from "../utils";
+import { getErrorMessage, showErrorToast } from "../utils";
 import {
   MRListDetailsToggleAction,
   MRListMetadataToggleAction,
@@ -31,8 +31,6 @@ function MyMRList(props: {
     | null
     | undefined;
 }) {
-  const mrs = props.mrs;
-
   const { isShowingDetail, toggleListDetails } = useMRListDetails();
 
   return (
@@ -57,11 +55,11 @@ function MyMRList(props: {
         </ActionPanel>
       }
     >
-      <List.Section title={props.title} subtitle={mrs?.length.toString() || ""}>
-        {mrs?.map((mr) => (
+      <List.Section title={props.title} subtitle={props.mrs?.length.toString() || ""}>
+        {props.mrs?.map((mergeRequest) => (
           <MRListItem
-            key={mr.id}
-            mr={mr}
+            key={mergeRequest.id}
+            mr={mergeRequest}
             refreshData={props.performRefetch}
             showCIStatus={true}
             showAuthor={false}
@@ -82,21 +80,15 @@ export function MyMergeRequests(props: {
   searchText?: string | undefined;
   onSearchTextChange?: (text: string) => void;
 }) {
-  const scope = props.scope;
-  const state = props.state;
   const [project, setProject] = useState<Project>();
-  const { mrs: raw, isLoading, error, performRefetch, pagination } = useMyMergeRequests(scope, state, project);
-  if (error) {
-    showErrorToast(error, "Cannot search Merge Requests");
-  }
-  const mrs: MergeRequest[] | undefined = project ? raw?.filter((mr) => mr.project_id === project.id) : raw;
-  const title =
-    scope == MRScope.assigned_to_me ? "Your assigned Merge Requests" : "Your Recently Created Merge Requests";
+  const { mrs: raw, isLoading, performRefetch, pagination } = useMyMergeRequests(props.scope, props.state, project);
   return (
     <MyMRList
       isLoading={isLoading}
-      mrs={mrs}
-      title={title}
+      mrs={project ? raw?.filter((mergeRequest) => mergeRequest.project_id === project.id) : raw}
+      title={
+        props.scope == MRScope.assigned_to_me ? "Your assigned Merge Requests" : "Your Recently Created Merge Requests"
+      }
       performRefetch={performRefetch}
       pagination={pagination}
       searchText={props.searchText}

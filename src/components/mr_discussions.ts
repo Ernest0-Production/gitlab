@@ -41,12 +41,17 @@ function countMRDiscussionStats(discussions: MRDiscussion[]): MRDiscussionStats 
 }
 
 export function discussionStatsFromMergeRequest(mr: MergeRequest): MRDiscussionStats | undefined {
-  const resolved = mr.resolved_discussions_count;
-  const resolvableTotal = mr.resolvable_discussions_count;
-  if (resolved === undefined || resolvableTotal === undefined || resolvableTotal <= 0) {
+  if (
+    mr.resolved_discussions_count === undefined ||
+    mr.resolvable_discussions_count === undefined ||
+    mr.resolvable_discussions_count <= 0
+  ) {
     return undefined;
   }
-  return { resolved, resolvableTotal };
+  return {
+    resolved: mr.resolved_discussions_count,
+    resolvableTotal: mr.resolvable_discussions_count,
+  };
 }
 
 export function getMRDiscussionMetadataLabel(
@@ -67,7 +72,6 @@ export function useMRDiscussionStats(mr: MergeRequest): {
   stats: MRDiscussionStats | undefined;
   isLoading: boolean | undefined;
 } {
-  const listStats = discussionStatsFromMergeRequest(mr);
   const hasListCounts = mr.resolved_discussions_count !== undefined && mr.resolvable_discussions_count !== undefined;
   const { data, isLoading } = useCachedPromise(
     async (projectID: number, iid: number): Promise<MRDiscussionStats | undefined> => {
@@ -79,7 +83,10 @@ export function useMRDiscussionStats(mr: MergeRequest): {
       return stats;
     },
     [mr.project_id, mr.iid],
-    { execute: !hasListCounts, onError: () => undefined },
+    { execute: !hasListCounts },
   );
-  return { stats: listStats ?? data, isLoading: hasListCounts ? false : isLoading };
+  return {
+    stats: discussionStatsFromMergeRequest(mr) ?? data,
+    isLoading: hasListCounts ? false : isLoading,
+  };
 }

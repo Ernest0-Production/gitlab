@@ -3,31 +3,32 @@ import { Label } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
 
 export function LabelDetail(props: { label: Label }) {
-  const label = props.label;
-  let md = `## Color\n${label.color}`;
-  if (label.description) {
-    md += `\n## Description\n${label.description}`;
+  let md = `## Color\n${props.label.color}`;
+  if (props.label.description) {
+    md += `\n## Description\n${props.label.description}`;
   }
   return <Detail markdown={md} />;
 }
 
 export function LabelListItem(props: { label: Label }) {
-  const label = props.label;
-  const accessoryTitle = Object.keys(label).includes("subscribed") && label.subscribed ? "subscribed" : undefined;
   return (
     <List.Item
-      key={label.id.toString()}
-      title={label.name}
-      icon={{ source: Icon.Circle, tintColor: label.color }}
-      accessories={[{ text: accessoryTitle }]}
+      key={props.label.id.toString()}
+      title={props.label.name}
+      icon={{ source: Icon.Circle, tintColor: props.label.color }}
+      accessories={[
+        {
+          text: Object.keys(props.label).includes("subscribed") && props.label.subscribed ? "subscribed" : undefined,
+        },
+      ]}
       actions={
         <ActionPanel>
           <Action.Push
             title="Show Details"
-            target={<LabelDetail label={label} />}
+            target={<LabelDetail label={props.label} />}
             icon={{ source: GitLabIcons.show_details, tintColor: Color.PrimaryText }}
           />
-          <Action.CopyToClipboard title="Copy Color" content={label.color} />
+          <Action.CopyToClipboard title="Copy Color" content={props.label.color} />
         </ActionPanel>
       }
     />
@@ -42,7 +43,6 @@ export function LabelList(props: {
   throttle?: boolean | undefined;
   navigationTitle?: string;
 }) {
-  const labels = props.labels.filter((label) => label && label.id);
   return (
     <List
       searchBarPlaceholder="Search labels by name"
@@ -52,9 +52,11 @@ export function LabelList(props: {
       navigationTitle={props.navigationTitle}
     >
       <List.Section title={props.title}>
-        {labels.map((label) => (
-          <LabelListItem key={label.id.toString()} label={label} />
-        ))}
+        {props.labels
+          .filter((label) => label && label.id)
+          .map((label) => (
+            <LabelListItem key={label.id.toString()} label={label} />
+          ))}
       </List.Section>
     </List>
   );

@@ -34,12 +34,14 @@ const MERGE_REQUEST_LIST_FIELDS = gql`
       id
       name
       avatarUrl
+      webUrl
     }
     assignees {
       nodes {
         id
         name
         avatarUrl
+        webUrl
       }
     }
     reviewers {
@@ -47,6 +49,7 @@ const MERGE_REQUEST_LIST_FIELDS = gql`
         id
         name
         avatarUrl
+        webUrl
       }
     }
     labels {
@@ -343,6 +346,7 @@ interface GqlUserNode {
   id: string;
   name: string;
   avatarUrl?: string | null;
+  webUrl?: string | null;
 }
 
 interface GqlPipelineNode {
@@ -425,6 +429,16 @@ function resolveAvatarUrl(avatarUrl: string | null | undefined): string {
   return gitlab.joinUrl(avatarUrl);
 }
 
+function resolveWebUrl(webUrl: string | null | undefined): string {
+  if (!webUrl) {
+    return "";
+  }
+  if (/^https?:\/\//i.test(webUrl)) {
+    return webUrl;
+  }
+  return gitlab.joinUrl(webUrl);
+}
+
 function gqlUserToUser(user: GqlUserNode | null | undefined): User | undefined {
   if (!user) {
     return undefined;
@@ -433,6 +447,7 @@ function gqlUserToUser(user: GqlUserNode | null | undefined): User | undefined {
   mapped.id = getIdFromGqlId(user.id);
   mapped.name = user.name;
   mapped.avatar_url = resolveAvatarUrl(user.avatarUrl);
+  mapped.web_url = resolveWebUrl(user.webUrl);
   return mapped;
 }
 
@@ -451,12 +466,11 @@ function pipelineStatusFromGql(pipeline: GqlPipelineNode | null | undefined): st
   if (fromStatus) {
     return fromStatus;
   }
-  const detailed = pipeline.detailedStatus;
-  if (detailed?.name) {
-    return pipelineStatusToRest(detailed.name);
+  if (pipeline.detailedStatus?.name) {
+    return pipelineStatusToRest(pipeline.detailedStatus.name);
   }
-  if (detailed?.label) {
-    return pipelineStatusToRest(detailed.label);
+  if (pipeline.detailedStatus?.label) {
+    return pipelineStatusToRest(pipeline.detailedStatus.label);
   }
   return undefined;
 }

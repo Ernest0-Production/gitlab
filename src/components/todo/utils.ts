@@ -1,7 +1,7 @@
 import { useCachedPromise } from "@raycast/utils";
 import { getExcludeTodoAuthorUsernamesPreference, gitlab } from "../../common";
 import { MergeRequest, Project, Todo } from "../../gitlabapi";
-import { getErrorMessage } from "../../utils";
+import { getErrorMessage, showErrorToast } from "../../utils";
 
 export function findTodoForMR(todos: Todo[] | undefined, mr: MergeRequest): Todo | undefined {
   return todos?.find(
@@ -26,8 +26,7 @@ export function useTodos(
       const excludeAuthorUsernames = getExcludeTodoAuthorUsernamesPreference();
       return todos.filter((todo: Todo) => !todo.author || !excludeAuthorUsernames.includes(todo.author.username));
     },
-    [],
-    { onError: () => undefined },
+    []
   );
   const todos = project
     ? (data ?? []).filter((todo) => todo.project_with_namespace === project.name_with_namespace)

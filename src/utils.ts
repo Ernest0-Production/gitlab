@@ -1,4 +1,4 @@
-import { Clipboard, Image, Keyboard, LocalStorage, showToast, Toast } from "@raycast/api";
+import { Clipboard, getPreferenceValues, Image, Keyboard, showToast, Toast } from "@raycast/api";
 import { Project } from "./gitlabapi";
 import { getSVGText, GitLabIcons } from "./icons";
 import * as fs from "fs/promises";
@@ -64,40 +64,6 @@ export function projectIcon(project: Project): Image.ImageLike {
 export function getIdFromGqlId(id: string): number {
   const splits = id.split("/");
   return parseInt(splits.pop() || "");
-}
-
-export function currentSeconds(): number {
-  return Date.now() / 1000;
-}
-
-export async function getCacheObject<T>(key: string, seconds: number): Promise<T | undefined> {
-  console.log(`get cache object ${key} from store`);
-  const cache = await LocalStorage.getItem(key);
-  console.log("after local storage");
-  console.log(cache);
-  if (cache) {
-    const cache_data = JSON.parse(cache.toString());
-    const timestamp = currentSeconds();
-    const delta = timestamp - cache_data.timestamp;
-    if (delta > seconds) {
-      return undefined;
-    } else {
-      return cache_data.payload;
-    }
-  }
-  return undefined;
-}
-
-export async function setCacheObject<T>(key: string, payload: T): Promise<void> {
-  const cache_data = {
-    timestamp: currentSeconds(),
-    payload: payload,
-  };
-  console.log(key);
-  console.log(cache_data);
-  const text = JSON.stringify(cache_data);
-  console.log(text.length);
-  await LocalStorage.setItem(key, text);
 }
 
 export async function fileExists(filename: string): Promise<boolean> {
@@ -302,6 +268,37 @@ export function now(): Date {
 
 export function daysInSeconds(days: number): number {
   return days * 24 * 60 * 60;
+}
+
+/** Extension-wide preferences from package.json (see raycast-env.d.ts). */
+export function getPreferences(): Preferences {
+  return getPreferenceValues();
+}
+
+/** Preferences for the active command, including command-specific fields. */
+export function getCommandPreferences<T extends Preferences = Preferences>(): T {
+  return getPreferenceValues<T>();
+}
+
+export function parseCommaSeparatedPreference(value: string | undefined): string[] {
+  return (value ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+export function getBoundedPreferenceNumber(
+  preferenceText: string | undefined,
+  params: { min?: number; max?: number; default?: number } = {},
+): number {
+  const boundMin = params.min ?? 1;
+  const boundMax = params.max ?? 100;
+  const fallback = params.default ?? 10;
+  const max = Number(preferenceText ?? "");
+  if (isNaN(max) || max < boundMin || max > boundMax) {
+    return fallback;
+  }
+  return max;
 }
 
 export function showErrorToast(message: string, title?: string): Promise<Toast> {

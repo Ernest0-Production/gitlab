@@ -1,45 +1,27 @@
 import { ActionPanel, List } from "@raycast/api";
-import { getCIRefreshInterval } from "../common";
 import { MergeRequest } from "../gitlabapi";
-import { showErrorToast } from "../utils";
 import { PipelineListItem } from "./pipelines";
 import { RunPipelineAction } from "./pipeline_actions";
 import { usePaginatedMRPipelines } from "./pipelines_data";
-import useInterval from "use-interval";
 
 export function MRPipelineList(props: { mr: MergeRequest }) {
-  const { mr } = props;
-  const navigationTitle = `Pipelines · ${mr.reference_full}`;
-  const cacheKey = `mr_pipelines_${mr.project_id}_${mr.iid}`;
-  const projectFullPath = mr.project_full_path;
-  const { pipelines, isLoading, error, performRefetch, pagination } = usePaginatedMRPipelines({
-    cacheKey,
-    projectFullPath,
-    mrIID: mr.iid,
+  const { pipelines, isLoading, performRefetch, pagination } = usePaginatedMRPipelines({
+    cacheKey: `mr_pipelines_${props.mr.project_id}_${props.mr.iid}`,
+    projectFullPath: props.mr.project_full_path,
+    mrIID: props.mr.iid,
   });
-
-  useInterval(() => {
-    performRefetch();
-  }, getCIRefreshInterval());
-
-  if (error) {
-    showErrorToast(error, "Could not fetch Pipelines");
-  }
-
-  const runRef = pipelines?.[0]?.ref ?? mr.source_branch;
-  const runProjectId = pipelines?.[0]?.projectId ?? `${mr.project_id}`;
 
   return (
     <List
       isLoading={isLoading}
       pagination={pagination}
-      navigationTitle={navigationTitle}
+      navigationTitle={`Pipelines · ${props.mr.reference_full}`}
       actions={
         <ActionPanel>
           <ActionPanel.Section>
             <RunPipelineAction
-              projectId={runProjectId}
-              ref={runRef}
+              projectId={pipelines?.[0]?.projectId ?? `${props.mr.project_id}`}
+              ref={pipelines?.[0]?.ref ?? props.mr.source_branch}
               onFinished={performRefetch}
               shortcut={{ modifiers: ["cmd"], key: "n" }}
             />
@@ -52,15 +34,15 @@ export function MRPipelineList(props: { mr: MergeRequest }) {
           <PipelineListItem
             key={pipeline.id}
             pipeline={pipeline}
-            projectFullPath={projectFullPath}
+            projectFullPath={props.mr.project_full_path}
             onRefreshPipelines={performRefetch}
-            navigationTitle={navigationTitle}
+            navigationTitle={`Pipelines · ${props.mr.reference_full}`}
           />
         ))}
       </List.Section>
-      {!isLoading && (!pipelines || pipelines.length === 0) ? (
+      {!isLoading && (!pipelines || pipelines.length === 0) && (
         <List.EmptyView title="No Pipelines" description="This merge request has no pipelines yet." />
-      ) : null}
+      )}
     </List>
   );
 }

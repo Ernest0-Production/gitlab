@@ -15,10 +15,6 @@ export function StatusForm(props: {
   onSubmit: (values: Form.Values) => Promise<void>;
   existingStatus?: Status | undefined;
 }) {
-  const es = props.existingStatus;
-  const emoji = es?.emoji;
-  const message = es?.message;
-  const duration = es?.clear_status_after || "";
   return (
     <Form
       actions={
@@ -27,9 +23,9 @@ export function StatusForm(props: {
         </ActionPanel>
       }
     >
-      <StatusEmojiDropDown id="emoji" title="Emoji" defaultValue={emoji} />
-      <Form.TextField id="message" title="Message" defaultValue={message} />
-      <StatusDurationDropDown id="clear_status_after" defaultValue={duration} />
+      <StatusEmojiDropDown id="emoji" title="Emoji" defaultValue={props.existingStatus?.emoji} />
+      <Form.TextField id="message" title="Message" defaultValue={props.existingStatus?.message} />
+      <StatusDurationDropDown id="clear_status_after" defaultValue={props.existingStatus?.clear_status_after || ""} />
     </Form>
   );
 }
@@ -73,16 +69,16 @@ export function StatusFormSet(props: { setCurrentStatus?: React.Dispatch<React.S
 }
 
 function getValidStatusFromFormValue(values: Form.Values): Status {
-  const s: Status = {
+  const status: Status = {
     emoji: values.emoji,
     message: values.message,
     clear_status_after: values.clear_status_after,
     clear_status_at: getClearDurationDate(values.clear_status_after),
   };
-  if (!isValidStatus(s)) {
+  if (!isValidStatus(status)) {
     throw Error("Invalid Status");
   }
-  return s;
+  return status;
 }
 
 export function StatusFormPresetCreate(props: {

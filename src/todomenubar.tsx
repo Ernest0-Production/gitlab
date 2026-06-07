@@ -1,15 +1,9 @@
-import { Icon, launchCommand, LaunchType, MenuBarExtra, open, getPreferenceValues, Color } from "@raycast/api";
+import { Icon, launchCommand, LaunchType, MenuBarExtra, open, Color } from "@raycast/api";
 import { gitlab } from "./common";
 import { getTodoIcon, getPrettyTodoActionName } from "./components/todo";
 import { useTodos } from "./components/todo/utils";
-import {
-  MenuBarItem,
-  MenuBarItemConfigureCommand,
-  MenuBarRoot,
-  MenuBarSection,
-  getBoundedPreferenceNumber,
-} from "./components/menu";
-import { showErrorToast, getErrorMessage } from "./utils";
+import { MenuBarItem, MenuBarItemConfigureCommand, MenuBarRoot, MenuBarSection } from "./components/menu";
+import { getBoundedPreferenceNumber, getCommandPreferences, getErrorMessage, showErrorToast } from "./utils";
 
 async function launchTodosCommand() {
   try {
@@ -21,7 +15,7 @@ async function launchTodosCommand() {
 
 export default function TodosMenuBarCommand(): React.ReactNode | null {
   const { todos, error, isLoading } = useTodos();
-  const { grayicon, alwaysshow, showtext } = getPreferenceValues<Preferences.Todomenubar>();
+  const { grayicon, alwaysshow, showtext } = getCommandPreferences<Preferences.Todomenubar>();
 
   if (!todos.length && !isLoading && !alwaysshow) {
     return null;
@@ -50,7 +44,7 @@ export default function TodosMenuBarCommand(): React.ReactNode | null {
         />
       </MenuBarSection>
       <MenuBarSection
-        maxChildren={getBoundedPreferenceNumber({ name: "maxtodos" })}
+        maxChildren={getBoundedPreferenceNumber(getCommandPreferences<Preferences.Todomenubar>().maxtodos)}
         moreElement={(hidden) => <MenuBarExtra.Item title={`... ${hidden} more`} onAction={launchTodosCommand} />}
       >
         {todos?.map((todo) => (

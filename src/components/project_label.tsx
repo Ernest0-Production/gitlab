@@ -7,21 +7,17 @@ import { getErrorMessage, showErrorToast } from "../utils";
 
 export function ProjectLabelList(props: { project: Project; navigationTitle?: string }) {
   const [searchText, setSearchText] = useState<string>();
-  const { data, error, isLoading } = useCachedPromise(
+  const { data, isLoading } = useCachedPromise(
     (projectId: number) => gitlab.getProjectLabels(projectId),
     [props.project.id],
-    { keepPreviousData: true, onError: () => undefined },
+    {
+      keepPreviousData: true,
+    },
   );
-
-  if (error) {
-    showErrorToast(getErrorMessage(error), "Cannot search Project Labels");
-  }
-
-  const labels = searchData<Label[]>(data ?? [], { search: searchText || "", keys: ["name"], limit: 50 });
 
   return (
     <LabelList
-      labels={labels}
+      labels={searchData<Label[]>(data ?? [], { search: searchText || "", keys: ["name"], limit: 50 })}
       onSearchTextChange={setSearchText}
       isLoading={isLoading}
       throttle={true}

@@ -1,4 +1,4 @@
-import { Action, ActionPanel, Color, Icon, List } from "@raycast/api";
+import { ActionPanel, Color, List } from "@raycast/api";
 import { useCachedState } from "@raycast/utils";
 import { useEffect, useMemo, useState } from "react";
 import { GitLabIcons } from "../icons";
@@ -16,8 +16,7 @@ import {
 import { RefreshMergeRequestsAction } from "./mr_actions";
 import { usePaginatedMergeRequests } from "./mr_data";
 import { appendMROrderByParams, MergeRequestSortSubmenu, MR_DEFAULT_ORDER_BY, MRSearchOrderBy } from "./mr_sort";
-import { MergeRequestScopeSubmenu } from "./mr_scope";
-import { mrStateFilterIcon } from "./mr_status";
+import { MergeRequestFilterSubmenu } from "./mr_filter";
 import { MyProjectsDropdown, useMyProjects } from "./project";
 
 const MR_STATE_FILTERS: { state: MRState; title: string }[] = [
@@ -43,51 +42,6 @@ const MR_SORT_LABELS: Record<Exclude<MRSearchOrderBy, "default">, string> = {
   popularity: "popularity",
 };
 
-function formatMRSearchSectionTitle(mrState: MRState, scope: MRScope, orderBy: MRSearchOrderBy): string {
-  const parts: string[] = [];
-
-  if (mrState !== MRState.all) {
-    const stateTitle = MR_STATE_FILTERS.find((filter) => filter.state === mrState)?.title ?? mrState;
-    parts.push(`Only ${stateTitle}`);
-  }
-
-  if (scope !== MRScope.all) {
-    parts.push(MR_SCOPE_LABELS[scope]);
-  }
-
-  if (orderBy !== MR_DEFAULT_ORDER_BY) {
-    parts.push(`sorted by ${MR_SORT_LABELS[orderBy as Exclude<MRSearchOrderBy, "default">]}`);
-  }
-
-  return parts.join(", ");
-}
-
-function MergeRequestStateFilterSubmenu(props: { state: MRState; onSelect: (state: MRState) => void }) {
-  return (
-    <ActionPanel.Submenu title="Filter Status" icon={Icon.Filter}>
-      <ActionPanel.Section>
-        <Action
-          title="All"
-          icon={mrStateFilterIcon(MRState.all, props.state === MRState.all)}
-          autoFocus={props.state === MRState.all}
-          onAction={() => props.onSelect(MRState.all)}
-        />
-      </ActionPanel.Section>
-      <ActionPanel.Section>
-        {MR_STATE_FILTERS.map(({ state, title }) => (
-          <Action
-            key={state}
-            title={title}
-            icon={mrStateFilterIcon(state, props.state === state)}
-            autoFocus={props.state === state}
-            onAction={() => props.onSelect(state)}
-          />
-        ))}
-      </ActionPanel.Section>
-    </ActionPanel.Submenu>
-  );
-}
-
 function MergeRequestFilterActions(props: {
   mrState: MRState;
   onSelectState: (state: MRState) => void;
@@ -100,8 +54,12 @@ function MergeRequestFilterActions(props: {
   return (
     <>
       <ActionPanel.Section title="Filters">
-        <MergeRequestScopeSubmenu scope={props.scope} onSelect={props.onSelectScope} />
-        <MergeRequestStateFilterSubmenu state={props.mrState} onSelect={props.onSelectState} />
+        <MergeRequestFilterSubmenu
+          scope={props.scope}
+          onSelectScope={props.onSelectScope}
+          state={props.mrState}
+          onSelectState={props.onSelectState}
+        />
         <MergeRequestSortSubmenu orderBy={props.orderBy} onSelect={props.onSelectOrderBy} />
       </ActionPanel.Section>
       <ActionPanel.Section>
@@ -148,16 +106,17 @@ function SearchMergeRequestsEmptyView(props: {
 
 export function SearchMyMergeRequests() {
   const [projectId, setProjectId] = useCachedState<string | undefined>("mr-search-project-id", undefined);
-  const { projects: myprojects, isLoading: projectsLoading } = useMyProjects({
-    onError: (error) => showErrorToast(getErrorMessage(error), "Could not fetch Projects"),
-  });
+  const { projects: myprojects, isLoading: projectsLoading } = useMyProjects();
   const [mrState, setMrState] = useCachedState<MRState>("mr-search-state", MRState.opened);
   const [scope, setScope] = useCachedState<MRScope>("mr-search-scope", MRScope.all);
   const [orderBy, setOrderBy] = useCachedState<MRSearchOrderBy>("mr-search-order-by", MR_DEFAULT_ORDER_BY);
   const [search, setSearch] = useState<string>("");
   const { isShowingDetail, toggleListDetails } = useMRListDetails();
 
-  const project = useMemo(() => myprojects?.find((proj) => `${proj.id}` === projectId), [myprojects, projectId]);
+  const project = useMemo(
+    () => myprojects?.find((candidate) => `${candidate.id}` === projectId),
+    [myprojects, projectId],
+  );
 
   useEffect(() => {
     if (!myprojects?.length || projectId !== undefined) {
@@ -171,20 +130,17 @@ export function SearchMyMergeRequests() {
     appendMROrderByParams(requestParams, orderBy);
     return requestParams;
   }, [mrState, scope, orderBy, search]);
-  const paramsHash = useMemo(() => hashRecord(params), [params]);
-  const sectionTitle = useMemo(() => formatMRSearchSectionTitle(mrState, scope, orderBy), [mrState, scope, orderBy]);
   const {
     mrs: data,
     isLoading,
     performRefetch,
     pagination,
   } = usePaginatedMergeRequests({
-    cacheKey: `mymrssearch_${project?.id ?? "none"}_${paramsHash}`,
+    cacheKey: `mymrssearch_${project?.id ?? "none"}_${hashRecord(params)}`,
     buildParams: () => params,
     project,
     execute: !!project,
     keepPreviousData: true,
-    onError: (error) => showErrorToast(getErrorMessage(error), "Could not fetch Merge Requests"),
   });
 
   const hasProjects = !!myprojects && myprojects.length > 0;
@@ -236,17 +192,37 @@ export function SearchMyMergeRequests() {
         />
       ) : (
         <>
-          <List.Section title={sectionTitle || undefined}>
-            {(data ?? []).map((mr) => (
+          <List.Section
+            title={
+              [
+                mrState !== MRState.all
+                  ? `Only ${MR_STATE_FILTERS.find((filter) => filter.state === mrState)?.title ?? mrState}`
+                  : undefined,
+                scope !== MRScope.all ? MR_SCOPE_LABELS[scope] : undefined,
+                orderBy !== MR_DEFAULT_ORDER_BY
+                  ? `sorted by ${MR_SORT_LABELS[orderBy as Exclude<MRSearchOrderBy, "default">]}`
+                  : undefined,
+              ]
+                .filter((part): part is string => !!part)
+                .join(", ") || undefined
+            }
+          >
+            {(data ?? []).map((mergeRequest) => (
               <MRListItem
-                key={mr.id}
-                mr={mr}
+                key={mergeRequest.id}
+                mr={mergeRequest}
                 refreshData={performRefetch}
                 showCIStatus={true}
                 isShowingDetail={isShowingDetail}
                 onToggleListDetails={toggleListDetails}
-                filterAction={<MergeRequestStateFilterSubmenu state={mrState} onSelect={setMrState} />}
-                scopeAction={<MergeRequestScopeSubmenu scope={scope} onSelect={setScope} />}
+                filterAction={
+                  <MergeRequestFilterSubmenu
+                    scope={scope}
+                    onSelectScope={setScope}
+                    state={mrState}
+                    onSelectState={setMrState}
+                  />
+                }
                 sortAction={<MergeRequestSortSubmenu orderBy={orderBy} onSelect={setOrderBy} />}
                 refreshAction={<RefreshMergeRequestsAction onRefresh={performRefetch} />}
               />

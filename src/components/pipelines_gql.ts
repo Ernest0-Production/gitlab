@@ -118,7 +118,7 @@ function gqlPipelineToPipeline(node: GqlPipelineNode): Pipeline {
     id: getIdFromGqlId(node.id),
     iid: node.iid,
     project_id: getIdFromGqlId(node.project.id),
-    status: node.status,
+    status: node.status.toLowerCase(),
     ref: node.ref,
     web_url: `${getGitLabGQL().url}${node.path}`,
     created_at: node.createdAt,

@@ -5,14 +5,14 @@ import { CommitStatus } from "./types";
 export async function getCommitStatus(projectID: number, sha: string): Promise<CommitStatus | undefined> {
   const status: CommitStatus | undefined = await gitlab
     .fetch(`projects/${projectID}/repository/commits/${sha}/statuses`)
-    .then((d) => {
-      if (d && d.length > 0) {
-        for (const s of d) {
-          if (s.status !== "success") {
-            return s;
+    .then((statuses) => {
+      if (statuses && statuses.length > 0) {
+        for (const commitStatus of statuses) {
+          if (commitStatus.status !== "success") {
+            return commitStatus;
           }
         }
-        return d[0] as CommitStatus;
+        return statuses[0] as CommitStatus;
       }
       return undefined;
     });

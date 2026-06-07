@@ -28,12 +28,6 @@ function MyIssueList(props: {
     | null
     | undefined;
 }) {
-  const issues = props.issues;
-
-  const refresh = () => {
-    props.performRefetch();
-  };
-
   return (
     <List
       searchBarPlaceholder="Search issues by name..."
@@ -41,9 +35,9 @@ function MyIssueList(props: {
       searchBarAccessory={props.searchBarAccessory}
       throttle
     >
-      <List.Section title={props.title} subtitle={issues?.length.toString() || ""}>
-        {issues?.map((issue) => (
-          <IssueListItem key={issue.id} issue={issue} refreshData={refresh} />
+      <List.Section title={props.title} subtitle={props.issues?.length.toString() || ""}>
+        {props.issues?.map((issue) => (
+          <IssueListItem key={issue.id} issue={issue} refreshData={props.performRefetch} />
         ))}
       </List.Section>
       <IssueListEmptyView />
@@ -52,20 +46,13 @@ function MyIssueList(props: {
 }
 
 export function MyIssues(props: { scope: IssueScope; state: IssueState }) {
-  const scope = props.scope;
-  const state = props.state;
   const [project, setProject] = useState<Project>();
-  const { issues: raw, isLoading, error, performRefetch } = useMyIssues(scope, state);
-  if (error) {
-    showErrorToast(error, "Cannot load Issues");
-  }
-  const issues: Issue[] | undefined = project ? raw?.filter((issue) => issue.project_id === project.id) : raw;
-  const title = scope == IssueScope.assigned_to_me ? "Your Assigned Issues" : "Your Recently Created Issues";
+  const { issues: raw, isLoading, performRefetch } = useMyIssues(props.scope, props.state);
   return (
     <MyIssueList
       isLoading={isLoading}
-      issues={issues}
-      title={title}
+      issues={project ? raw?.filter((issue) => issue.project_id === project.id) : raw}
+      title={props.scope == IssueScope.assigned_to_me ? "Your Assigned Issues" : "Your Recently Created Issues"}
       performRefetch={performRefetch}
       searchBarAccessory={<MyProjectsDropdown onChange={setProject} />}
     />
@@ -96,8 +83,7 @@ export function useMyIssues(
       const apiParams = { state, scope, ...(params || {}) };
       return gitlab.getIssues(apiParams, undefined, scope === IssueScope.assigned_to_me && state === IssueState.opened);
     },
-    [scope, state, params],
-    { onError: () => undefined },
+    [scope, state, params]
   );
   return { issues, isLoading, error: error ? getErrorMessage(error) : undefined, performRefetch: revalidate };
 }

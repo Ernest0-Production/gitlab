@@ -22,66 +22,64 @@ import {
   CreateNewProjectIssuePushAction,
   ShowProjectReadmeAction,
 } from "./project_actions";
-import { GitLabIcons, getTextIcon, useImage } from "../icons";
+import { GitLabIcons, getTextIcon } from "../icons";
 
 export enum ProjectScope {
   membership = "membership",
   all = "all",
 }
 
-function getProjectTextIcon(project: Project): Image.ImageLike | undefined {
-  return getTextIcon((project.name ? getFirstChar(project.name) : "?").toUpperCase());
-}
-
 export function ProjectListItem(props: { project: Project; nameOnly?: boolean }) {
-  const project = props.project;
-  const { localFilepath: localImageFilepath } = useImage(projectIconUrl(project));
   const accessories = [];
-  if (project.archived) {
+  if (props.project.archived) {
     accessories.push({ tooltip: "Archived", icon: { source: Icon.ExclamationMark, tintColor: Color.Yellow } });
   }
   accessories.push({
-    text: project.star_count.toString(),
+    text: props.project.star_count.toString(),
     icon: {
       source: Icon.Star,
-      tintColor: project.star_count > 0 ? Color.Yellow : null,
+      tintColor: props.project.star_count > 0 ? Color.Yellow : null,
     },
-    tooltip: `Number of stars: ${project.star_count}`,
+    tooltip: `Number of stars: ${props.project.star_count}`,
   });
   return (
     <List.Item
-      title={props.nameOnly === true ? project.name : project.name_with_namespace}
+      title={props.nameOnly === true ? props.project.name : props.project.name_with_namespace}
       accessories={accessories}
-      icon={localImageFilepath ? { source: localImageFilepath } : getProjectTextIcon(project)}
+      icon={
+        projectIconUrl(props.project)
+          ? { source: projectIconUrl(props.project)! }
+          : getTextIcon((props.project.name ? getFirstChar(props.project.name) : "?").toUpperCase())
+      }
       actions={
         <ActionPanel>
-          <ActionPanel.Section title={project.name_with_namespace}>
-            <ProjectDefaultActions project={project} />
+          <ActionPanel.Section title={props.project.name_with_namespace}>
+            <ProjectDefaultActions project={props.project} />
           </ActionPanel.Section>
           <ActionPanel.Section>
-            <Action.CopyToClipboard title="Copy Project ID" content={project.id} />
-            <Action.CopyToClipboard title="Copy Project URL" content={project.web_url} />
-            <CopyCloneUrlToClipboardAction shortcut={{ modifiers: ["cmd"], key: "u" }} project={project} />
+            <Action.CopyToClipboard title="Copy Project ID" content={props.project.id} />
+            <Action.CopyToClipboard title="Copy Project URL" content={props.project.web_url} />
+            <CopyCloneUrlToClipboardAction shortcut={{ modifiers: ["cmd"], key: "u" }} project={props.project} />
           </ActionPanel.Section>
           <ActionPanel.Section>
-            <ShowProjectReadmeAction project={project} />
-            <OpenProjectIssuesPushAction project={project} />
-            <OpenProjectMergeRequestsPushAction project={project} />
-            <OpenProjectBranchesPushAction project={project} />
-            <OpenProjectPipelinesPushAction project={project} />
-            <OpenProjectMilestonesPushAction project={project} />
-            <OpenProjectWikiInBrowserAction project={project} />
+            <ShowProjectReadmeAction project={props.project} />
+            <OpenProjectIssuesPushAction project={props.project} />
+            <OpenProjectMergeRequestsPushAction project={props.project} />
+            <OpenProjectBranchesPushAction project={props.project} />
+            <OpenProjectPipelinesPushAction project={props.project} />
+            <OpenProjectMilestonesPushAction project={props.project} />
+            <OpenProjectWikiInBrowserAction project={props.project} />
             <ShowProjectLabels project={props.project} shortcut={{ modifiers: ["cmd"], key: "l" }} />
           </ActionPanel.Section>
           <ActionPanel.Section title="Open in Browser">
-            <CreateNewProjectIssuePushAction project={project} />
-            <OpenProjectLabelsInBrowserAction project={project} />
-            <OpenProjectSecurityComplianceInBrowserAction project={project} />
-            <OpenProjectSettingsInBrowserAction project={project} />
+            <CreateNewProjectIssuePushAction project={props.project} />
+            <OpenProjectLabelsInBrowserAction project={props.project} />
+            <OpenProjectSecurityComplianceInBrowserAction project={props.project} />
+            <OpenProjectSettingsInBrowserAction project={props.project} />
           </ActionPanel.Section>
           <ActionPanel.Section title="IDE">
-            <CloneProjectInVSCodeAction shortcut={{ modifiers: ["cmd", "shift"], key: "c" }} project={project} />
-            <CloneProjectInGitPod shortcut={{ modifiers: ["cmd", "shift"], key: "g" }} project={project} />
+            <CloneProjectInVSCodeAction shortcut={{ modifiers: ["cmd", "shift"], key: "c" }} project={props.project} />
+            <CloneProjectInGitPod shortcut={{ modifiers: ["cmd", "shift"], key: "g" }} project={props.project} />
           </ActionPanel.Section>
         </ActionPanel>
       }
@@ -100,7 +98,7 @@ export function ProjectListEmptyView() {
 
 export function ProjectList({ membership = true, starred = false }: ProjectListProps) {
   const [searchText, setSearchText] = useState<string>();
-  const { data, error, isLoading } = useCachedPromise(
+  const { data, isLoading } = useCachedPromise(
     async (isStarred: boolean, isMembership: boolean): Promise<Project[]> => {
       if (isStarred) {
         return gitlab.getStarredProjects({ searchText: "", searchIn: "name" }, true);
@@ -110,13 +108,8 @@ export function ProjectList({ membership = true, starred = false }: ProjectListP
       }
       return [];
     },
-    [starred, membership],
-    { onError: () => undefined },
+    [starred, membership]
   );
-
-  if (error) {
-    showErrorToast(getErrorMessage(error), "Cannot search Project");
-  }
 
   const projects: Project[] = searchData<Project[]>(data ?? [], {
     search: searchText || "",
@@ -144,16 +137,15 @@ export function ProjectList({ membership = true, starred = false }: ProjectListP
   );
 }
 
-async function fetchMyProjects(): Promise<Project[]> {
-  return gitlab.getUserProjects({ search: "" }, true);
-}
-
-export function useMyProjects(options?: { onError?: (error: Error) => void }): {
+export function useMyProjects(): {
   projects: Project[] | undefined;
   error?: string;
   isLoading?: boolean;
 } {
-  const { data, error, isLoading } = useCachedPromise(fetchMyProjects, [], { onError: options?.onError });
+  const { data, error, isLoading } = useCachedPromise(
+    () => gitlab.getUserProjects({ search: "" }, true),
+    [],
+  );
   return {
     projects: data,
     error: error ? getErrorMessage(error) : undefined,
@@ -162,13 +154,15 @@ export function useMyProjects(options?: { onError?: (error: Error) => void }): {
 }
 
 function MyProjectsDropdownItem(props: { project: Project }) {
-  const project = props.project;
-  const { localFilepath } = useImage(projectIconUrl(project));
   return (
     <List.Dropdown.Item
-      title={project.name_with_namespace}
-      icon={localFilepath ? { source: localFilepath } : getProjectTextIcon(project)}
-      value={`${project.id}`}
+      title={props.project.name_with_namespace}
+      icon={
+        projectIconUrl(props.project)
+          ? { source: projectIconUrl(props.project)! }
+          : getTextIcon((props.project.name ? getFirstChar(props.project.name) : "?").toUpperCase())
+      }
+      value={`${props.project.id}`}
     />
   );
 }
@@ -198,11 +192,11 @@ export function MyProjectsDropdown(props: {
           props.onChange(selectedProject);
         }}
       >
-        {includeAllItem ? (
+        {includeAllItem && (
           <List.Dropdown.Section>
             <List.Dropdown.Item title="All Projects" value="-" />
           </List.Dropdown.Section>
-        ) : null}
+        )}
         <List.Dropdown.Section>
           {myprojects.map((project) => (
             <MyProjectsDropdownItem key={`${project.id}`} project={project} />

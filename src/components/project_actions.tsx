@@ -20,15 +20,12 @@ function CloneURLInVSCodeListItem(props: { url?: string }) {
   const clone = async (url: string) => {
     try {
       if (url && url.length > 0) {
-        const urlencoded = encodeURIComponent(url);
-        const vscodeurl = `vscode://vscode.git/clone?url=${urlencoded}`;
-        console.log(vscodeurl);
         closeMainWindow();
         popToRoot();
-        await open.default(vscodeurl);
+        await open.default(`vscode://vscode.git/clone?url=${encodeURIComponent(url)}`);
       }
-    } catch (e) {
-      showErrorToast(getErrorMessage(e), "Could not clone in VSCode");
+    } catch (error) {
+      showErrorToast(getErrorMessage(error), "Could not clone in VSCode");
     }
   };
   if (props.url && props.url.length > 0) {
@@ -61,15 +58,14 @@ export function CloneProjectInVSCodeAction(props: {
   shortcut?: Keyboard.Shortcut;
   project: Project;
 }): React.ReactElement | null {
-  const project = props.project;
   const code = getVSCodeAppPath();
-  if (code && (project.http_url_to_repo || project.ssh_url_to_repo)) {
+  if (code && (props.project.http_url_to_repo || props.project.ssh_url_to_repo)) {
     return (
       <Action.Push
         title="Clone in VS Code"
         icon={{ fileIcon: code }}
         shortcut={props.shortcut}
-        target={<CloneInVSCodeList project={project} />}
+        target={<CloneInVSCodeList project={props.project} />}
       />
     );
   } else {
@@ -81,15 +77,13 @@ export function CloneProjectInGitPod(props: {
   shortcut?: Keyboard.Shortcut;
   project: Project;
 }): React.ReactElement | null {
-  const project = props.project;
-  const url = `https://gitpod.io#${project.web_url}`;
-  if (project.http_url_to_repo || project.ssh_url_to_repo) {
+  if (props.project.http_url_to_repo || props.project.ssh_url_to_repo) {
     return (
       <GitLabOpenInBrowserAction
         title="Clone in Gitpod"
         shortcut={props.shortcut}
         icon={{ source: "gitpod.png" }}
-        url={url}
+        url={`https://gitpod.io#${props.project.web_url}`}
       />
     );
   } else {
@@ -166,14 +160,13 @@ function CloneUrlList(props: { project: Project }) {
 }
 
 export function CopyCloneUrlToClipboardAction(props: { shortcut?: Keyboard.Shortcut; project: Project }) {
-  const project = props.project;
-  if (project.http_url_to_repo || project.ssh_url_to_repo) {
+  if (props.project.http_url_to_repo || props.project.ssh_url_to_repo) {
     return (
       <Action.Push
         title="Copy Clone URL"
         shortcut={props.shortcut}
         icon={{ source: Icon.Link, tintColor: Color.PrimaryText }}
-        target={<CloneUrlList project={project} />}
+        target={<CloneUrlList project={props.project} />}
       />
     );
   } else {
@@ -292,9 +285,7 @@ export function OpenProjectSettingsInBrowserAction(props: { project: Project }) 
 }
 
 export function ShowProjectReadmeAction(props: { project: Project }): React.ReactElement | null {
-  const { project } = props;
-
-  if (!project.readme_url) {
+  if (!props.project.readme_url) {
     return null;
   }
 
@@ -303,7 +294,7 @@ export function ShowProjectReadmeAction(props: { project: Project }): React.Reac
       title="Show Readme"
       icon={{ source: Icon.Document, tintColor: Color.PrimaryText }}
       shortcut={{ modifiers: ["cmd"], key: "r" }}
-      target={<ProjectReadmeDetail project={project} />}
+      target={<ProjectReadmeDetail project={props.project} />}
     />
   );
 }

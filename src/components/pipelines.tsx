@@ -1,6 +1,5 @@
 import { Action, ActionPanel, List, Icon, Color } from "@raycast/api";
-import { getCIRefreshInterval } from "../common";
-import { copyShortcut, formatDate, formatDateTime, showErrorToast } from "../utils";
+import { copyShortcut, formatDate, formatDateTime } from "../utils";
 import { getCIJobStatusIcon, getMRPipelineStatusTooltip, JobList } from "./jobs";
 import {
   CancelPipelineAction,
@@ -9,39 +8,10 @@ import {
   RetryPipelineAction,
   RunPipelineAction,
 } from "./pipeline_actions";
-import useInterval from "use-interval";
 import { GitLabOpenInBrowserAction } from "./actions";
 import { Pipeline } from "../gitlabapi";
 import { usePaginatedProjectPipelines } from "./pipelines_data";
 export { normalizePipelineForList } from "./pipelines_gql";
-
-function pipelineTimestamp(pipeline: Pipeline, field: "finished" | "started" | "created"): string | undefined {
-  if (field === "finished") {
-    return pipeline.finished_at || (pipeline as { finishedAt?: string }).finishedAt;
-  }
-  if (field === "started") {
-    return pipeline.started_at || (pipeline as { startedAt?: string }).startedAt;
-  }
-  return pipeline.created_at || (pipeline as { createdAt?: string }).createdAt;
-}
-
-function getPipelineListAccessory(pipeline: Pipeline): List.Item.Accessory | undefined {
-  const finishedAt = pipelineTimestamp(pipeline, "finished");
-  const startedAt = pipelineTimestamp(pipeline, "started");
-  const createdAt = pipelineTimestamp(pipeline, "created");
-  const iso = finishedAt ?? startedAt ?? createdAt;
-  if (!iso) {
-    return undefined;
-  }
-  const timestamp = new Date(iso);
-  const durationSuffix = finishedAt && pipeline.duration ? ` · ${pipeline.duration}s` : "";
-  const tooltip = finishedAt
-    ? `Finished ${formatDateTime(timestamp)}${durationSuffix}`
-    : startedAt
-      ? `Started ${formatDateTime(timestamp)}`
-      : `Created ${formatDateTime(timestamp)}`;
-  return { text: formatDate(timestamp), tooltip };
-}
 
 export function PipelineListItem(props: {
   pipeline: Pipeline;
@@ -49,18 +19,35 @@ export function PipelineListItem(props: {
   onRefreshPipelines: () => void;
   navigationTitle?: string;
 }) {
-  const pipeline = props.pipeline;
-  const dateAccessory = getPipelineListAccessory(pipeline);
+  const finishedAt =
+    props.pipeline.finished_at || (props.pipeline as { finishedAt?: string }).finishedAt;
+  const startedAt = props.pipeline.started_at || (props.pipeline as { startedAt?: string }).startedAt;
+  const createdAt = props.pipeline.created_at || (props.pipeline as { createdAt?: string }).createdAt;
+  const iso = finishedAt ?? startedAt ?? createdAt;
+
   return (
     <List.Item
-      id={`${pipeline.id}`}
-      title={pipeline.id.toString()}
+      id={`${props.pipeline.id}`}
+      title={props.pipeline.id.toString()}
       icon={{
-        value: getCIJobStatusIcon(pipeline.status, false),
-        tooltip: pipeline.status ? getMRPipelineStatusTooltip(pipeline.status) : "",
+        value: getCIJobStatusIcon(props.pipeline.status, false),
+        tooltip: props.pipeline.status ? getMRPipelineStatusTooltip(props.pipeline.status) : "",
       }}
-      subtitle={pipeline.commit_title || pipeline.ref}
-      accessories={dateAccessory ? [dateAccessory] : []}
+      subtitle={props.pipeline.commit_title || props.pipeline.ref}
+      accessories={
+        iso
+          ? [
+              {
+                text: formatDate(new Date(iso)),
+                tooltip: finishedAt
+                  ? `Finished ${formatDateTime(new Date(iso))}${finishedAt && props.pipeline.duration ? ` · ${props.pipeline.duration}s` : ""}`
+                  : startedAt
+                    ? `Started ${formatDateTime(new Date(iso))}`
+                    : `Created ${formatDateTime(new Date(iso))}`,
+              },
+            ]
+          : []
+      }
       actions={
         <ActionPanel>
           <ActionPanel.Section>
@@ -69,19 +56,19 @@ export function PipelineListItem(props: {
               target={
                 <JobList
                   projectFullPath={props.projectFullPath}
-                  pipelineID={pipeline.id}
-                  pipelineIID={pipeline.iid}
+                  pipelineID={props.pipeline.id}
+                  pipelineIID={props.pipeline.iid}
                   navigationTitle={props.navigationTitle}
                 />
               }
               icon={{ source: Icon.Terminal, tintColor: Color.PrimaryText }}
             />
-            <GitLabOpenInBrowserAction url={pipeline.webUrl} />
-            <Action.CopyToClipboard title="Copy URL" content={pipeline.webUrl} shortcut={copyShortcut} />
+            <GitLabOpenInBrowserAction url={props.pipeline.webUrl} />
+            <Action.CopyToClipboard title="Copy URL" content={props.pipeline.webUrl} shortcut={copyShortcut} />
             <RetryPipelineAction pipeline={props.pipeline} onRetryFinished={props.onRefreshPipelines} />
-            {isCancelablePipeline(pipeline) ? (
+            {isCancelablePipeline(props.pipeline) && (
               <CancelPipelineAction pipeline={props.pipeline} onRefreshPipelines={props.onRefreshPipelines} />
-            ) : null}
+            )}
           </ActionPanel.Section>
           <ActionPanel.Section>
             <PipelineItemActions pipeline={props.pipeline} onRefreshPipelines={props.onRefreshPipelines} />
@@ -93,19 +80,11 @@ export function PipelineListItem(props: {
 }
 
 export function PipelineList(props: { projectFullPath: string; navigationTitle?: string }) {
-  const cacheKey = `project_pipelines_${props.projectFullPath}`;
-  const { pipelines, error, isLoading, performRefetch, pagination } = usePaginatedProjectPipelines({
-    cacheKey,
+  const { pipelines, isLoading, performRefetch, pagination } = usePaginatedProjectPipelines({
+    cacheKey: `project_pipelines_${props.projectFullPath}`,
     projectFullPath: props.projectFullPath,
   });
-  const runPipeline = pipelines?.[0];
 
-  useInterval(() => {
-    performRefetch();
-  }, getCIRefreshInterval());
-  if (error) {
-    showErrorToast(error, "Cannot search Pipelines");
-  }
   return (
     <List
       isLoading={isLoading}
@@ -114,14 +93,14 @@ export function PipelineList(props: { projectFullPath: string; navigationTitle?:
       actions={
         <ActionPanel>
           <ActionPanel.Section>
-            {runPipeline ? (
+            {pipelines?.[0] && (
               <RunPipelineAction
-                projectId={runPipeline.projectId}
-                ref={runPipeline.ref}
+                projectId={pipelines[0].projectId}
+                ref={pipelines[0].ref}
                 onFinished={performRefetch}
                 shortcut={{ modifiers: ["cmd"], key: "n" }}
               />
-            ) : null}
+            )}
           </ActionPanel.Section>
         </ActionPanel>
       }

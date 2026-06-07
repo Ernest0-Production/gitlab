@@ -8,25 +8,6 @@ import { capitalizeFirstLetter, formatDateTime, getErrorMessage, showErrorToast 
 import { GitLabOpenInBrowserAction } from "./actions";
 import { CreateEpicTodoAction } from "./epic_actions";
 
-function getIcon(state: string): Image {
-  if (state == "opened") {
-    return { source: GitLabIcons.epic, tintColor: Color.Green };
-  } else {
-    return { source: GitLabIcons.epic, tintColor: Color.Purple };
-  }
-}
-
-function getEpicGroupName(epic: Epic): string | undefined {
-  const f: string | undefined = epic?.references?.full;
-  if (!f) {
-    return;
-  }
-  const i = f.lastIndexOf("&");
-  if (i > 0) {
-    return f.substring(0, i);
-  }
-}
-
 function ActionToggleGroupName(props: { show?: boolean; callback?: (newValue: boolean) => void }) {
   if (!props.callback) {
     return null;
@@ -50,43 +31,56 @@ export function EpicListItem(props: {
   displayGroup?: boolean;
   onChangeDisplayGroup?: (newValue?: boolean) => void;
 }) {
-  const epic = props.epic;
-  const icon = getIcon(epic.state as string);
-  const groupName = getEpicGroupName(epic);
   return (
     <List.Item
-      id={epic.id.toString()}
-      title={epic.title}
-      subtitle={`&${epic.iid}`}
+      id={props.epic.id.toString()}
+      title={props.epic.title}
+      subtitle={`&${props.epic.iid}`}
       accessories={[
-        { text: props.displayGroup === true ? groupName : undefined },
         {
-          text: epic.upvotes ? `${epic.upvotes}` : undefined,
-          icon: epic.upvotes ? "👍" : undefined,
-          tooltip: epic.upvotes ? `Upvotes: ${epic.upvotes}` : undefined,
+          text:
+            props.displayGroup === true && props.epic.references?.full
+              ? (() => {
+                  const ampersandIndex = props.epic.references!.full!.lastIndexOf("&");
+                  return ampersandIndex > 0
+                    ? props.epic.references!.full!.substring(0, ampersandIndex)
+                    : undefined;
+                })()
+              : undefined,
         },
         {
-          text: epic.downvotes ? `${epic.downvotes}` : undefined,
-          icon: epic.downvotes ? "👎" : undefined,
-          tooltip: epic.downvotes ? `Downvotes: ${epic.downvotes}` : undefined,
+          text: props.epic.upvotes ? `${props.epic.upvotes}` : undefined,
+          icon: props.epic.upvotes ? "👍" : undefined,
+          tooltip: props.epic.upvotes ? `Upvotes: ${props.epic.upvotes}` : undefined,
         },
-        ...(epic.updated_at
-          ? [{ date: new Date(epic.updated_at), tooltip: `Updated: ${formatDateTime(epic.updated_at)}` }]
+        {
+          text: props.epic.downvotes ? `${props.epic.downvotes}` : undefined,
+          icon: props.epic.downvotes ? "👎" : undefined,
+          tooltip: props.epic.downvotes ? `Downvotes: ${props.epic.downvotes}` : undefined,
+        },
+        ...(props.epic.updated_at
+          ? [{ date: new Date(props.epic.updated_at), tooltip: `Updated: ${formatDateTime(props.epic.updated_at)}` }]
           : []),
         {
-          icon: epic.author ? { source: epic.author.avatar_url || "", mask: Image.Mask.Circle } : undefined,
-          tooltip: epic.author?.name,
+          icon: props.epic.author ? { source: props.epic.author.avatar_url || "", mask: Image.Mask.Circle } : undefined,
+          tooltip: props.epic.author?.name,
         },
       ]}
-      icon={{ value: icon, tooltip: epic.state ? `Status: ${capitalizeFirstLetter(epic.state)}` : "" }}
+      icon={{
+        value: {
+          source: GitLabIcons.epic,
+          tintColor: props.epic.state == "opened" ? Color.Green : Color.Purple,
+        },
+        tooltip: props.epic.state ? `Status: ${capitalizeFirstLetter(props.epic.state)}` : "",
+      }}
       actions={
         <ActionPanel>
           <ActionPanel.Section>
-            <GitLabOpenInBrowserAction url={epic.web_url} />
-            <CreateEpicTodoAction epic={epic} shortcut={{ modifiers: ["cmd"], key: "t" }} />
+            <GitLabOpenInBrowserAction url={props.epic.web_url} />
+            <CreateEpicTodoAction epic={props.epic} shortcut={{ modifiers: ["cmd"], key: "t" }} />
           </ActionPanel.Section>
           <ActionPanel.Section>
-            <Action.CopyToClipboard title="Copy Epic ID" content={epic.id} />
+            <Action.CopyToClipboard title="Copy Epic ID" content={props.epic.id} />
             <ActionToggleGroupName show={props.displayGroup} callback={props.onChangeDisplayGroup} />
           </ActionPanel.Section>
         </ActionPanel>
@@ -97,27 +91,21 @@ export function EpicListItem(props: {
 
 export function EpicList(props: { group: Group }) {
   const [searchText, setSearchText] = useState<string>();
-  const { data, error, isLoading } = useCachedPromise(
+  const { data, isLoading } = useCachedPromise(
     async (groupID: number): Promise<Epic[]> => {
       return (await gitlab.fetch(`groups/${groupID}/epics`, { min_access_level: "30", state: "opened" }, true)) || [];
     },
-    [props.group.id],
-    { onError: () => undefined },
+    [props.group.id]
   );
 
-  if (error) {
-    showErrorToast(getErrorMessage(error), "Cannot search Epics");
-  }
-
   const epics: Epic[] = searchData<Epic>(data ?? [], { search: searchText || "", keys: ["title"], limit: 50 });
-  const navTitle = `Epics ${props.group.full_path}`;
   return (
     <List
       searchBarPlaceholder="Filter Epics by name..."
       onSearchTextChange={setSearchText}
       isLoading={isLoading}
       throttle={true}
-      navigationTitle={navTitle}
+      navigationTitle={`Epics ${props.group.full_path}`}
     >
       <List.Section
         title={data ? `Recent Epics ${epics.length}` : undefined}

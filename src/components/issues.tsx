@@ -47,10 +47,7 @@ export function IssueListEmptyView() {
 }
 
 export function IssueDetailFetch(props: { project: Project; issueId: number }) {
-  const { issue, isLoading, error } = useIssue(props.project.id, props.issueId);
-  if (error) {
-    showErrorToast(error, "Could not fetch Issue Details");
-  }
+  const { issue, isLoading } = useIssue(props.project.id, props.issueId);
   if (isLoading || !issue) {
     return <Detail isLoading={isLoading} />;
   } else {
@@ -63,56 +60,48 @@ interface IssueDetailData {
   projectWebUrl?: string;
 }
 
-function stateColor(state: string): Color.ColorLike {
-  return state === "closed" ? "red" : "green";
-}
-
 export function IssueDetail(props: { issue: Issue }) {
-  const issue = props.issue;
-  const { issueDetail, error, isLoading } = useDetail(props.issue.id);
-  if (error) {
-    showErrorToast(error, "Could not get Issue Details");
-  }
-
-  const desc = (issueDetail?.description ? issueDetail.description : props.issue.description) || "";
-
-  const lines: string[] = [];
-  if (issue) {
-    lines.push(`# ${issue.title}`);
-    lines.push(optimizeMarkdownText(desc, issueDetail?.projectWebUrl));
-  }
-  const md = lines.join("  \n");
+  const { issueDetail, isLoading } = useDetail(props.issue.id);
 
   return (
     <Detail
-      markdown={md}
+      markdown={[
+        `# ${props.issue.title}`,
+        optimizeMarkdownText(
+          (issueDetail?.description ? issueDetail.description : props.issue.description) || "",
+          issueDetail?.projectWebUrl,
+        ),
+      ].join("  \n")}
       isLoading={isLoading}
       navigationTitle={`${props.issue.reference_full}`}
       actions={
         <ActionPanel>
           <GitLabOpenInBrowserAction url={props.issue.web_url} />
           <IssueItemActions issue={props.issue} />
-          <Action.CopyToClipboard title="Copy Issue Description" content={issue.description} />
+          <Action.CopyToClipboard title="Copy Issue Description" content={props.issue.description} />
         </ActionPanel>
       }
       metadata={
         <Detail.Metadata>
           <Detail.Metadata.TagList title="Status">
-            <Detail.Metadata.TagList.Item text={capitalizeFirstLetter(issue.state)} color={stateColor(issue.state)} />
+            <Detail.Metadata.TagList.Item
+              text={capitalizeFirstLetter(props.issue.state)}
+              color={props.issue.state === "closed" ? "red" : "green"}
+            />
           </Detail.Metadata.TagList>
-          {issue.author && (
+          {props.issue.author && (
             <Detail.Metadata.TagList title="Author">
               <Detail.Metadata.TagList.Item
-                key={issue.id}
-                text={issue.author.name}
-                icon={userIcon(issue.author)}
-                onAction={userTagOnAction(issue.author)}
+                key={props.issue.id}
+                text={props.issue.author.name}
+                icon={userIcon(props.issue.author)}
+                onAction={userTagOnAction(props.issue.author)}
               />
             </Detail.Metadata.TagList>
           )}
           <Detail.Metadata.TagList title="Assignee">
-            {issue.assignees.length > 0 ? (
-              issue.assignees.map((assignee) => (
+            {props.issue.assignees.length > 0 ? (
+              props.issue.assignees.map((assignee) => (
                 <Detail.Metadata.TagList.Item
                   key={assignee.id}
                   text={assignee.name}
@@ -124,12 +113,16 @@ export function IssueDetail(props: { issue: Issue }) {
               <Detail.Metadata.TagList.Item text="-" />
             )}
           </Detail.Metadata.TagList>
-          {issue.created_at && <Detail.Metadata.Label title="Created" text={formatDate(issue.created_at)} />}
-          {issue.updated_at && <Detail.Metadata.Label title="Updated" text={formatDate(issue.updated_at)} />}
-          {issue.milestone && <Detail.Metadata.Label title="Milestone" text={issue.milestone.title} />}
-          {issue.labels.length > 0 && (
+          {props.issue.created_at && (
+            <Detail.Metadata.Label title="Created" text={formatDate(props.issue.created_at)} />
+          )}
+          {props.issue.updated_at && (
+            <Detail.Metadata.Label title="Updated" text={formatDate(props.issue.updated_at)} />
+          )}
+          {props.issue.milestone && <Detail.Metadata.Label title="Milestone" text={props.issue.milestone.title} />}
+          {props.issue.labels.length > 0 && (
             <Detail.Metadata.TagList title="Labels">
-              {issue.labels?.map((label) => (
+              {props.issue.labels?.map((label) => (
                 <Detail.Metadata.TagList.Item key={label.id} text={label.name || "?"} color={label.color} />
               ))}
             </Detail.Metadata.TagList>
@@ -151,59 +144,58 @@ function useDetail(issueID: number): {
         query: GET_ISSUE_DETAIL,
         variables: { id: `gid://gitlab/Issue/${issueId}` },
       });
-      const desc = data.data.issue.description || "<no description>";
       const webUrl = (data.data.issue.webUrl as string) || "";
-      let projectWebUrl: string | undefined;
       const index = webUrl.indexOf("/-/");
-      if (index > 1) {
-        projectWebUrl = webUrl.substring(0, index);
-      }
-      return { description: desc, projectWebUrl };
+      return {
+        description: data.data.issue.description || "<no description>",
+        projectWebUrl: index > 1 ? webUrl.substring(0, index) : undefined,
+      };
     },
     [issueID],
-    // The error is surfaced via `error` and toasted by the caller in render.
-    { execute: issueID > 0, onError: () => undefined },
+    { execute: issueID > 0 },
   );
 
   return { issueDetail: data, error: error ? getErrorMessage(error) : undefined, isLoading };
 }
 
 export function IssueListItem(props: { issue: Issue; refreshData: () => void }) {
-  const issue = props.issue;
-  const tintColor = issue.state === "opened" ? Color.Green : Color.Red;
   return (
     <List.Item
-      id={issue.id.toString()}
-      title={issue.title}
-      subtitle={"#" + issue.iid}
+      id={props.issue.id.toString()}
+      title={props.issue.title}
+      subtitle={"#" + props.issue.iid}
       icon={{
         value: {
           source: GitLabIcons.issue,
-          tintColor: tintColor,
+          tintColor: props.issue.state === "opened" ? Color.Green : Color.Red,
         },
-        tooltip: `Status: ${capitalizeFirstLetter(issue.state)}`,
+        tooltip: `Status: ${capitalizeFirstLetter(props.issue.state)}`,
       }}
       accessories={[
         {
-          text: issue.merge_requests_count > 0 ? `${issue.merge_requests_count}` : undefined,
-          icon: issue.merge_requests_count > 0 ? { source: "branch.png", tintColor: Color.PrimaryText } : undefined,
+          text: props.issue.merge_requests_count > 0 ? `${props.issue.merge_requests_count}` : undefined,
+          icon:
+            props.issue.merge_requests_count > 0 ? { source: "branch.png", tintColor: Color.PrimaryText } : undefined,
         },
         {
-          icon: issue.user_notes_count && issue.user_notes_count > 0 ? Icon.SpeechBubble : undefined,
-          text: issue.user_notes_count && issue.user_notes_count > 0 ? issue.user_notes_count.toString() : undefined,
+          icon: props.issue.user_notes_count && props.issue.user_notes_count > 0 ? Icon.SpeechBubble : undefined,
+          text:
+            props.issue.user_notes_count && props.issue.user_notes_count > 0
+              ? props.issue.user_notes_count.toString()
+              : undefined,
           tooltip:
-            issue.user_notes_count && issue.user_notes_count > 0
-              ? `Number of Comments ${issue.user_notes_count}`
+            props.issue.user_notes_count && props.issue.user_notes_count > 0
+              ? `Number of Comments ${props.issue.user_notes_count}`
               : undefined,
         },
         {
-          tag: issue.milestone ? issue.milestone.title : "",
-          tooltip: issue.milestone ? `Milestone: ${issue.milestone.title}` : undefined,
+          tag: props.issue.milestone ? props.issue.milestone.title : "",
+          tooltip: props.issue.milestone ? `Milestone: ${props.issue.milestone.title}` : undefined,
         },
-        { date: new Date(issue.updated_at), tooltip: `Updated: ${formatDateTime(issue.updated_at)}` },
+        { date: new Date(props.issue.updated_at), tooltip: `Updated: ${formatDateTime(props.issue.updated_at)}` },
         {
-          icon: { source: issue.author?.avatar_url || "", mask: Image.Mask.Circle },
-          tooltip: issue.author ? `Author: ${issue.author?.name}` : undefined,
+          icon: { source: props.issue.author?.avatar_url || "", mask: Image.Mask.Circle },
+          tooltip: props.issue.author ? `Author: ${props.issue.author?.name}` : undefined,
         },
       ]}
       actions={
@@ -211,13 +203,13 @@ export function IssueListItem(props: { issue: Issue; refreshData: () => void }) 
           <ActionPanel.Section>
             <Action.Push
               title="Show Details"
-              target={<IssueDetail issue={issue} />}
+              target={<IssueDetail issue={props.issue} />}
               icon={{ source: GitLabIcons.show_details, tintColor: Color.PrimaryText }}
             />
-            <GitLabOpenInBrowserAction url={issue.web_url} shortcut={{ modifiers: ["cmd"], key: "enter" }} />
+            <GitLabOpenInBrowserAction url={props.issue.web_url} shortcut={{ modifiers: ["cmd"], key: "enter" }} />
           </ActionPanel.Section>
           <ActionPanel.Section>
-            <IssueItemActions issue={issue} onDataChange={props.refreshData} />
+            <IssueItemActions issue={props.issue} onDataChange={props.refreshData} />
           </ActionPanel.Section>
         </ActionPanel>
       }
@@ -236,16 +228,6 @@ interface IssueListProps {
     | undefined;
 }
 
-function navTitle(project?: Project, group?: Group): string | undefined {
-  if (group) {
-    return `Group Issues ${group.full_path}`;
-  }
-  if (project) {
-    return `${project.name_with_namespace}`;
-  }
-  return undefined;
-}
-
 export function IssueList({
   scope = IssueScope.created_by_me,
   state = IssueState.all,
@@ -254,13 +236,7 @@ export function IssueList({
 }: IssueListProps) {
   const [searchText, setSearchText] = useState<string>();
   const [searchState, setSearchState] = useState<IssueState>(state);
-  const { issues, error, isLoading, refresh } = useSearch(searchText, scope, searchState, project, group);
-
-  if (error) {
-    showErrorToast(error, "Cannot search Issue");
-  }
-
-  const title = scope === IssueScope.assigned_to_me ? "Your Issues" : "Created Recently";
+  const { issues, isLoading, refresh } = useSearch(searchText, scope, searchState, project, group);
 
   return (
     <List
@@ -286,9 +262,12 @@ export function IssueList({
           <List.Dropdown.Item title="All" value={IssueState.all} />
         </List.Dropdown>
       }
-      navigationTitle={navTitle(project, group)}
+      navigationTitle={group ? `Group Issues ${group.full_path}` : project ? `${project.name_with_namespace}` : undefined}
     >
-      <List.Section title={title} subtitle={issues?.length.toString() || ""}>
+      <List.Section
+        title={scope === IssueScope.assigned_to_me ? "Your Issues" : "Created Recently"}
+        subtitle={issues?.length.toString() || ""}
+      >
         {issues?.map((issue) => (
           <IssueListItem key={issue.id} issue={issue} refreshData={refresh} />
         ))}
@@ -306,8 +285,8 @@ function isValidIssueState(texts: string[] | undefined) {
   if (!texts) {
     return false;
   }
-  for (const v of texts) {
-    if (![IssueState.closed.valueOf(), IssueState.opened.valueOf(), IssueState.all.valueOf()].includes(v)) {
+  for (const stateText of texts) {
+    if (![IssueState.closed.valueOf(), IssueState.opened.valueOf(), IssueState.all.valueOf()].includes(stateText)) {
       return false;
     }
   }
@@ -394,9 +373,7 @@ export function useSearch(
       injectQueryNamedParameters(requestParams, parsedQuery, issueScope, true);
       return group ? gitlab.getGroupIssues(requestParams, group.id) : gitlab.getIssues(requestParams, project);
     },
-    [query ?? "", scope, state, project, group],
-    // The error is surfaced via `error` and toasted by the caller in render.
-    { onError: () => undefined },
+    [query ?? "", scope, state, project, group]
   );
 
   return { issues: data, error: error ? getErrorMessage(error) : undefined, isLoading, refresh: revalidate };
@@ -412,9 +389,7 @@ export function useIssue(
 } {
   const { data, error, isLoading } = usePromise(
     (projectId: number, issueId: number) => gitlab.getIssue(projectId, issueId, {}),
-    [projectID, issueID],
-    // The error is surfaced via `error` and toasted by the caller in render.
-    { onError: () => undefined },
+    [projectID, issueID]
   );
 
   return { issue: data, error: error ? getErrorMessage(error) : undefined, isLoading };

@@ -1,20 +1,20 @@
 import Fuse from "fuse.js";
 import fetch, { Response } from "node-fetch";
-import { receiveLargeCachedObject } from "./cache";
-import { hashRecord, projectFullPathFromWebUrl } from "./utils";
+import { withCache } from "@raycast/utils";
+import { projectFullPathFromWebUrl } from "./utils";
 import util from "util";
 import fs from "fs";
 import { pipeline } from "stream";
 const streamPipeline = util.promisify(pipeline);
 import https from "https";
-import { getPreferenceValues } from "@raycast/api";
+import { getPreferences } from "./utils";
 
 function readCACertFileSync(filename: string): Buffer | undefined {
   try {
     const data = fs.readFileSync(filename);
     return data;
-  } catch (e) {
-    throw Error(`Could not read CA cert file ${filename} ${e}`);
+  } catch (error) {
+    throw Error(`Could not read CA cert file ${filename} ${error}`);
   }
 }
 
@@ -22,22 +22,26 @@ function readCertFileSync(filename: string): Buffer | undefined {
   try {
     const data = fs.readFileSync(filename);
     return data;
-  } catch (e) {
-    throw Error(`Could not read cert file ${filename} ${e}`);
+  } catch (error) {
+    throw Error(`Could not read cert file ${filename} ${error}`);
   }
 }
 
 export function getHttpAgent(): https.Agent | undefined {
   let agent: https.Agent | undefined;
-  const preferences = getPreferenceValues();
-  const ignoreCertificates = (preferences.ignorecerts as boolean) || false;
-  const customcacert = (preferences.customcacert as string) || "";
-  const customcert = (preferences.customcert as string) || "";
+  const preferences = getPreferences();
+  const ignoreCertificates = preferences.ignorecerts;
+  const customcacert = preferences.customcacert ?? "";
+  const customcert = preferences.customcert ?? "";
   if (ignoreCertificates || customcacert.length > 0 || customcert.length > 0) {
-    const ca = customcacert.length > 0 ? readCACertFileSync(customcacert) : undefined;
-    const cert = customcert.length > 0 ? readCertFileSync(customcert) : undefined;
-    const opt: https.AgentOptions = { rejectUnauthorized: !ignoreCertificates, ca: ca, cert: cert };
-    agent = new https.Agent(opt);
+    const caCertificate = customcacert.length > 0 ? readCACertFileSync(customcacert) : undefined;
+    const clientCertificate = customcert.length > 0 ? readCertFileSync(customcert) : undefined;
+    const agentOptions: https.AgentOptions = {
+      rejectUnauthorized: !ignoreCertificates,
+      ca: caCertificate,
+      cert: clientCertificate,
+    };
+    agent = new https.Agent(agentOptions);
   }
   return agent;
 }
@@ -229,13 +233,12 @@ function pipelineStatusFromJson(pipeline: GitLabPipelineJson | undefined | null)
   if (typeof pipeline.status === "string" && pipeline.status.length > 0) {
     return pipeline.status;
   }
-  const detailedStatus = pipeline.detailed_status;
-  if (detailedStatus && typeof detailedStatus === "object") {
-    if (typeof detailedStatus.group === "string" && detailedStatus.group.length > 0) {
-      return detailedStatus.group;
+  if (pipeline.detailed_status && typeof pipeline.detailed_status === "object") {
+    if (typeof pipeline.detailed_status.group === "string" && pipeline.detailed_status.group.length > 0) {
+      return pipeline.detailed_status.group;
     }
-    if (typeof detailedStatus.label === "string" && detailedStatus.label.length > 0) {
-      return detailedStatus.label;
+    if (typeof pipeline.detailed_status.label === "string" && pipeline.detailed_status.label.length > 0) {
+      return pipeline.detailed_status.label;
     }
   }
   return undefined;
@@ -335,22 +338,22 @@ export function jsonDataToIssue(issue: GitLabIssueJson): Issue {
  * - Nested keys (e.g., not[labels][]) are supported if the key is in the form 'not[labels][]'.
  */
 function paramString(params: { [key: string]: any }): string {
-  const p: string[] = [];
-  for (const k in params) {
-    const v = params[k];
-    if (Array.isArray(v)) {
-      for (const item of v) {
-        p.push(`${encodeURIComponent(k)}=${encodeURIComponent(item)}`);
+  const queryParts: string[] = [];
+  for (const key in params) {
+    const value = params[key];
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        queryParts.push(`${encodeURIComponent(key)}=${encodeURIComponent(item)}`);
       }
     } else {
-      p.push(`${encodeURIComponent(k)}=${encodeURIComponent(v)}`);
+      queryParts.push(`${encodeURIComponent(key)}=${encodeURIComponent(value)}`);
     }
   }
   let prefix = "";
-  if (p.length > 0) {
+  if (queryParts.length > 0) {
     prefix = "?";
   }
-  return prefix + p.join("&");
+  return prefix + queryParts.join("&");
 }
 
 function getNextPageNumber(page_response: Response): number | undefined {
@@ -605,14 +608,14 @@ export function isValidStatus(status: Status): boolean {
 }
 
 async function toJsonOrError(response: Response): Promise<any> {
-  const s = response.status;
-  logAPI(`status code: ${s}`);
-  if (s >= 200 && s < 300) {
+  const statusCode = response.status;
+  logAPI(`status code: ${statusCode}`);
+  if (statusCode >= 200 && statusCode < 300) {
     const json = await response.json();
     return json;
-  } else if (s == 401) {
+  } else if (statusCode == 401) {
     throw Error("Unauthorized");
-  } else if (s == 403) {
+  } else if (statusCode == 403) {
     const json = (await response.json()) as GitLabApiErrorBody;
     let msg = "Forbidden";
     if (json.error && json.error == "insufficient_scope") {
@@ -620,16 +623,16 @@ async function toJsonOrError(response: Response): Promise<any> {
     }
     logAPI(msg);
     throw Error(msg);
-  } else if (s == 404) {
+  } else if (statusCode == 404) {
     throw Error("Not found");
-  } else if (s >= 400 && s < 500) {
+  } else if (statusCode >= 400 && statusCode < 500) {
     const json = (await response.json()) as GitLabApiErrorBody;
     logAPI(json);
     const msg = typeof json.message === "string" ? json.message : JSON.stringify(json.message ?? "http error");
     throw Error(msg);
   } else {
     logAPI("unknown error");
-    throw Error(`http status ${s}`);
+    throw Error(`http status ${statusCode}`);
   }
 }
 
@@ -665,8 +668,8 @@ export class GitLab {
     const per_page = all ? 100 : 50;
     const fetchPage = async (page: number): Promise<Response> => {
       const pagedParams = { ...params, per_page: params.per_page ?? `${per_page}`, page: `${page}` };
-      const ps = paramString(pagedParams);
-      const fullUrl = this.url + "/api/v4/" + url + ps;
+      const queryString = paramString(pagedParams);
+      const fullUrl = this.url + "/api/v4/" + url + queryString;
       logAPI(`send GET request: ${fullUrl}`);
       const fetcher = this.getFetcher();
       const response = await fetcher(fullUrl, {
@@ -702,8 +705,8 @@ export class GitLab {
     perPage = 50,
   ): Promise<{ data: any; hasMore: boolean }> {
     const pagedParams = { ...params, per_page: params.per_page ?? `${perPage}`, page: `${page}` };
-    const ps = paramString(pagedParams);
-    const fullUrl = this.url + "/api/v4/" + url + ps;
+    const queryString = paramString(pagedParams);
+    const fullUrl = this.url + "/api/v4/" + url + queryString;
     logAPI(`send GET request: ${fullUrl}`);
     const fetcher = this.getFetcher();
     try {
@@ -770,21 +773,21 @@ export class GitLab {
         method: "POST",
         body: JSON.stringify(params),
       });
-      const s = response.status;
-      logAPI(`status code: ${s}`);
-      if (s === 204 || s === 304) {
+      const statusCode = response.status;
+      logAPI(`status code: ${statusCode}`);
+      if (statusCode === 204 || statusCode === 304) {
         return;
       }
 
-      if (s >= 200 && s < 300) {
+      if (statusCode >= 200 && statusCode < 300) {
         return await response.json();
       }
 
-      if (s === 401) {
+      if (statusCode === 401) {
         throw Error("Unauthorized");
       }
 
-      if (s === 403) {
+      if (statusCode === 403) {
         const json = (await response.json()) as GitLabApiErrorBody;
         let msg = "Forbidden";
         if (json.error && json.error == "insufficient_scope") {
@@ -794,14 +797,14 @@ export class GitLab {
         throw Error(msg);
       }
 
-      if (s === 404) {
+      if (statusCode === 404) {
         throw Error("Not found");
       }
 
-      if (s >= 400 && s < 500) {
+      if (statusCode >= 400 && statusCode < 500) {
         const json = (await response.json()) as GitLabApiErrorBody;
         logAPI(json);
-        let msg = `http status ${s}`;
+        let msg = `http status ${statusCode}`;
         if (json.message) {
           // TODO better form error handling
           msg = JSON.stringify(json.message);
@@ -810,10 +813,10 @@ export class GitLab {
       }
 
       logAPI("unknown error");
-      throw Error(`http status ${s}`);
-    } catch (e: any) {
-      logAPI(`catch error: ${e}`);
-      throw Error(e.message); // rethrow error, otherwise raycast could not catch the error
+      throw Error(`http status ${statusCode}`);
+    } catch (error: any) {
+      logAPI(`catch error: ${error}`);
+      throw Error(error.message); // rethrow error, otherwise raycast could not catch the error
     }
   }
 
@@ -828,9 +831,9 @@ export class GitLab {
         body: JSON.stringify(params),
       });
       await toJsonOrError(response);
-    } catch (e: any) {
-      logAPI(`catch error: ${e}`);
-      throw Error(e.message); // rethrow error, otherwise raycast could not catch the error
+    } catch (error: any) {
+      logAPI(`catch error: ${error}`);
+      throw Error(error.message); // rethrow error, otherwise raycast could not catch the error
     }
   }
 
@@ -848,8 +851,8 @@ export class GitLab {
     if (params.includeLabels) {
       const includeArr = params.includeLabels
         .split(",")
-        .map((l: string) => l.trim())
-        .filter((l: string) => l.length > 0);
+        .map((label: string) => label.trim())
+        .filter((label: string) => label.length > 0);
       if (includeArr.length > 0) {
         params["labels[]"] = includeArr;
       }
@@ -858,8 +861,8 @@ export class GitLab {
     if (params.excludeLabels) {
       const excludeArr = params.excludeLabels
         .split(",")
-        .map((l: string) => l.trim())
-        .filter((l: string) => l.length > 0);
+        .map((label: string) => label.trim())
+        .filter((label: string) => label.length > 0);
       if (excludeArr.length > 0) {
         params["not[labels][]"] = excludeArr;
       }
@@ -1070,8 +1073,8 @@ export class GitLab {
 
     if (params.search) {
       const lowerSearch = params.search.toLowerCase();
-      const filtered = issueItems.filter((t: Todo) => {
-        return t.title.toLowerCase().includes(lowerSearch);
+      const filtered = issueItems.filter((todo: Todo) => {
+        return todo.title.toLowerCase().includes(lowerSearch);
       });
       return filtered;
     }
@@ -1079,11 +1082,7 @@ export class GitLab {
   }
 
   async getMyself(): Promise<User> {
-    const user: User = await receiveLargeCachedObject("user", async () => {
-      const user: User = await this.fetch("user").then((userdata) => userFromJson(userdata));
-      return user;
-    });
-    return user;
+    return getMyselfCached(this);
   }
 
   async getGroups(args = { searchText: "", searchIn: "" }): Promise<Group[]> {
@@ -1099,15 +1098,14 @@ export class GitLab {
   async getUserGroups(
     params: { min_access_level?: string; search?: string; top_level_only?: boolean } = {},
   ): Promise<any> {
-    if (!params.min_access_level) {
-      params.min_access_level = "30";
-    }
     const search = params.search;
-    delete params.search;
-
-    const dataAll: Group[] = await receiveLargeCachedObject(hashRecord(params, "usergroups"), async () => {
-      return ((await this.fetch(`groups`, params as Record<string, any>, true)) as Group[]) || [];
-    });
+    const fetchParams: Record<string, string> = {
+      min_access_level: params.min_access_level ?? "30",
+    };
+    if (params.top_level_only !== undefined) {
+      fetchParams.top_level_only = `${params.top_level_only}`;
+    }
+    const dataAll: Group[] = await fetchUserGroupsCached(this, fetchParams);
     return searchData<Group>(dataAll, { search: search || "", keys: ["title"], limit: 50 });
   }
 
@@ -1150,26 +1148,30 @@ export class GitLab {
       try {
         const data = (await this.fetch(`groups/${groupid}/epics`, params as Record<string, any>, true)) || [];
         return data;
-      } catch (e: any) {
-        logAPI(`skip during error ${e}`);
+      } catch (error: any) {
+        logAPI(`skip during error ${error}`);
         return [];
       }
     }
 
     const groups = await this.getUserGroups({ top_level_only: true });
     const epics: Epic[] = [];
-    for (const g of groups) {
+    for (const group of groups) {
       try {
-        const data = (await this.fetch(`groups/${g.id}/epics`, params as Record<string, any>, true)) || [];
-        for (const e of data) {
-          epics.push(e);
+        const data = (await this.fetch(`groups/${group.id}/epics`, params as Record<string, any>, true)) || [];
+        for (const epic of data) {
+          epics.push(epic);
         }
-      } catch (e: any) {
-        logAPI(`skip during error ${e}`);
+      } catch (error: any) {
+        logAPI(`skip during error ${error}`);
       }
     }
     if (params.include_ancestor_groups === true && !groupid) {
-      return epics.filter((e, i, a) => a.findIndex((t) => t.id === e.id) === i) || [];
+      return (
+        epics.filter(
+          (epic, index, allEpics) => allEpics.findIndex((candidate) => candidate.id === epic.id) === index,
+        ) || []
+      );
     }
     return epics;
   }
@@ -1221,6 +1223,20 @@ export class GitLab {
     return await response.text();
   }
 }
+
+const REST_CACHE_MAX_AGE_MS = 5 * 60 * 1000;
+
+const getMyselfCached = withCache(async (gitlab: GitLab): Promise<User> => {
+  const userdata = await gitlab.fetch("user");
+  return userFromJson(userdata);
+}, { maxAge: REST_CACHE_MAX_AGE_MS });
+
+const fetchUserGroupsCached = withCache(
+  async (gitlab: GitLab, params: Record<string, string>): Promise<Group[]> => {
+    return ((await gitlab.fetch("groups", params, true)) as Group[]) || [];
+  },
+  { maxAge: REST_CACHE_MAX_AGE_MS },
+);
 
 export function searchData<Type>(
   data: any,

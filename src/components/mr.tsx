@@ -2,7 +2,14 @@ import { ActionPanel, List, Color, Detail, Action, Image, Icon, Keyboard } from 
 import { Group, MergeRequest, Project } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
 import { useCallback, useMemo, useState } from "react";
-import { getErrorMessage, hashRecord, optimizeMarkdownText, Query, showErrorToast, tokenizeQueryText } from "../utils";
+import {
+  getErrorMessage,
+  hashRecord,
+  optimizeMarkdownText,
+  Query,
+  showErrorToast,
+  tokenizeQueryText,
+} from "../utils";
 import { getMRDiscussionMetadataLabel, discussionStatsFromMergeRequest, useMRDiscussionStats } from "./mr_discussions";
 import { getMRStateListIcon } from "./mr_status";
 import { MRCopySection, MRItemActions, ShowMRCommitsAction, ShowMRPipelinesAction } from "./mr_actions";
@@ -54,12 +61,11 @@ export function useMRListMetadata(): { isShowingMetadata: boolean; toggleListMet
 }
 
 export function MRListDetailsToggleAction(props: { isShowingDetail: boolean; onToggle: () => void }) {
-  const detailsIcon = { source: GitLabIcons.show_details, tintColor: Color.PrimaryText };
   return (
     <Action
       title={props.isShowingDetail ? "Hide Side Panel" : "Show Side Panel"}
       shortcut={mrListDetailsShortcut}
-      icon={detailsIcon}
+      icon={{ source: GitLabIcons.show_details, tintColor: Color.PrimaryText }}
       onAction={props.onToggle}
     />
   );
@@ -81,10 +87,7 @@ export function MRListMetadataToggleAction(props: { isShowingDetail: boolean }) 
 }
 
 export function MRDetailFetch(props: { project: Project; mrId: number }) {
-  const { mr, isLoading, error } = useMR(props.project, props.mrId);
-  if (error) {
-    showErrorToast(error, "Could not fetch Merge Request Details");
-  }
+  const { mr, isLoading } = useMR(props.project, props.mrId);
   if (isLoading || !mr) {
     return <Detail isLoading={isLoading} />;
   } else {
@@ -93,20 +96,17 @@ export function MRDetailFetch(props: { project: Project; mrId: number }) {
 }
 
 function mrDescriptionMarkdown(mr: MergeRequest, lineBreak = "  \n"): string {
-  const desc = mr.description || "<no description>";
-  const lines = [`# ${mr.title}`, optimizeMarkdownText(desc, mr.project_web_url)];
-  return lines.join(lineBreak);
+  return [`# ${mr.title}`, optimizeMarkdownText(mr.description || "<no description>", mr.project_web_url)].join(
+    lineBreak,
+  );
 }
 
 export function MRDetail(props: { mr: MergeRequest }) {
-  const mr = props.mr;
-  const { stats: discussionStats, isLoading: discussionsLoading } = useMRDiscussionStats(mr);
-
-  const discussionLabel = getMRDiscussionMetadataLabel(mr, discussionStats, discussionsLoading);
+  const { stats: discussionStats, isLoading: discussionsLoading } = useMRDiscussionStats(props.mr);
 
   return (
     <Detail
-      markdown={mrDescriptionMarkdown(mr)}
+      markdown={mrDescriptionMarkdown(props.mr)}
       navigationTitle={`${props.mr.reference_full}`}
       actions={
         <ActionPanel>
@@ -119,22 +119,31 @@ export function MRDetail(props: { mr: MergeRequest }) {
           <MRItemActions mr={props.mr} />
         </ActionPanel>
       }
-      metadata={<MRDetailMetadata mr={mr} discussionLabel={discussionLabel} />}
+      metadata={
+        <MRDetailMetadata
+          mr={props.mr}
+          discussionLabel={getMRDiscussionMetadataLabel(props.mr, discussionStats, discussionsLoading)}
+        />
+      }
     />
   );
 }
 
 export function MRListDetail(props: { mr: MergeRequest }) {
-  const mr = props.mr;
-  const { stats: discussionStats, isLoading: discussionsLoading } = useMRDiscussionStats(mr);
+  const { stats: discussionStats, isLoading: discussionsLoading } = useMRDiscussionStats(props.mr);
   const { isShowingMetadata } = useMRListMetadata();
-
-  const discussionLabel = getMRDiscussionMetadataLabel(mr, discussionStats, discussionsLoading);
 
   return (
     <List.Item.Detail
-      markdown={mrDescriptionMarkdown(mr, "\n")}
-      metadata={isShowingMetadata ? <MRListDetailMetadata mr={mr} discussionLabel={discussionLabel} /> : undefined}
+      markdown={mrDescriptionMarkdown(props.mr, "\n")}
+      metadata={
+        isShowingMetadata ? (
+          <MRListDetailMetadata
+            mr={props.mr}
+            discussionLabel={getMRDiscussionMetadataLabel(props.mr, discussionStats, discussionsLoading)}
+          />
+        ) : undefined
+      }
     />
   );
 }
@@ -163,16 +172,6 @@ interface MRListProps {
     | undefined;
 }
 
-function navTitle(project?: Project, group?: Group): string | undefined {
-  if (group) {
-    return `Group MRs ${group.full_path}`;
-  }
-  if (project) {
-    return `MRs ${project.name_with_namespace}`;
-  }
-  return undefined;
-}
-
 export function MRList({
   scope = MRScope.created_by_me,
   state = MRState.all,
@@ -182,20 +181,13 @@ export function MRList({
 }: MRListProps) {
   const [searchText, setSearchText] = useState<string>();
   const params = useMemo(() => buildMRListParams(searchText, scope, state), [searchText, scope, state]);
-  const paramsHash = useMemo(() => hashRecord(params), [params]);
-  const { mrs, error, isLoading, performRefetch, pagination } = usePaginatedMergeRequests({
-    cacheKey: `mrlist_${project?.id ?? "none"}_${group?.id ?? "none"}_${paramsHash}`,
+  const { mrs, isLoading, performRefetch, pagination } = usePaginatedMergeRequests({
+    cacheKey: `mrlist_${project?.id ?? "none"}_${group?.id ?? "none"}_${hashRecord(params)}`,
     buildParams: () => params,
     project,
     group,
-    onError: () => undefined,
   });
 
-  if (error) {
-    showErrorToast(error, "Cannot search Merge Requests");
-  }
-
-  const title = scope == MRScope.assigned_to_me ? "Your Merge Requests" : "Created Recently";
   const { isShowingDetail, toggleListDetails } = useMRListDetails();
 
   return (
@@ -206,7 +198,9 @@ export function MRList({
       pagination={pagination}
       throttle={true}
       searchBarAccessory={searchBarAccessory}
-      navigationTitle={navTitle(project, group)}
+      navigationTitle={
+        group ? `Group MRs ${group.full_path}` : project ? `MRs ${project.name_with_namespace}` : undefined
+      }
       isShowingDetail={isShowingDetail}
       actions={
         <ActionPanel>
@@ -217,11 +211,14 @@ export function MRList({
         </ActionPanel>
       }
     >
-      <List.Section title={title} subtitle={mrs?.length.toString() || "0"}>
-        {mrs?.map((mr) => (
+      <List.Section
+        title={scope == MRScope.assigned_to_me ? "Your Merge Requests" : "Created Recently"}
+        subtitle={mrs?.length.toString() || "0"}
+      >
+        {mrs?.map((mergeRequest) => (
           <MRListItem
-            key={mr.id}
-            mr={mr}
+            key={mergeRequest.id}
+            mr={mergeRequest}
             refreshData={performRefetch}
             isShowingDetail={isShowingDetail}
             onToggleListDetails={toggleListDetails}
@@ -245,32 +242,22 @@ export function MRListItem(props: {
   showCIStatus?: boolean;
   showAuthor?: boolean;
   filterAction?: React.ReactNode;
-  scopeAction?: React.ReactNode;
   sortAction?: React.ReactNode;
   refreshAction?: React.ReactNode;
 }) {
-  const mr = props.mr;
-  if (!mr) {
+  if (!props.mr) {
     return null;
   }
-  const { isShowingDetail, onToggleListDetails: toggleListDetails } = props;
-
-  const icon = getMRStateListIcon(mr.state);
   const showAuthor = props.showAuthor !== false;
   const accessoryIcon: Image.ImageLike | undefined = showAuthor
-    ? { source: mr.author?.avatar_url || "", mask: Image.Mask.Circle }
+    ? { source: props.mr.author?.avatar_url || "", mask: Image.Mask.Circle }
     : undefined;
 
-  const showCIStatus = props.showCIStatus === undefined || props.showCIStatus === true;
-  const pipelineStatus = showCIStatus ? mr.head_pipeline?.status : undefined;
-  const discussionStats = discussionStatsFromMergeRequest(mr);
-  const discussionAccessoryLabel = discussionStats
-    ? `${discussionStats.resolved}/${discussionStats.resolvableTotal}`
-    : undefined;
+  const discussionStats = !props.isShowingDetail ? discussionStatsFromMergeRequest(props.mr) : undefined;
   const accessories: List.Item.Accessory[] = [];
-  if (!isShowingDetail) {
+  if (!props.isShowingDetail) {
     accessories.push(
-      ...(mr.has_conflicts
+      ...(props.mr.has_conflicts
         ? [
             {
               tag: { value: "Conflicts", color: Color.Red },
@@ -279,10 +266,10 @@ export function MRListItem(props: {
             },
           ]
         : []),
-      ...(discussionAccessoryLabel
+      ...(discussionStats
         ? [
             {
-              text: discussionAccessoryLabel,
+              text: `${discussionStats.resolved}/${discussionStats.resolvableTotal}`,
               icon: { source: Icon.SpeechBubble, tintColor: Color.PrimaryText },
               tooltip: "Resolved discussions",
             },
@@ -290,54 +277,62 @@ export function MRListItem(props: {
         : []),
     );
   }
-  if (pipelineStatus) {
+  if ((props.showCIStatus === undefined || props.showCIStatus === true) && props.mr.head_pipeline?.status) {
     accessories.push({
-      icon: getCIJobStatusIcon(pipelineStatus, false),
-      tooltip: getMRPipelineStatusTooltip(pipelineStatus),
+      icon: getCIJobStatusIcon(props.mr.head_pipeline.status, false),
+      tooltip: getMRPipelineStatusTooltip(props.mr.head_pipeline.status),
     });
   }
   if (showAuthor && accessoryIcon) {
-    accessories.push({ icon: accessoryIcon, tooltip: mr.author?.name });
+    accessories.push({ icon: accessoryIcon, tooltip: props.mr.author?.name });
   }
-  if (!isShowingDetail) {
+  if (!props.isShowingDetail) {
     accessories.push(
       {
-        icon: mr.merge_when_pipeline_succeeds && mr.state === "opened" ? Icon.Rewind : undefined,
-        tooltip: mr.merge_when_pipeline_succeeds && mr.state === "opened" ? "Auto Merge" : undefined,
+        icon: props.mr.merge_when_pipeline_succeeds && props.mr.state === "opened" ? Icon.Rewind : undefined,
+        tooltip: props.mr.merge_when_pipeline_succeeds && props.mr.state === "opened" ? "Auto Merge" : undefined,
       },
-      ...(mr.milestone?.title ? [{ tag: mr.milestone.title, tooltip: "Milestone" }] : []),
+      ...(props.mr.milestone?.title ? [{ tag: props.mr.milestone.title, tooltip: "Milestone" }] : []),
     );
   }
 
-  const showDetailsIcon = { source: Icon.ArrowRight, tintColor: Color.PrimaryText };
-
   return (
     <List.Item
-      id={mr.id.toString()}
-      title={mr.title}
-      icon={icon}
+      id={props.mr.id.toString()}
+      title={props.mr.title}
+      icon={getMRStateListIcon(props.mr.state)}
       accessories={accessories}
-      detail={isShowingDetail && <MRListDetail mr={mr} />}
+      detail={props.isShowingDetail && <MRListDetail mr={props.mr} />}
       actions={
         <ActionPanel>
           <ActionPanel.Section>
-            <Action.Push icon={showDetailsIcon} title="Show Details" target={<MRDetail mr={mr} />} />
-            <GitLabOpenInBrowserAction url={mr.web_url} />
-            <ShowMRCommitsAction mr={mr} />
-            <ShowMRPipelinesAction mr={mr} />
-            <MRListDetailsToggleAction isShowingDetail={isShowingDetail} onToggle={toggleListDetails} />
-            <MRListMetadataToggleAction isShowingDetail={isShowingDetail} />
+            <Action.Push
+              icon={{ source: Icon.ArrowRight, tintColor: Color.PrimaryText }}
+              title="Show Details"
+              target={<MRDetail mr={props.mr} />}
+            />
+            <GitLabOpenInBrowserAction url={props.mr.web_url} />
+            <ShowMRCommitsAction mr={props.mr} />
+            <ShowMRPipelinesAction mr={props.mr} />
+            <MRListDetailsToggleAction
+              isShowingDetail={props.isShowingDetail}
+              onToggle={props.onToggleListDetails}
+            />
+            <MRListMetadataToggleAction isShowingDetail={props.isShowingDetail} />
           </ActionPanel.Section>
-          <MRCopySection mr={mr} showCopyMarkdown />
-          <MRItemActions mr={mr} onDataChange={props.refreshData} todoShortcut={{ modifiers: ["cmd"], key: "t" }} />
-          {props.filterAction || props.scopeAction || props.sortAction ? (
+          <MRCopySection mr={props.mr} showCopyMarkdown />
+          <MRItemActions
+            mr={props.mr}
+            onDataChange={props.refreshData}
+            todoShortcut={{ modifiers: ["cmd"], key: "t" }}
+          />
+          {(props.filterAction || props.sortAction) && (
             <ActionPanel.Section title="Filters">
               {props.filterAction}
-              {props.scopeAction}
               {props.sortAction}
             </ActionPanel.Section>
-          ) : null}
-          {props.refreshAction ? <ActionPanel.Section>{props.refreshAction}</ActionPanel.Section> : null}
+          )}
+          {props.refreshAction && <ActionPanel.Section>{props.refreshAction}</ActionPanel.Section>}
         </ActionPanel>
       }
     />
@@ -361,7 +356,7 @@ function isValidMRState(texts: string[] | undefined) {
   if (!texts) {
     return false;
   }
-  for (const v of texts) {
+  for (const stateText of texts) {
     if (
       ![
         MRState.closed.valueOf(),
@@ -369,7 +364,7 @@ function isValidMRState(texts: string[] | undefined) {
         MRState.locked.valueOf,
         MRState.merged.valueOf,
         MRState.all.valueOf(),
-      ].includes(v)
+      ].includes(stateText)
     ) {
       return false;
     }
@@ -452,9 +447,7 @@ export function useMR(
 } {
   const { data, error, isLoading } = usePromise(
     (proj: Project, iid: number) => fetchMergeRequestGqlByProjectIid(proj, iid),
-    [project, mrIID],
-    // The error is surfaced via `error` and toasted by the caller in render.
-    { onError: () => undefined },
+    [project, mrIID]
   );
 
   return { mr: data, error: error ? getErrorMessage(error) : undefined, isLoading };

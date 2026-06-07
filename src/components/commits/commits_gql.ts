@@ -109,18 +109,16 @@ function pipelineStatusFromGql(pipeline: GqlPipelineNode | null | undefined): st
   if (fromStatus) {
     return fromStatus;
   }
-  const detailed = pipeline.detailedStatus;
-  if (detailed?.name) {
-    return pipelineStatusToRest(detailed.name);
+  if (pipeline.detailedStatus?.name) {
+    return pipelineStatusToRest(pipeline.detailedStatus.name);
   }
-  if (detailed?.label) {
-    return pipelineStatusToRest(detailed.label);
+  if (pipeline.detailedStatus?.label) {
+    return pipelineStatusToRest(pipeline.detailedStatus.label);
   }
   return undefined;
 }
 
 function gqlCommitToCommit(node: GqlCommitNode): Commit {
-  const pipeline = node.pipelines?.nodes?.[0];
   return {
     id: node.sha,
     short_id: node.shortId,
@@ -133,7 +131,7 @@ function gqlCommitToCommit(node: GqlCommitNode): Commit {
     committed_date: node.committedDate,
     web_url: node.webUrl,
     author_avatar_url: resolveAvatarUrl(node.author?.avatarUrl),
-    pipeline_status: pipelineStatusFromGql(pipeline),
+    pipeline_status: pipelineStatusFromGql(node.pipelines?.nodes?.[0]),
   };
 }
 

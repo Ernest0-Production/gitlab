@@ -1,11 +1,10 @@
-import { getPreferenceValues, Icon, launchCommand, LaunchType, MenuBarExtra, open } from "@raycast/api";
+import { Icon, launchCommand, LaunchType, MenuBarExtra, open } from "@raycast/api";
 import { useMemo } from "react";
 import { useMyMergeRequests } from "./components/mr_my";
 import { MRScope, MRState } from "./components/mr";
 import { useMyReviews } from "./components/reviews";
 import { MergeRequest } from "./gitlabapi";
 import {
-  getBoundedPreferenceNumber,
   MenuBarItem,
   MenuBarItemConfigureCommand,
   MenuBarRoot,
@@ -13,7 +12,13 @@ import {
   MenuBarSubmenu,
 } from "./components/menu";
 import { GitLabIcons } from "./icons";
-import { getErrorMessage, showErrorToast } from "./utils";
+import {
+  getBoundedPreferenceNumber,
+  getCommandPreferences,
+  getErrorMessage,
+  parseCommaSeparatedPreference,
+  showErrorToast,
+} from "./utils";
 
 async function launchReviewsCommand(): Promise<void> {
   try {
@@ -43,19 +48,16 @@ async function launchCreatedMergeRequests(): Promise<void> {
   }
 }
 
+function getMrMenuPreferences(): Preferences.Mrmenu {
+  return getCommandPreferences<Preferences.Mrmenu>();
+}
+
 function getMaxMergeRequestsPreference(): number {
-  return getBoundedPreferenceNumber({ name: "maxitems" });
+  return getBoundedPreferenceNumber(getMrMenuPreferences().maxitems);
 }
 
 function getShowItemsCountPreference(): boolean {
-  return getPreferenceValues().showtext as boolean;
-}
-
-function getLabelFilterPreference(preferenceName: string): string[] {
-  return ((getPreferenceValues()[preferenceName] as string) || "")
-    .split(",")
-    .map((label) => label.trim())
-    .filter((label) => label.length > 0);
+  return getMrMenuPreferences().showtext;
 }
 
 export default function MenuCommand() {
@@ -222,9 +224,19 @@ function useMenuMergeRequests(): {
   createdLabelsFilter: string[];
   reviewLabelsFilter: string[];
 } {
-  const assignedLabelsFilter = useMemo(() => getLabelFilterPreference("assignedLabels"), []);
-  const reviewLabelsFilter = useMemo(() => getLabelFilterPreference("reviewLabels"), []);
-  const createdLabelsFilter = useMemo(() => getLabelFilterPreference("createdLabels"), []);
+  const preferences = useMemo(() => getMrMenuPreferences(), []);
+  const assignedLabelsFilter = useMemo(
+    () => parseCommaSeparatedPreference(preferences.assignedLabels),
+    [preferences.assignedLabels],
+  );
+  const reviewLabelsFilter = useMemo(
+    () => parseCommaSeparatedPreference(preferences.reviewLabels),
+    [preferences.reviewLabels],
+  );
+  const createdLabelsFilter = useMemo(
+    () => parseCommaSeparatedPreference(preferences.createdLabels),
+    [preferences.createdLabels],
+  );
 
   const {
     mrs: mrsAssigned,

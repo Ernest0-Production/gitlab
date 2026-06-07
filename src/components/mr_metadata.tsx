@@ -4,22 +4,10 @@ import { capitalizeFirstLetter, formatDate } from "../utils";
 import { getMRStateListIcon } from "./mr_status";
 import { userIcon, userTagOnAction } from "./users";
 
-function stateColor(state: string): Color.ColorLike {
-  switch (state) {
-    case "closed":
-      return Color.Red;
-    case "merged":
-      return Color.Purple;
-    default:
-      return Color.Green;
-  }
-}
-
 const authorAssigneeMergedTitle = "Author & Assignee";
 
 function isAuthorOnlyAssignee(mr: MergeRequest): boolean {
-  const author = mr.author;
-  return author !== undefined && mr.assignees.length === 1 && mr.assignees[0].id === author.id;
+  return mr.author !== undefined && mr.assignees.length === 1 && mr.assignees[0].id === mr.author.id;
 }
 
 function mergeOptionItems(mr: MergeRequest): string[] {
@@ -55,30 +43,30 @@ function UserDetailTagList(props: { title: string; users: User[] }) {
 }
 
 function AuthorDetailMetadata({ mr }: { mr: MergeRequest }) {
-  const author = mr.author;
-  if (!author) {
+  if (!mr.author) {
     return null;
   }
-  const title = isAuthorOnlyAssignee(mr) ? authorAssigneeMergedTitle : "Author";
   return (
-    <Detail.Metadata.TagList title={title}>
-      <Detail.Metadata.TagList.Item text={author.name} icon={userIcon(author)} onAction={userTagOnAction(author)} />
+    <Detail.Metadata.TagList title={isAuthorOnlyAssignee(mr) ? authorAssigneeMergedTitle : "Author"}>
+      <Detail.Metadata.TagList.Item
+        text={mr.author.name}
+        icon={userIcon(mr.author)}
+        onAction={userTagOnAction(mr.author)}
+      />
     </Detail.Metadata.TagList>
   );
 }
 
 function AuthorListDetailMetadata({ mr }: { mr: MergeRequest }) {
-  const author = mr.author;
-  if (!author) {
+  if (!mr.author) {
     return null;
   }
-  const title = isAuthorOnlyAssignee(mr) ? authorAssigneeMergedTitle : "Author";
   return (
-    <List.Item.Detail.Metadata.TagList title={title}>
+    <List.Item.Detail.Metadata.TagList title={isAuthorOnlyAssignee(mr) ? authorAssigneeMergedTitle : "Author"}>
       <List.Item.Detail.Metadata.TagList.Item
-        text={author.name}
-        icon={userIcon(author)}
-        onAction={userTagOnAction(author)}
+        text={mr.author.name}
+        icon={userIcon(mr.author)}
+        onAction={userTagOnAction(mr.author)}
       />
     </List.Item.Detail.Metadata.TagList>
   );
@@ -152,10 +140,10 @@ function MRDateLabels(props: {
 }) {
   return (
     <>
-      {props.mr.created_at ? <MRDateLabel title="Created" isoDate={props.mr.created_at} Label={props.Label} /> : null}
-      {props.mr.updated_at ? <MRDateLabel title="Updated" isoDate={props.mr.updated_at} Label={props.Label} /> : null}
-      {props.mr.merged_at ? <MRDateLabel title="Merged" isoDate={props.mr.merged_at} Label={props.Label} /> : null}
-      {props.mr.closed_at ? <MRDateLabel title="Closed" isoDate={props.mr.closed_at} Label={props.Label} /> : null}
+      {props.mr.created_at && <MRDateLabel title="Created" isoDate={props.mr.created_at} Label={props.Label} />}
+      {props.mr.updated_at && <MRDateLabel title="Updated" isoDate={props.mr.updated_at} Label={props.Label} />}
+      {props.mr.merged_at && <MRDateLabel title="Merged" isoDate={props.mr.merged_at} Label={props.Label} />}
+      {props.mr.closed_at && <MRDateLabel title="Closed" isoDate={props.mr.closed_at} Label={props.Label} />}
     </>
   );
 }
@@ -178,73 +166,80 @@ function DiscussionsMetadataLabel(props: {
 }
 
 export function MRDetailMetadata(props: { mr: MergeRequest; discussionLabel?: string }) {
-  const mr = props.mr;
-  const stateListIcon = getMRStateListIcon(mr.state);
-  const stateIcon =
-    stateListIcon && typeof stateListIcon === "object" && "value" in stateListIcon
-      ? (stateListIcon.value as Image.ImageLike)
-      : (stateListIcon as Image.ImageLike);
   return (
     <Detail.Metadata>
       <Detail.Metadata.TagList title="Status">
         <Detail.Metadata.TagList.Item
-          text={capitalizeFirstLetter(mr.state)}
-          color={stateColor(mr.state)}
-          icon={stateIcon}
+          text={capitalizeFirstLetter(props.mr.state)}
+          color={
+            props.mr.state === "closed"
+              ? Color.Red
+              : props.mr.state === "merged"
+                ? Color.Purple
+                : Color.Green
+          }
+          icon={(getMRStateListIcon(props.mr.state) as { value: Image.ImageLike }).value}
         />
       </Detail.Metadata.TagList>
-      <AuthorDetailMetadata mr={mr} />
-      {mr.labels.length > 0 ? (
+      <AuthorDetailMetadata mr={props.mr} />
+      {props.mr.labels.length > 0 && (
         <Detail.Metadata.TagList title="Labels">
-          {mr.labels.map((label) => (
+          {props.mr.labels.map((label) => (
             <Detail.Metadata.TagList.Item key={label.id} text={label.name} color={label.color} />
           ))}
         </Detail.Metadata.TagList>
-      ) : null}
-      {mr.milestone ? <Detail.Metadata.Label title="Milestone" text={mr.milestone.title} /> : null}
+      )}
+      {props.mr.milestone && <Detail.Metadata.Label title="Milestone" text={props.mr.milestone.title} />}
       <Detail.Metadata.Separator />
-      <Detail.Metadata.Label title="From" text={mr.source_branch} />
-      <Detail.Metadata.Label title="Into" text={mr.target_branch} />
+      <Detail.Metadata.Label title="From" text={props.mr.source_branch} />
+      <Detail.Metadata.Label title="Into" text={props.mr.target_branch} />
       <Detail.Metadata.Separator />
       <UserDetailTagList
-        title={assigneesForPeopleSection(mr).length === 1 ? "Assignee" : "Assignees"}
-        users={assigneesForPeopleSection(mr)}
+        title={assigneesForPeopleSection(props.mr).length === 1 ? "Assignee" : "Assignees"}
+        users={assigneesForPeopleSection(props.mr)}
       />
       <DiscussionsMetadataLabel discussionLabel={props.discussionLabel} Label={Detail.Metadata.Label} />
-      <UserDetailTagList title={mr.reviewers.length === 1 ? "Reviewer" : "Reviewers"} users={mr.reviewers} />
-      <DetailMergeOptions mr={mr} />
+      <UserDetailTagList
+        title={props.mr.reviewers.length === 1 ? "Reviewer" : "Reviewers"}
+        users={props.mr.reviewers}
+      />
+      <DetailMergeOptions mr={props.mr} />
       <Detail.Metadata.Separator />
-      <MRDateLabels mr={mr} Label={Detail.Metadata.Label} />
+      <MRDateLabels mr={props.mr} Label={Detail.Metadata.Label} />
     </Detail.Metadata>
   );
 }
 
 export function MRListDetailMetadata(props: { mr: MergeRequest; discussionLabel?: string }) {
-  const mr = props.mr;
   return (
     <List.Item.Detail.Metadata>
-      <AuthorListDetailMetadata mr={mr} />
-      {mr.labels.length > 0 ? (
+      <AuthorListDetailMetadata mr={props.mr} />
+      {props.mr.labels.length > 0 && (
         <List.Item.Detail.Metadata.TagList title="Labels">
-          {mr.labels.map((label) => (
+          {props.mr.labels.map((label) => (
             <List.Item.Detail.Metadata.TagList.Item key={label.id} text={label.name} color={label.color} />
           ))}
         </List.Item.Detail.Metadata.TagList>
-      ) : null}
-      {mr.milestone ? <List.Item.Detail.Metadata.Label title="Milestone" text={mr.milestone.title} /> : null}
+      )}
+      {props.mr.milestone && (
+        <List.Item.Detail.Metadata.Label title="Milestone" text={props.mr.milestone.title} />
+      )}
       <List.Item.Detail.Metadata.Separator />
-      <List.Item.Detail.Metadata.Label title="From" text={mr.source_branch} />
-      <List.Item.Detail.Metadata.Label title="Into" text={mr.target_branch} />
+      <List.Item.Detail.Metadata.Label title="From" text={props.mr.source_branch} />
+      <List.Item.Detail.Metadata.Label title="Into" text={props.mr.target_branch} />
       <List.Item.Detail.Metadata.Separator />
       <UserListDetailTagList
-        title={assigneesForPeopleSection(mr).length === 1 ? "Assignee" : "Assignees"}
-        users={assigneesForPeopleSection(mr)}
+        title={assigneesForPeopleSection(props.mr).length === 1 ? "Assignee" : "Assignees"}
+        users={assigneesForPeopleSection(props.mr)}
       />
       <DiscussionsMetadataLabel discussionLabel={props.discussionLabel} Label={List.Item.Detail.Metadata.Label} />
-      <UserListDetailTagList title={mr.reviewers.length === 1 ? "Reviewer" : "Reviewers"} users={mr.reviewers} />
-      <ListDetailMergeOptions mr={mr} />
+      <UserListDetailTagList
+        title={props.mr.reviewers.length === 1 ? "Reviewer" : "Reviewers"}
+        users={props.mr.reviewers}
+      />
+      <ListDetailMergeOptions mr={props.mr} />
       <List.Item.Detail.Metadata.Separator />
-      <MRDateLabels mr={mr} Label={List.Item.Detail.Metadata.Label} />
+      <MRDateLabels mr={props.mr} Label={List.Item.Detail.Metadata.Label} />
     </List.Item.Detail.Metadata>
   );
 }

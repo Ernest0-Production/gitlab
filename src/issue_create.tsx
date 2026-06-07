@@ -24,9 +24,9 @@ async function submit(values: IssueFormValues) {
     if (values.title === "") {
       throw Error("Please enter a title");
     }
-    const val = toFormValues(values as unknown as Record<string, unknown>);
-    console.log(val);
-    await gitlab.createIssue(values.project_id, val);
+    const formValues = toFormValues(values as unknown as Record<string, unknown>);
+    console.log(formValues);
+    await gitlab.createIssue(values.project_id, formValues);
     await showToast(Toast.Style.Success, "Issue created", "Issue creation successful");
     popToRoot();
   } catch (error) {
@@ -36,29 +36,18 @@ async function submit(values: IssueFormValues) {
 
 function IssueForm() {
   const [selectedProject, setSelectedProject] = useState<string>();
-  const {
-    data: projects,
-    error: errorProjects,
-    isLoading: isLoadingProjects,
-  } = useCachedPromise(async (): Promise<Project[]> => (await gitlab.getUserProjects({}, true)) || [], [], {
-    onError: () => undefined,
-  });
-  const { projectinfo, errorProjectInfo, isLoadingProjectInfo } = useProject(selectedProject);
-  const members = projectinfo?.members || [];
-  const labels = projectinfo?.labels || [];
-
+  const { data: projects, isLoading: isLoadingProjects } = useCachedPromise(
+    async (): Promise<Project[]> => (await gitlab.getUserProjects({}, true)) || [],
+    []
+  );
+  const { projectinfo, isLoadingProjectInfo } = useProject(selectedProject);
   let project: Project | undefined;
   if (selectedProject) {
     project = projects?.find((candidate) => candidate.id.toString() === selectedProject);
   }
-  const { milestoneInfo, errorMilestoneInfo, isLoadingMilestoneInfo } = useMilestones(project?.group_id);
+  const { milestoneInfo, isLoadingMilestoneInfo } = useMilestones(project?.group_id);
 
   const isLoading = isLoadingProjects || isLoadingProjectInfo || isLoadingMilestoneInfo;
-  const error = (errorProjects ? getErrorMessage(errorProjects) : undefined) || errorProjectInfo || errorMilestoneInfo;
-
-  if (error) {
-    showErrorToast(error, "Cannot create Issue");
-  }
 
   return (
     <Form
@@ -73,7 +62,7 @@ function IssueForm() {
       <Form.TextField id="title" title="Title" placeholder="Enter title" />
       <Form.TextArea id="description" title="Description" placeholder="Enter description" />
       <Form.TagPicker id="assignee_ids" title="Assignees" placeholder="Type or choose an assignee">
-        {members.map((member) => (
+        {(projectinfo?.members || []).map((member) => (
           <Form.TagPicker.Item
             key={member.id.toString()}
             value={member.id.toString()}
@@ -83,7 +72,7 @@ function IssueForm() {
         ))}
       </Form.TagPicker>
       <Form.TagPicker id="labels" title="Labels" placeholder="Type or choose an label">
-        {labels.map((label) => (
+        {(projectinfo?.labels || []).map((label) => (
           <Form.TagPicker.Item
             key={label.name}
             value={label.name}
@@ -110,18 +99,17 @@ function ProjectDropdown(props: {
   setSelectedProject: React.Dispatch<React.SetStateAction<string | undefined>>;
   value?: string;
 }) {
-  const projects = props.projects;
   return (
     <Form.Dropdown
       id="project_id"
       title="Project"
       value={props.value}
       storeValue={true}
-      onChange={(val: string) => {
-        props.setSelectedProject(val);
+      onChange={(newValue: string) => {
+        props.setSelectedProject(newValue);
       }}
     >
-      {projects?.map((project) => (
+      {props.projects?.map((project) => (
         <ProjectDropdownItem key={project.id} project={project} />
       ))}
     </Form.Dropdown>
@@ -129,8 +117,11 @@ function ProjectDropdown(props: {
 }
 
 function ProjectDropdownItem(props: { project: Project }) {
-  const project = props.project;
   return (
-    <Form.Dropdown.Item value={project.id.toString()} title={project.name_with_namespace} icon={projectIcon(project)} />
+    <Form.Dropdown.Item
+      value={props.project.id.toString()}
+      title={props.project.name_with_namespace}
+      icon={projectIcon(props.project)}
+    />
   );
 }

@@ -43,7 +43,10 @@ export function usePaginatedProjectCommits(options: {
       return { data: commits, hasMore };
     },
     [options.cacheKey],
-    { execute: options.execute, keepPreviousData: options.keepPreviousData },
+    {
+      execute: options.execute,
+      keepPreviousData: options.keepPreviousData,
+    },
   );
 
   return {
@@ -85,7 +88,10 @@ export function usePaginatedMergeRequestCommits(options: {
       return { data: commits, hasMore };
     },
     [options.cacheKey],
-    { execute: options.execute, keepPreviousData: options.keepPreviousData },
+    {
+      execute: options.execute,
+      keepPreviousData: options.keepPreviousData,
+    },
   );
 
   return {

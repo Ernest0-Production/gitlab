@@ -1,6 +1,6 @@
 import { Action, ActionPanel, List, Icon, Image, Color } from "@raycast/api";
 import { usePromise } from "@raycast/utils";
-import { getCIRefreshInterval, getGitLabGQL, gitlab } from "../common";
+import { getGitLabGQL, gitlab } from "../common";
 import { gql } from "@apollo/client";
 import { copyShortcut, getErrorMessage, getIdFromGqlId, showErrorToast } from "../utils";
 import {
@@ -10,7 +10,6 @@ import {
   RetryJobAction,
   RunJobAction,
 } from "./job_actions";
-import useInterval from "use-interval";
 import { GitLabOpenInBrowserAction } from "./actions";
 import { Project } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
@@ -29,6 +28,10 @@ export interface Job {
   status: string;
   allowFailure: boolean;
   artifacts: JobArtifact[];
+}
+
+function gqlCiJobStatus(status: string): string {
+  return status.toLowerCase();
 }
 
 const GET_PIPELINE_JOBS = gql`
@@ -59,7 +62,7 @@ const GET_PIPELINE_JOBS = gql`
 `;
 
 export function getCIJobStatusIcon(status: string, allowFailure: boolean): Image {
-  switch (status.toLowerCase()) {
+  switch (status) {
     case "success": {
       return { source: GitLabIcons.status_success, tintColor: Color.Green };
     }
@@ -69,13 +72,25 @@ export function getCIJobStatusIcon(status: string, allowFailure: boolean): Image
     case "pending": {
       return { source: GitLabIcons.status_pending, tintColor: Color.Yellow };
     }
+    case "preparing": {
+      return { source: GitLabIcons.status_running, tintColor: Color.Blue };
+    }
+    case "waiting_for_resource": {
+      return { source: GitLabIcons.status_pending, tintColor: Color.Yellow };
+    }
+    case "waiting_for_callback": {
+      return { source: Icon.Clock, tintColor: Color.Blue };
+    }
     case "running": {
       return { source: GitLabIcons.status_running, tintColor: Color.Blue };
     }
     case "failed": {
       return allowFailure
-        ? { source: Icon.ExclamationMark, tintColor: Color.Orange }
+        ? { source: Icon.Warning, tintColor: Color.Yellow }
         : { source: GitLabIcons.status_failed, tintColor: Color.Red };
+    }
+    case "canceling": {
+      return { source: GitLabIcons.status_canceled, tintColor: Color.Orange };
     }
     case "canceled": {
       return { source: GitLabIcons.status_canceled, tintColor: Color.PrimaryText };
@@ -90,26 +105,22 @@ export function getCIJobStatusIcon(status: string, allowFailure: boolean): Image
       return { source: Icon.Gear, tintColor: Color.Blue };
     }
     default:
-      return { source: Icon.ExclamationMark, tintColor: Color.Magenta };
+      return { source: GitLabIcons.status_notfound, tintColor: Color.Magenta };
   }
-  /*
-  missing
-  * WAITING_FOR_RESOURCE
-  * PREPARING
-  */
 }
 
 export function isManualJob(job: Job): boolean {
-  return job.status.toLowerCase() === "manual";
+  return job.status === "manual";
 }
 
 export function isCancelableJob(job: Job): boolean {
-  switch (job.status.toLowerCase()) {
+  switch (job.status) {
     case "created":
     case "pending":
     case "running":
     case "preparing":
     case "waiting_for_resource":
+    case "waiting_for_callback":
     case "scheduled":
     case "manual":
       return true;
@@ -117,6 +128,22 @@ export function isCancelableJob(job: Job): boolean {
       return false;
   }
 }
+
+const CI_JOB_STATUS_LABELS: Record<string, string> = {
+  success: "passed",
+  failed: "failed",
+  created: "created",
+  pending: "pending",
+  preparing: "preparing",
+  waiting_for_resource: "waiting for resource",
+  waiting_for_callback: "waiting for callback",
+  running: "running",
+  canceling: "canceling",
+  canceled: "canceled",
+  skipped: "skipped",
+  scheduled: "scheduled",
+  manual: "manual",
+};
 
 const MR_PIPELINE_STATUS_LABELS: Record<string, string> = {
   success: "Pipeline Passed",
@@ -126,6 +153,8 @@ const MR_PIPELINE_STATUS_LABELS: Record<string, string> = {
   created: "Pipeline Created",
   preparing: "Pipeline Preparing",
   waiting_for_resource: "Pipeline Waiting for Resource",
+  waiting_for_callback: "Pipeline Waiting for Callback",
+  canceling: "Pipeline Canceling",
   canceled: "Pipeline Canceled",
   skipped: "Pipeline Skipped",
   scheduled: "Pipeline Scheduled",
@@ -133,41 +162,38 @@ const MR_PIPELINE_STATUS_LABELS: Record<string, string> = {
 };
 
 export function getMRPipelineStatusTooltip(status: string): string {
-  return MR_PIPELINE_STATUS_LABELS[status.toLowerCase()] ?? "Pipeline Status Unknown";
+  return MR_PIPELINE_STATUS_LABELS[status] ?? "Pipeline Status Unknown";
 }
 
-function getStatusText(status: string, allowFailure: boolean) {
-  const s = status.toLowerCase();
-  if (s === "success") {
-    return "passed";
-  } else if (allowFailure) {
-    return "allowed to fail";
-  } else {
-    return status;
+export function getCIJobStatusTooltip(status: string, allowFailure: boolean): string {
+  if (status === "failed" && allowFailure) {
+    return "Passed with warnings";
   }
+  return CI_JOB_STATUS_LABELS[status] ?? status;
 }
 
 export function JobListItem(props: { job: Job; projectFullPath: string; onRefreshJobs: () => void }) {
-  const job = props.job;
-  const icon = getCIJobStatusIcon(job.status, job.allowFailure);
-  const subtitle = "#" + getIdFromGqlId(job.id);
-  const status = getStatusText(job.status.toLowerCase(), job.allowFailure);
-  const jobUrl = getGitLabGQL().urlJoin(`${props.projectFullPath}/-/jobs/${getIdFromGqlId(job.id)}`);
+  const jobUrl = getGitLabGQL().urlJoin(`${props.projectFullPath}/-/jobs/${getIdFromGqlId(props.job.id)}`);
   return (
     <List.Item
-      id={job.id}
-      icon={{ value: icon, tooltip: status }}
-      title={job.name}
-      subtitle={subtitle}
+      id={props.job.id}
+      icon={{
+        value: getCIJobStatusIcon(props.job.status, props.job.allowFailure),
+        tooltip: getCIJobStatusTooltip(props.job.status, props.job.allowFailure),
+      }}
+      title={props.job.name}
+      subtitle={"#" + getIdFromGqlId(props.job.id)}
       actions={
         <ActionPanel>
           <ActionPanel.Section>
             <GitLabOpenInBrowserAction url={jobUrl} />
             <Action.CopyToClipboard title="Copy URL" content={jobUrl} shortcut={copyShortcut} />
             <RetryJobAction job={props.job} />
-            {isManualJob(job) ? <RunJobAction job={props.job} onRefreshJobs={props.onRefreshJobs} /> : null}
-            {isCancelableJob(job) ? <CancelJobAction job={props.job} onRefreshJobs={props.onRefreshJobs} /> : null}
-            {job.artifacts.length > 0 ? <DownloadJobArtifactsSubmenu job={props.job} /> : null}
+            {isManualJob(props.job) && <RunJobAction job={props.job} onRefreshJobs={props.onRefreshJobs} />}
+            {isCancelableJob(props.job) && (
+              <CancelJobAction job={props.job} onRefreshJobs={props.onRefreshJobs} />
+            )}
+            {props.job.artifacts.length > 0 && <DownloadJobArtifactsSubmenu job={props.job} />}
           </ActionPanel.Section>
           <ActionPanel.Section>
             <RefreshJobsAction onRefreshJobs={props.onRefreshJobs} />
@@ -184,13 +210,7 @@ export function JobList(props: {
   pipelineIID?: string | undefined;
   navigationTitle?: string;
 }) {
-  const { stages, error, isLoading, refresh } = useSearch(props.projectFullPath, props.pipelineID, props.pipelineIID);
-  useInterval(() => {
-    refresh();
-  }, getCIRefreshInterval());
-  if (error) {
-    showErrorToast(error, "Cannot search Pipelines");
-  }
+  const { stages, isLoading, refresh } = useSearch(props.projectFullPath, props.pipelineID, props.pipelineIID);
   if (!stages) {
     return <List isLoading={isLoading} navigationTitle={props.navigationTitle || "Jobs"} />;
   }
@@ -213,20 +233,8 @@ interface RESTJob {
   status: string;
   stage: string;
   name: string;
-  allowFailure: boolean;
+  allow_failure: boolean;
   artifacts?: JobArtifact[];
-}
-
-function jobArtifactsFromJson(artifacts: JobArtifact[] | undefined): JobArtifact[] {
-  if (!artifacts?.length) {
-    return [];
-  }
-  return artifacts.map((artifact) => ({
-    file_type: artifact.file_type,
-    size: artifact.size,
-    filename: artifact.filename,
-    file_format: artifact.file_format,
-  }));
 }
 
 export function useSearch(
@@ -242,11 +250,10 @@ export function useSearch(
   const { data, error, isLoading, revalidate } = usePromise(
     async (fullPath: string, pid: number, piid?: string): Promise<Record<string, Job[]> | undefined> => {
       if (pid) {
-        const projectUE = encodeURIComponent(fullPath);
         const jobs: RESTJob[] = await gitlab
-          .fetch(`projects/${projectUE}/pipelines/${pid}/jobs`)
+          .fetch(`projects/${encodeURIComponent(fullPath)}/pipelines/${pid}/jobs`)
           .then((data) => data as RESTJob[]);
-        jobs.sort((a, b) => a.id - b.id);
+        jobs.sort((firstJob, secondJob) => firstJob.id - secondJob.id);
         const stages: Record<string, Job[]> = {};
         for (const job of jobs) {
           if (!stages[job.stage]) {
@@ -257,8 +264,15 @@ export function useSearch(
             projectId: job.pipeline.project_id,
             name: job.name,
             status: job.status,
-            allowFailure: job.allowFailure,
-            artifacts: jobArtifactsFromJson(job.artifacts),
+            allowFailure: job.allow_failure,
+            artifacts: job.artifacts?.length
+              ? job.artifacts.map((artifact) => ({
+                  file_type: artifact.file_type,
+                  size: artifact.size,
+                  filename: artifact.filename,
+                  file_format: artifact.file_format,
+                }))
+              : [],
           });
         }
         return stages;
@@ -279,8 +293,8 @@ export function useSearch(
               id: job.id,
               projectId: getIdFromGqlId(job.pipeline.project.id),
               name: job.name,
-              status: job.status,
-              allowFailure: job.allowFailure,
+              status: gqlCiJobStatus(job.status),
+              allowFailure: job.allowFailure === true,
               artifacts: [],
             });
           }
@@ -289,9 +303,7 @@ export function useSearch(
       }
       return undefined;
     },
-    [projectFullPath, pipelineID, pipelineIID],
-    // The error is surfaced via `error` and toasted by the caller in render.
-    { onError: () => undefined },
+    [projectFullPath, pipelineID, pipelineIID]
   );
 
   return { stages: data, error: error ? getErrorMessage(error) : undefined, isLoading, refresh: revalidate };
@@ -320,10 +332,7 @@ interface Commit {
 }
 
 export function PipelineJobsListByCommit(props: { project: Project; sha: string }) {
-  const { commit, isLoading, error } = useCommit(props.project.id, props.sha);
-  if (error) {
-    showErrorToast(error, "Could not fetch Commit Details");
-  }
+  const { commit, isLoading } = useCommit(props.project.id, props.sha);
   if (isLoading || !commit) {
     return <List isLoading={isLoading} />;
   }
@@ -354,9 +363,7 @@ function useCommit(
   const { data, error, isLoading } = usePromise(
     (projectId: number, commitSha: string) =>
       gitlab.fetch(`projects/${projectId}/repository/commits/${commitSha}`).then((data) => data as Commit),
-    [projectID, sha],
-    // The error is surfaced via `error` and toasted by the caller in render.
-    { onError: () => undefined },
+    [projectID, sha]
   );
 
   return { commit: data, error: error ? getErrorMessage(error) : undefined, isLoading };

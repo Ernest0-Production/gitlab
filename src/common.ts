@@ -1,18 +1,17 @@
 import { ApolloClient, ApolloLink, HttpLink, InMemoryCache, concat, NormalizedCacheObject } from "@apollo/client";
 import fetch from "node-fetch";
 
-import { getPreferenceValues } from "@raycast/api";
 import os from "os";
 import path from "path";
 import { getHttpAgent, GitLab } from "./gitlabapi";
+import { getPreferences, parseCommaSeparatedPreference } from "./utils";
 
 let gitlabClient: GitLab | undefined;
 
 export function createGitLabClient(): GitLab {
-  const preferences = getPreferenceValues();
-  const instance = (preferences.instance as string) || "https://gitlab.com";
-  const token = preferences.token as string;
-  return new GitLab(instance, token);
+  const preferences = getPreferences();
+  const instance = preferences.instance || "https://gitlab.com";
+  return new GitLab(instance, preferences.token);
 }
 
 function getGitLabClient(): GitLab {
@@ -35,9 +34,9 @@ export class GitLabGQL {
 }
 
 export function createGitLabGQLClient(): GitLabGQL {
-  const preferences = getPreferenceValues();
-  const instance = (preferences.instance as string) || "https://gitlab.com";
-  const token = preferences.token as string;
+  const preferences = getPreferences();
+  const instance = preferences.instance || "https://gitlab.com";
+  const token = preferences.token;
   const graphqlEndpoint = `${instance}/api/graphql`;
   const httpLink = new HttpLink({
     uri: graphqlEndpoint,
@@ -73,8 +72,6 @@ export const gitlab: GitLab = new Proxy({} as GitLab, {
   },
 });
 
-const defaultRefreshInterval = 10 * 1000;
-
 let gitlabgql: GitLabGQL | undefined;
 
 export function getGitLabGQL(): GitLabGQL {
@@ -84,61 +81,34 @@ export function getGitLabGQL(): GitLabGQL {
   return gitlabgql;
 }
 
-export function getCIRefreshInterval(): number | null {
-  const preferences = getPreferenceValues();
-  const userValue = preferences.cirefreshinterval as string;
-  if (!userValue || userValue.length <= 0) {
-    return defaultRefreshInterval;
-  }
-  const sec = parseFloat(userValue);
-  if (Number.isNaN(sec)) {
-    console.log(`invalid value ${userValue}, fallback to null`);
-    return null;
-  }
-  if (sec < 1) {
-    return null;
-  } else {
-    return sec * 1000; // ms
-  }
-}
-
 export enum PrimaryAction {
   Detail = "detail",
   Browser = "browser",
 }
 
 export function getPrimaryActionPreference(): PrimaryAction {
-  const pref = getPreferenceValues();
-  const val = (pref.primaryaction as string) || undefined;
-  if (val !== PrimaryAction.Detail && val !== PrimaryAction.Browser) {
-    return PrimaryAction.Browser;
+  const { primaryaction } = getPreferences();
+  if (primaryaction === PrimaryAction.Detail) {
+    return PrimaryAction.Detail;
   }
-  const result: PrimaryAction = val;
-  return result;
+  return PrimaryAction.Browser;
 }
 
 export function getPreferPopToRootPreference(): boolean {
-  const pref = getPreferenceValues();
-  const val = (pref.poptoroot as boolean) || false;
-  if (val === true) {
-    return true;
-  }
-  return false;
+  return getPreferences().poptoroot;
 }
 
 export function getExcludeTodoAuthorUsernamesPreference(): string[] {
-  const pref = getPreferenceValues();
-  return pref.excludeTodoAuthorUsernames?.split(",").map((u: string) => u.trim()) || [];
+  return parseCommaSeparatedPreference(getPreferences().excludeTodoAuthorUsernames);
 }
 
 export function getArtifactDownloadDirectoryPreference(): string {
-  const pref = getPreferenceValues();
-  const val = ((pref.artifactDownloadDirectory as string) || "").trim();
-  if (!val) {
+  const directory = (getPreferences().artifactDownloadDirectory ?? "").trim();
+  if (!directory) {
     return path.join(os.homedir(), "Downloads");
   }
-  if (val.startsWith("~/")) {
-    return path.join(os.homedir(), val.slice(2));
+  if (directory.startsWith("~/")) {
+    return path.join(os.homedir(), directory.slice(2));
   }
-  return val;
+  return directory;
 }

@@ -10,10 +10,7 @@ export function ProjectReadmeDetail(props: { project: Project }) {
     data: readme,
     error,
     isLoading,
-  } = usePromise((project: Project) => gitlab.getProjectReadme(project), [props.project], {
-    // The error is rendered inline as a Detail view below; no toast.
-    onError: () => undefined,
-  });
+  } = usePromise((project: Project) => gitlab.getProjectReadme(project), [props.project]);
 
   if (error) {
     return (

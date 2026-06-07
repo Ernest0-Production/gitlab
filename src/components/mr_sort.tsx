@@ -15,10 +15,6 @@ export type MRSearchOrderBy = "default" | MROrderBy;
 
 export const MR_DEFAULT_ORDER_BY: MRSearchOrderBy = "default";
 
-function isMROrderBy(orderBy: MRSearchOrderBy): orderBy is MROrderBy {
-  return orderBy !== MR_DEFAULT_ORDER_BY;
-}
-
 const MR_ORDER_BY_OPTIONS: { value: MROrderBy; title: string }[] = [
   { value: "created_at", title: "Created" },
   { value: "updated_at", title: "Updated" },
@@ -53,21 +49,14 @@ function mrOrderBySemanticIcon(orderBy: MROrderBy): Image.ImageLike {
   }
 }
 
-function mrDefaultOrderByIcon(isActive: boolean): Image.ImageLike {
-  if (isActive) {
-    return Icon.Checkmark;
-  }
-  return Icon.List;
-}
-
 function mrSearchOrderByIcon(orderBy: MRSearchOrderBy, isActive: boolean): Image.ImageLike {
-  if (!isMROrderBy(orderBy)) {
-    return mrDefaultOrderByIcon(isActive);
+  if (orderBy === MR_DEFAULT_ORDER_BY) {
+    return isActive ? Icon.Checkmark : Icon.List;
   }
   if (isActive) {
     return Icon.Checkmark;
   }
-  return mrOrderBySemanticIcon(orderBy);
+  return mrOrderBySemanticIcon(orderBy as MROrderBy);
 }
 
 export function appendMROrderByParams(params: Record<string, unknown>, orderBy: MRSearchOrderBy): void {

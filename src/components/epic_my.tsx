@@ -1,23 +1,22 @@
-import { Color, List, getPreferenceValues } from "@raycast/api";
+import { Color, List } from "@raycast/api";
 import { useState } from "react";
 import { useCachedPromise } from "@raycast/utils";
 import { gitlab } from "../common";
 import { Epic, EpicScope, EpicState, searchData } from "../gitlabapi";
-import { getErrorMessage, getFirstChar, showErrorToast } from "../utils";
+import { getErrorMessage, getFirstChar, getPreferences, showErrorToast } from "../utils";
 import { EpicListItem } from "./epics";
 import { GroupInfo, useMyGroups } from "./groups";
 import { getTextIcon } from "../icons";
 
 function GroupListDropDown(props: { groupsInfo?: GroupInfo; onChange?: (newValue: string) => void }) {
-  const groupsInfo = props.groupsInfo;
-  if (!groupsInfo || !groupsInfo.groups) {
+  if (!props.groupsInfo?.groups) {
     return null;
   }
   return (
     <List.Dropdown tooltip="Group" onChange={props.onChange}>
       <List.Dropdown.Item title="All Groups" value={""} />
       <List.Dropdown.Section>
-        {groupsInfo.groups?.map((group) => (
+        {props.groupsInfo.groups.map((group) => (
           <List.Dropdown.Item
             key={`${group.id}`}
             icon={getTextIcon(getFirstChar(group.name))}
@@ -35,7 +34,7 @@ export function MyEpicList(props: { scope: EpicScope; state: EpicState }) {
   const { groupsinfo } = useMyGroups();
   const [selectedGroupID, setSelectedGroupID] = useState<string>("");
   const [displayGroup, setDisplayGroup] = useState<boolean>();
-  const { data, error, isLoading } = useCachedPromise(
+  const { data, isLoading } = useCachedPromise(
     async (scope: EpicScope, state: EpicState, groupID: string): Promise<Epic[]> => {
       return gitlab.getUserEpics({
         min_access_level: "10",
@@ -43,16 +42,11 @@ export function MyEpicList(props: { scope: EpicScope; state: EpicState }) {
         scope,
         groupid: groupID === "" ? undefined : groupID,
         include_descendant_groups: true,
-        include_ancestor_groups: (getPreferenceValues().includeEpicAncestor as boolean) || false,
+        include_ancestor_groups: getPreferences().includeEpicAncestor,
       });
     },
-    [props.scope, props.state, selectedGroupID],
-    { onError: () => undefined },
+    [props.scope, props.state, selectedGroupID]
   );
-
-  if (error) {
-    showErrorToast(getErrorMessage(error), "Cannot search Epics");
-  }
 
   const epics: Epic[] = searchData<Epic>(data ?? [], { search: searchText || "", keys: ["title"], limit: 50 });
   return (

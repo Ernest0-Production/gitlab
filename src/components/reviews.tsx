@@ -1,6 +1,6 @@
 import { ActionPanel, Color, List } from "@raycast/api";
 import { MergeRequest, Project } from "../gitlabapi";
-import { showErrorToast } from "../utils";
+import { getErrorMessage, showErrorToast } from "../utils";
 import { useState } from "react";
 import { MyProjectsDropdown } from "./project";
 import {
@@ -20,12 +20,8 @@ function ReviewListEmptyView() {
 
 export function ReviewList() {
   const [project, setProject] = useState<Project>();
-  const { mrs, error, isLoading, performRefetch, pagination } = useMyReviews(project);
+  const { mrs, isLoading, performRefetch, pagination } = useMyReviews(project);
   const { isShowingDetail, toggleListDetails } = useMRListDetails();
-
-  if (error) {
-    showErrorToast(error, "Cannot search Reviews");
-  }
 
   if (isLoading && mrs === undefined) {
     return <List isLoading={true} searchBarPlaceholder="" />;
@@ -47,10 +43,10 @@ export function ReviewList() {
         </ActionPanel>
       }
     >
-      {mrs?.map((mr) => (
+      {mrs?.map((mergeRequest) => (
         <MRListItem
-          key={mr.id}
-          mr={mr}
+          key={mergeRequest.id}
+          mr={mergeRequest}
           refreshData={performRefetch}
           isShowingDetail={isShowingDetail}
           onToggleListDetails={toggleListDetails}
@@ -85,6 +81,11 @@ export function useMyReviews(
       ...(labels && { labels }),
     }),
   });
-  const mrs = project ? raw?.filter((mr) => mr.project_id === project.id) : raw;
-  return { mrs, isLoading, error, performRefetch, pagination };
+  return {
+    mrs: project ? raw?.filter((mergeRequest) => mergeRequest.project_id === project.id) : raw,
+    isLoading,
+    error,
+    performRefetch,
+    pagination,
+  };
 }

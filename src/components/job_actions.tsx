@@ -11,31 +11,29 @@ function jobNumericId(job: Job): string {
 }
 
 export function RefreshJobsAction(props: { onRefreshJobs?: () => void }) {
-  const handle = () => {
-    if (props.onRefreshJobs) {
-      props.onRefreshJobs();
-    }
-  };
   return (
-    <Action title="Refresh" icon={{ source: Icon.ArrowClockwise, tintColor: Color.PrimaryText }} onAction={handle} />
+    <Action
+      title="Refresh"
+      icon={{ source: Icon.ArrowClockwise, tintColor: Color.PrimaryText }}
+      onAction={() => props.onRefreshJobs?.()}
+    />
   );
 }
 
 export function CancelJobAction(props: { job: Job; onRefreshJobs?: () => void }) {
-  const job = props.job;
   async function handle() {
-    const jobId = jobNumericId(job);
+    const jobId = jobNumericId(props.job);
     if (
       !(await confirmAlert({
         title: "Cancel Job?",
-        message: `Cancel "${job.name}" (#${jobId})?`,
+        message: `Cancel "${props.job.name}" (#${jobId})?`,
         primaryAction: { title: "Cancel Job", style: Alert.ActionStyle.Destructive },
       }))
     ) {
       return;
     }
     try {
-      await gitlab.post(`projects/${job.projectId}/jobs/${jobId}/cancel`);
+      await gitlab.post(`projects/${props.job.projectId}/jobs/${jobId}/cancel`);
       showToast(Toast.Style.Success, "Canceled job");
       props.onRefreshJobs?.();
     } catch (error) {
@@ -53,20 +51,19 @@ export function CancelJobAction(props: { job: Job; onRefreshJobs?: () => void })
 }
 
 export function RunJobAction(props: { job: Job; onRefreshJobs?: () => void }) {
-  const job = props.job;
   async function handle() {
-    const jobId = jobNumericId(job);
+    const jobId = jobNumericId(props.job);
     if (
       !(await confirmAlert({
         title: "Run Job?",
-        message: `Run manual job "${job.name}" (#${jobId})?`,
+        message: `Run manual job "${props.job.name}" (#${jobId})?`,
         primaryAction: { title: "Run" },
       }))
     ) {
       return;
     }
     try {
-      await gitlab.post(`projects/${job.projectId}/jobs/${jobId}/play`);
+      await gitlab.post(`projects/${props.job.projectId}/jobs/${jobId}/play`);
       showToast(Toast.Style.Success, "Started job");
       props.onRefreshJobs?.();
     } catch (error) {
@@ -77,20 +74,19 @@ export function RunJobAction(props: { job: Job; onRefreshJobs?: () => void }) {
 }
 
 export function RetryJobAction(props: { job: Job }) {
-  const job = props.job;
   async function handle() {
-    const jobId = jobNumericId(job);
+    const jobId = jobNumericId(props.job);
     if (
       !(await confirmAlert({
         title: "Retry Job?",
-        message: `Restart "${job.name}" (#${jobId})?`,
+        message: `Restart "${props.job.name}" (#${jobId})?`,
         primaryAction: { title: "Retry", style: Alert.ActionStyle.Destructive },
       }))
     ) {
       return;
     }
     try {
-      await gitlab.post(`projects/${job.projectId}/jobs/${jobId}/retry`);
+      await gitlab.post(`projects/${props.job.projectId}/jobs/${jobId}/retry`);
       showToast(Toast.Style.Success, "Restarted job");
     } catch (error) {
       showErrorToast(getErrorMessage(error), "Failed to restart job");
@@ -104,24 +100,6 @@ export function RetryJobAction(props: { job: Job }) {
       onAction={handle}
     />
   );
-}
-
-function formatArtifactSize(size: number): string {
-  if (size < 1024) {
-    return `${size} B`;
-  }
-  if (size < 1024 * 1024) {
-    return `${(size / 1024).toFixed(1)} KB`;
-  }
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function jobArtifactActionTitle(artifact: JobArtifact): string {
-  const label = artifact.filename || artifact.file_type;
-  if (artifact.size !== undefined) {
-    return `${label} (${formatArtifactSize(artifact.size)})`;
-  }
-  return label;
 }
 
 function resolveJobArtifactDownload(job: Job, artifact: JobArtifact): { url: string; fileName: string } | undefined {
@@ -167,8 +145,7 @@ async function downloadJobArtifact(job: Job, artifact: JobArtifact) {
 }
 
 export function DownloadJobArtifactsSubmenu(props: { job: Job }): React.ReactElement | null {
-  const artifacts = props.job.artifacts;
-  if (artifacts.length === 0) {
+  if (props.job.artifacts.length === 0) {
     return null;
   }
   return (
@@ -177,10 +154,20 @@ export function DownloadJobArtifactsSubmenu(props: { job: Job }): React.ReactEle
       icon={{ source: Icon.Download, tintColor: Color.PrimaryText }}
       shortcut={{ modifiers: ["cmd"], key: "d" }}
     >
-      {artifacts.map((artifact, index) => (
+      {props.job.artifacts.map((artifact, index) => (
         <Action
           key={`${artifact.filename ?? artifact.file_type}-${index}`}
-          title={jobArtifactActionTitle(artifact)}
+          title={
+            artifact.size !== undefined
+              ? `${artifact.filename || artifact.file_type} (${
+                  artifact.size < 1024
+                    ? `${artifact.size} B`
+                    : artifact.size < 1024 * 1024
+                      ? `${(artifact.size / 1024).toFixed(1)} KB`
+                      : `${(artifact.size / (1024 * 1024)).toFixed(1)} MB`
+                })`
+              : artifact.filename || artifact.file_type
+          }
           icon={{ source: Icon.Download, tintColor: Color.PrimaryText }}
           onAction={() => downloadJobArtifact(props.job, artifact)}
         />

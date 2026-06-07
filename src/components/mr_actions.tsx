@@ -13,19 +13,18 @@ async function createNote(mr: MergeRequest, body: string): Promise<void> {
 }
 
 export function CloseMRAction(props: { mr: MergeRequest; finished?: () => void }) {
-  const mr = props.mr;
   async function handleAction() {
     if (
       !(await confirmAlert({
         title: "Close Merge Request?",
-        message: `Close !${mr.iid} "${mr.title}"?`,
+        message: `Close !${props.mr.iid} "${props.mr.title}"?`,
         primaryAction: { title: "Close", style: Alert.ActionStyle.Destructive },
       }))
     ) {
       return;
     }
     try {
-      await createNote(mr, "/close");
+      await createNote(props.mr, "/close");
       showToast(Toast.Style.Success, "Closed");
       if (props.finished) {
         props.finished();
@@ -46,10 +45,9 @@ export function CloseMRAction(props: { mr: MergeRequest; finished?: () => void }
 }
 
 export function ReopenMRAction(props: { mr: MergeRequest; finished?: () => void }) {
-  const mr = props.mr;
   async function handleAction() {
     try {
-      await createNote(mr, "/reopen");
+      await createNote(props.mr, "/reopen");
       showToast(Toast.Style.Success, "Reopened");
       if (props.finished) {
         props.finished();
@@ -62,19 +60,18 @@ export function ReopenMRAction(props: { mr: MergeRequest; finished?: () => void 
 }
 
 export function RebaseMRAction(props: { mr: MergeRequest; shortcut?: Keyboard.Shortcut; finished?: () => void }) {
-  const mr = props.mr;
   async function handleAction() {
     if (
       !(await confirmAlert({
         title: "Rebase Merge Request?",
-        message: `Rebase !${mr.iid} "${mr.title}"?`,
+        message: `Rebase !${props.mr.iid} "${props.mr.title}"?`,
         primaryAction: { title: "Rebase", style: Alert.ActionStyle.Destructive },
       }))
     ) {
       return;
     }
     try {
-      await createNote(mr, "/rebase");
+      await createNote(props.mr, "/rebase");
       showToast(Toast.Style.Success, "Rebased");
       props.finished?.();
     } catch (error) {
@@ -96,19 +93,18 @@ export function MergeMRAction(props: {
   shortcut?: Keyboard.Shortcut;
   finished?: () => void;
 }): React.ReactElement | null {
-  const mr = props.mr;
   async function handleAction() {
     if (
       !(await confirmAlert({
         title: "Merge Merge Request?",
-        message: `Merge !${mr.iid} "${mr.title}"?`,
+        message: `Merge !${props.mr.iid} "${props.mr.title}"?`,
         primaryAction: { title: "Merge", style: Alert.ActionStyle.Destructive },
       }))
     ) {
       return;
     }
     try {
-      await gitlab.put(`projects/${mr.project_id}/merge_requests/${mr.iid}/merge`);
+      await gitlab.put(`projects/${props.mr.project_id}/merge_requests/${props.mr.iid}/merge`);
       showToast(Toast.Style.Success, "Merged");
       if (props.finished) {
         props.finished();
@@ -117,7 +113,7 @@ export function MergeMRAction(props: {
       showErrorToast(getErrorMessage(error), "Failed to Merge");
     }
   }
-  if (mr.state === "opened" && mr.user?.can_merge === true) {
+  if (props.mr.state === "opened" && props.mr.user?.can_merge === true) {
     return (
       <Action
         title="Merge"
@@ -135,19 +131,17 @@ function MRTodoAction(props: {
   shortcut?: Keyboard.Shortcut;
   finished?: () => void;
 }): React.ReactElement | null {
-  const mr = props.mr;
   const { todos, performRefetch } = useTodos();
-  const existingTodo = findTodoForMR(todos, mr);
+  const existingTodo = findTodoForMR(todos, props.mr);
 
-  if (mr.state !== "opened" && !existingTodo) {
+  if (props.mr.state !== "opened" && !existingTodo) {
     return null;
   }
 
   if (existingTodo) {
-    const todo = existingTodo;
     async function markAsDone() {
       try {
-        await gitlab.post(`todos/${todo.id}/mark_as_done`);
+        await gitlab.post(`todos/${existingTodo!.id}/mark_as_done`);
         showToast(Toast.Style.Success, "Done", "Todo is now marked as done");
         performRefetch();
         props.finished?.();
@@ -167,7 +161,7 @@ function MRTodoAction(props: {
 
   async function addTodo() {
     try {
-      await gitlab.post(`projects/${mr.project_id}/merge_requests/${mr.iid}/todo`);
+      await gitlab.post(`projects/${props.mr.project_id}/merge_requests/${props.mr.iid}/todo`);
       showToast(Toast.Style.Success, "To do created");
       performRefetch();
       props.finished?.();
@@ -187,17 +181,16 @@ function MRTodoAction(props: {
 }
 
 export function MRCopySection(props: { mr: MergeRequest; showCopyMarkdown?: boolean }): React.ReactElement {
-  const mr = props.mr;
   return (
     <ActionPanel.Section>
-      <Action.CopyToClipboard title="Copy URL" content={mr.web_url} shortcut={copyShortcut} />
-      {props.showCopyMarkdown ? (
+      <Action.CopyToClipboard title="Copy URL" content={props.mr.web_url} shortcut={copyShortcut} />
+      {props.showCopyMarkdown && (
         <Action.CopyToClipboard
           title="Copy Markdown"
-          content={`[${mr.title}](${mr.web_url})`}
+          content={`[${props.mr.title}](${props.mr.web_url})`}
           shortcut={copyMarkdownShortcut}
         />
-      ) : null}
+      )}
     </ActionPanel.Section>
   );
 }
@@ -207,44 +200,49 @@ export function MRItemActions(props: {
   onDataChange?: () => void;
   todoShortcut?: Keyboard.Shortcut;
 }) {
-  const mr = props.mr;
   return (
     <React.Fragment>
-      {mr.state === "closed" ? (
+      {props.mr.state === "closed" && (
         <ActionPanel.Section>
-          <ReopenMRAction mr={mr} finished={props.onDataChange} />
+          <ReopenMRAction mr={props.mr} finished={props.onDataChange} />
         </ActionPanel.Section>
-      ) : null}
+      )}
       <ActionPanel.Section>
-        <MRTodoAction mr={mr} shortcut={props.todoShortcut} finished={props.onDataChange} />
-        <RebaseMRAction shortcut={{ modifiers: ["cmd", "shift"], key: "r" }} mr={mr} finished={props.onDataChange} />
-        <MergeMRAction shortcut={{ modifiers: ["cmd", "shift"], key: "enter" }} mr={mr} finished={props.onDataChange} />
-        {mr.state === "opened" && <CloseMRAction mr={mr} finished={props.onDataChange} />}
+        <MRTodoAction mr={props.mr} shortcut={props.todoShortcut} finished={props.onDataChange} />
+        <RebaseMRAction
+          shortcut={{ modifiers: ["cmd", "shift"], key: "r" }}
+          mr={props.mr}
+          finished={props.onDataChange}
+        />
+        <MergeMRAction
+          shortcut={{ modifiers: ["cmd", "shift"], key: "enter" }}
+          mr={props.mr}
+          finished={props.onDataChange}
+        />
+        {props.mr.state === "opened" && <CloseMRAction mr={props.mr} finished={props.onDataChange} />}
       </ActionPanel.Section>
     </React.Fragment>
   );
 }
 
 export function ShowMRCommitsAction(props: { mr: MergeRequest }) {
-  const mr = props.mr;
   return (
     <Action.Push
       title="Show Commits"
       icon={{ source: GitLabIcons.commit, tintColor: Color.PrimaryText }}
       shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
-      target={<MRCommitList projectID={mr.project_id} mrIID={mr.iid} navigationTitle={mr.title} />}
+      target={<MRCommitList projectID={props.mr.project_id} mrIID={props.mr.iid} navigationTitle={props.mr.title} />}
     />
   );
 }
 
 export function ShowMRPipelinesAction(props: { mr: MergeRequest }) {
-  const mr = props.mr;
   return (
     <Action.Push
       title="Show Pipelines"
       icon={{ source: GitLabIcons.ci, tintColor: Color.PrimaryText }}
       shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
-      target={<MRPipelineList mr={mr} />}
+      target={<MRPipelineList mr={props.mr} />}
     />
   );
 }

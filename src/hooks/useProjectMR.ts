@@ -27,8 +27,9 @@ export function useProjectMR(query?: string): {
       return { members, labels, milestones, branches, mergeRequestTemplates };
     },
     [proid],
-    // Errors are surfaced via `errorProjectInfo`; the caller owns the toast.
-    { execute: proid > 0, onError: () => undefined },
+    {
+      execute: proid > 0,
+    },
   );
 
   return {

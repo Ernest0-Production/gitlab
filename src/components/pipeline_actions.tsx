@@ -9,17 +9,12 @@ export function RefreshPipelinesAction(props: {
   pipeline: Pipeline;
   shortcut?: Keyboard.Shortcut;
 }) {
-  const handle = () => {
-    if (props.onRefreshPipelines) {
-      props.onRefreshPipelines();
-    }
-  };
   return (
     <Action
       title="Refresh"
       icon={{ source: Icon.ArrowClockwise, tintColor: Color.PrimaryText }}
       shortcut={props.shortcut}
-      onAction={handle}
+      onAction={() => props.onRefreshPipelines?.()}
     />
   );
 }
@@ -39,19 +34,18 @@ export function isCancelablePipeline(pipeline: Pipeline): boolean {
 }
 
 export function CancelPipelineAction(props: { pipeline: Pipeline; onRefreshPipelines?: () => void }) {
-  const pipeline = props.pipeline;
   async function handle() {
     if (
       !(await confirmAlert({
         title: "Cancel Pipeline?",
-        message: `Cancel all jobs in pipeline #${pipeline.iid}?`,
+        message: `Cancel all jobs in pipeline #${props.pipeline.iid}?`,
         primaryAction: { title: "Cancel Pipeline", style: Alert.ActionStyle.Destructive },
       }))
     ) {
       return;
     }
     try {
-      await gitlab.post(`projects/${pipeline.projectId}/pipelines/${pipeline.id}/cancel`);
+      await gitlab.post(`projects/${props.pipeline.projectId}/pipelines/${props.pipeline.id}/cancel`);
       showToast(Toast.Style.Success, "Canceled pipeline");
       props.onRefreshPipelines?.();
     } catch (error) {
@@ -69,19 +63,18 @@ export function CancelPipelineAction(props: { pipeline: Pipeline; onRefreshPipel
 }
 
 export function RetryPipelineAction(props: { pipeline: Pipeline; onRetryFinished?: () => void }) {
-  const pipeline = props.pipeline;
   async function handle() {
     if (
       !(await confirmAlert({
         title: "Retry Pipeline?",
-        message: `Restart failed jobs in pipeline #${pipeline.iid}?`,
+        message: `Restart failed jobs in pipeline #${props.pipeline.iid}?`,
         primaryAction: { title: "Retry", style: Alert.ActionStyle.Destructive },
       }))
     ) {
       return;
     }
     try {
-      await gitlab.post(`projects/${pipeline.projectId}/pipelines/${pipeline.id}/retry`);
+      await gitlab.post(`projects/${props.pipeline.projectId}/pipelines/${props.pipeline.id}/retry`);
       showToast(Toast.Style.Success, "Restarted jobs");
       props.onRetryFinished?.();
     } catch (error) {
@@ -120,8 +113,7 @@ export function RunPipelineAction(props: {
     }
     try {
       const created = await gitlab.post(`projects/${props.projectId}/pipeline`, { ref });
-      const pipelineId = created?.id ? `#${created.id}` : "";
-      showToast(Toast.Style.Success, "Started pipeline", pipelineId);
+      showToast(Toast.Style.Success, "Started pipeline", created?.id ? `#${created.id}` : "");
       props.onFinished?.();
     } catch (error) {
       showErrorToast(getErrorMessage(error), "Failed to run pipeline");
@@ -142,16 +134,18 @@ export function PipelineItemActions(props: {
   onRefreshPipelines?: () => void;
   onDataChange?: () => void;
 }) {
-  const pipeline = props.pipeline;
   return (
     <React.Fragment>
       <RunPipelineAction
-        projectId={pipeline.projectId}
-        ref={pipeline.ref}
+        projectId={props.pipeline.projectId}
+        ref={props.pipeline.ref}
         onFinished={props.onRefreshPipelines ?? props.onDataChange}
         shortcut={{ modifiers: ["cmd"], key: "n" }}
       />
-      <RefreshPipelinesAction pipeline={pipeline} onRefreshPipelines={props.onRefreshPipelines ?? props.onDataChange} />
+      <RefreshPipelinesAction
+        pipeline={props.pipeline}
+        onRefreshPipelines={props.onRefreshPipelines ?? props.onDataChange}
+      />
     </React.Fragment>
   );
 }

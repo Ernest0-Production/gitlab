@@ -8,11 +8,7 @@ import { GroupListEmptyView, GroupListItem } from "./groups";
 
 export function GroupSearchList() {
   const [searchText, setSearchText] = useState<string>();
-  const { groups, error, isLoading } = useSearch(searchText);
-
-  if (error) {
-    showErrorToast(error, "Cannot search group");
-  }
+  const { groups, isLoading } = useSearch(searchText);
 
   return (
     <List
@@ -38,9 +34,7 @@ export function useSearch(query: string | undefined): {
 } {
   const { data, error, isLoading } = usePromise(
     (searchQuery: string) => gitlab.getGroups({ searchText: searchQuery, searchIn: "title" }),
-    [query ?? ""],
-    // The error is surfaced via `error` and toasted by the caller in render.
-    { onError: () => undefined },
+    [query ?? ""]
   );
   return { groups: data, error: error ? getErrorMessage(error) : undefined, isLoading };
 }

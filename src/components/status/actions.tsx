@@ -23,11 +23,10 @@ export function StatusClearCurrentAction(props: {
   status?: Status | undefined;
   setCurrentStatus: React.Dispatch<React.SetStateAction<Status | undefined>>;
 }) {
-  const status = props.status;
-  if (status === undefined) {
+  if (props.status === undefined) {
     return null;
   }
-  if (status.emoji || status.message) {
+  if (props.status.emoji || props.status.message) {
     const handle = async () => {
       try {
         await gitlab.clearUserStatus();
@@ -59,7 +58,6 @@ export function StatusPresetCreateAction(props: {
   presets: Status[];
   setPresets: React.Dispatch<React.SetStateAction<Status[]>>;
 }) {
-  const presets = props.presets;
   const { push, pop } = useNavigation();
   return (
     <Action
@@ -69,11 +67,10 @@ export function StatusPresetCreateAction(props: {
       onAction={() => {
         push(
           <StatusFormPresetCreate
-            presets={presets}
+            presets={props.presets}
             setPresets={props.setPresets}
             onFinish={async (newStatus: Status) => {
-              const np = presets === undefined ? [] : [...presets, newStatus];
-              props.setPresets(np);
+              props.setPresets(props.presets === undefined ? [newStatus] : [...props.presets, newStatus]);
               pop();
             }}
           />,
@@ -129,14 +126,12 @@ export function StatusPresetEditAction(props: {
   index: number;
   setPresets: React.Dispatch<React.SetStateAction<Status[]>>;
 }) {
-  const presets = props.presets;
-  const index = props.index;
   const setStatus = async (newStatus: Status) => {
     try {
-      if (index >= 0 && index < presets.length) {
-        const np = [...presets];
-        np[index] = newStatus;
-        props.setPresets(np);
+      if (props.index >= 0 && props.index < props.presets.length) {
+        const nextPresets = [...props.presets];
+        nextPresets[props.index] = newStatus;
+        props.setPresets(nextPresets);
         pop();
       } else {
         throw Error("Preset index out of bounds");
@@ -155,7 +150,7 @@ export function StatusPresetEditAction(props: {
         push(
           <StatusFormPresetEdit
             status={props.status}
-            presets={presets}
+            presets={props.presets}
             setPresets={props.setPresets}
             onFinish={setStatus}
           />,
@@ -170,13 +165,10 @@ export function StatusPresetDeleteAction(props: {
   index: number;
   setPresets: React.Dispatch<React.SetStateAction<Status[]>>;
 }) {
-  const presets = props.presets;
-  const index = props.index;
   const handle = async () => {
     try {
-      if (index >= 0 && index < presets.length) {
-        const np = presets.filter((_, i) => i != index);
-        props.setPresets(np);
+      if (props.index >= 0 && props.index < props.presets.length) {
+        props.setPresets(props.presets.filter((_, index) => index != props.index));
       } else {
         throw Error("Preset index out of bounds");
       }
@@ -200,17 +192,16 @@ export function StatusPresetMoveUpAction(props: {
   setPresets: React.Dispatch<React.SetStateAction<Status[]>>;
   setSelectedId: React.Dispatch<React.SetStateAction<string | undefined>>;
 }) {
-  const index = props.index;
-  if (index - 1 < 0) {
+  if (props.index - 1 < 0) {
     return null;
   }
   const handle = () => {
-    const np = [...props.presets];
-    const temp = np[index - 1];
-    np[index - 1] = np[index];
-    np[index] = temp;
-    props.setPresets(np);
-    props.setSelectedId(`preset_${index - 1}`);
+    const nextPresets = [...props.presets];
+    const temp = nextPresets[props.index - 1];
+    nextPresets[props.index - 1] = nextPresets[props.index];
+    nextPresets[props.index] = temp;
+    props.setPresets(nextPresets);
+    props.setSelectedId(`preset_${props.index - 1}`);
   };
   return (
     <Action
@@ -228,18 +219,16 @@ export function StatusPresetMoveDownAction(props: {
   setPresets: React.Dispatch<React.SetStateAction<Status[]>>;
   setSelectedId: React.Dispatch<React.SetStateAction<string | undefined>>;
 }) {
-  const index = props.index;
-  const upperIndex = index + 1;
-  if (upperIndex >= props.presets.length) {
+  if (props.index + 1 >= props.presets.length) {
     return null;
   }
   const handle = () => {
-    const np = [...props.presets];
-    const temp = np[upperIndex];
-    np[upperIndex] = np[index];
-    np[index] = temp;
-    props.setPresets(np);
-    props.setSelectedId(`preset_${upperIndex}`);
+    const nextPresets = [...props.presets];
+    const temp = nextPresets[props.index + 1];
+    nextPresets[props.index + 1] = nextPresets[props.index];
+    nextPresets[props.index] = temp;
+    props.setPresets(nextPresets);
+    props.setSelectedId(`preset_${props.index + 1}`);
   };
   return (
     <Action

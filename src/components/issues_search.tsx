@@ -19,7 +19,7 @@ export function SearchMyIssues() {
   const [scope, setScope] = useState<string>(IssueScope.created_by_me);
   const state = IssueState.all;
   const [search, setSearch] = useState<string>("");
-  const { data, isLoading, error, revalidate } = useCachedPromise(
+  const { data, isLoading, revalidate } = useCachedPromise(
     async (scope: string, state: IssueState, query: string): Promise<Issue[] | undefined> => {
       const params: Record<string, any> = { state, scope };
       const parsedQuery = getIssueQuery(query);
@@ -28,13 +28,8 @@ export function SearchMyIssues() {
       injectQueryNamedParameters(params, parsedQuery, scope as IssueScope, true);
       return gitlab.getIssues(params);
     },
-    [scope, state, search],
-    { onError: () => undefined },
+    [scope, state, search]
   );
-  if (error) {
-    showErrorToast(getErrorMessage(error), "Could not fetch Issues");
-  }
-  const title = search ? "Search Results" : "Created Recently";
   return (
     <List
       isLoading={isLoading}
@@ -49,7 +44,10 @@ export function SearchMyIssues() {
         </List.Dropdown>
       }
     >
-      <List.Section title={title} subtitle={data ? `${data.length}` : undefined}>
+      <List.Section
+        title={search ? "Search Results" : "Created Recently"}
+        subtitle={data ? `${data.length}` : undefined}
+      >
         {data?.map((issue) => (
           <IssueListItem key={issue.id} issue={issue} refreshData={revalidate} />
         ))}

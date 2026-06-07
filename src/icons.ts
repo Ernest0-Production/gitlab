@@ -1,9 +1,3 @@
-import { useCachedPromise } from "@raycast/utils";
-import { cacheLog, getLargeCacheDirectory } from "./cache";
-import { gitlab } from "./common";
-import { getErrorMessage, hashString } from "./utils";
-import path from "path/posix";
-import * as fs from "fs/promises";
 import { Image } from "@raycast/api";
 
 export enum GitLabIcons {
@@ -39,37 +33,6 @@ export enum GitLabIcons {
   status_canceled = "status_canceled.png",
   status_skipped = "status_skipped.png",
   status_scheduled = "status_scheduled.png",
-}
-
-async function getImageCacheDirectory(ensureDirectory = false): Promise<string> {
-  const cacheDir = getLargeCacheDirectory();
-  const imgDir = path.join(cacheDir, "img");
-  if (ensureDirectory) {
-    cacheLog(`create img cache directoy '${imgDir}'`);
-    await fs.mkdir(imgDir, { recursive: true });
-  }
-  return imgDir;
-}
-
-export function useImage(
-  url?: string,
-  defaultIcon?: string,
-): {
-  localFilepath?: string;
-  error?: string;
-  isLoading: boolean;
-} {
-  const { data, error, isLoading } = useCachedPromise(
-    async (imageUrl: string): Promise<string | undefined> => {
-      const imgDir = await getImageCacheDirectory(true);
-      const imgFilepath = path.join(imgDir, hashString(imageUrl)) + ".png"; // TODO get the extension correctly
-      return gitlab.downloadFile(imageUrl, { localFilepath: imgFilepath });
-    },
-    [url ?? ""],
-    { execute: !!url },
-  );
-
-  return { localFilepath: data ?? defaultIcon, error: error ? getErrorMessage(error) : undefined, isLoading };
 }
 
 export function getSVGText(text: string): string | undefined {

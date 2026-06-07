@@ -70,37 +70,37 @@ interface GqlMilestoneNode {
   stats: { closedIssuesCount: number; totalIssuesCount: number };
 }
 
-function getColorByRatio(ratio: number): Color {
-  const colors = [Color.Red, Color.Orange, Color.Yellow, Color.Blue, Color.Green];
-  const colorIndex = Math.floor(ratio * (colors.length - 1));
-  return colors[colorIndex];
-}
-
 export function MilestoneListItem(props: { milestone: MilestoneListEntry }) {
-  const milestone = props.milestone;
-  const issueCounter = `${milestone.closedIssuesCount}/${milestone.totalIssuesCount}`;
   const issueRatio =
-    milestone.totalIssuesCount && milestone.totalIssuesCount > 0
-      ? milestone.closedIssuesCount / milestone.totalIssuesCount
+    props.milestone.totalIssuesCount && props.milestone.totalIssuesCount > 0
+      ? props.milestone.closedIssuesCount / props.milestone.totalIssuesCount
       : 0.0;
-  const issuePercent = `${(issueRatio * 100).toFixed(0)}%`;
   let subtitle = "";
-  if (milestone.dueDateTime) {
-    subtitle = milestone.dueDate ?? "";
-    if (milestone.expired && milestone.state !== "closed") {
-      subtitle += ` ⚠️ ${milestone.expired ? " [expired]" : ""}`;
+  if (props.milestone.dueDateTime) {
+    subtitle = props.milestone.dueDate ?? "";
+    if (props.milestone.expired && props.milestone.state !== "closed") {
+      subtitle += ` ⚠️ ${props.milestone.expired ? " [expired]" : ""}`;
     }
   }
-  const ratioColor = getColorByRatio(issueRatio);
   return (
     <List.Item
-      id={`${milestone.id}`}
-      title={milestone.title}
+      id={`${props.milestone.id}`}
+      title={props.milestone.title}
       subtitle={subtitle}
-      accessories={[{ text: issueCounter }, { tag: { value: issuePercent, color: ratioColor } }]}
+      accessories={[
+        { text: `${props.milestone.closedIssuesCount}/${props.milestone.totalIssuesCount}` },
+        {
+          tag: {
+            value: `${(issueRatio * 100).toFixed(0)}%`,
+            color: [Color.Red, Color.Orange, Color.Yellow, Color.Blue, Color.Green][
+              Math.floor(issueRatio * 4)
+            ],
+          },
+        },
+      ]}
       actions={
         <ActionPanel>
-          <GitLabOpenInBrowserAction url={milestone.webUrl} />
+          <GitLabOpenInBrowserAction url={props.milestone.webUrl} />
         </ActionPanel>
       }
     />
@@ -108,19 +108,16 @@ export function MilestoneListItem(props: { milestone: MilestoneListEntry }) {
 }
 
 export function MilestoneList(props: { project?: Project; group?: Group; navigationTitle?: string }) {
-  const isGroup = !!props.group;
-  let fullPath = props.project ? props.project.fullPath : "";
-  if (fullPath.length <= 0) {
-    fullPath = props.group ? props.group.full_path : "";
-  }
-  const { milestones, error, isLoading } = useSearch(fullPath, isGroup);
-  if (error) {
-    showErrorToast(error, "Cannot search Milestones");
-  }
+  const { milestones, isLoading } = useSearch(
+    props.project?.fullPath && props.project.fullPath.length > 0
+      ? props.project.fullPath
+      : props.group?.full_path ?? "",
+    !!props.group,
+  );
   const closeMilestones = milestones.filter((milestone) => milestone.state === "closed");
   const openMilestones = milestones
     .filter((milestone) => milestone.state !== "closed")
-    .sort((a, b) => (a.dueDateTime || 0) - (b.dueDateTime || 0));
+    .sort((firstMilestone, secondMilestone) => (firstMilestone.dueDateTime || 0) - (secondMilestone.dueDateTime || 0));
 
   return (
     <List isLoading={isLoading} navigationTitle={props.navigationTitle || "Milestones"}>
@@ -148,10 +145,11 @@ export function useSearch(
 } {
   const { data, error, isLoading } = usePromise(
     async (fullPath: string, group: boolean): Promise<MilestoneListEntry[]> => {
-      const gqlQuery = group ? GET_GROUP_MILESTONES : GET_MILESTONES;
-      const data = await getGitLabGQL().client.query({ query: gqlQuery, variables: { fullPath } });
-      const milestoneRoot = group ? data.data.group : data.data.project;
-      return milestoneRoot.milestones.nodes.map(
+      const data = await getGitLabGQL().client.query({
+        query: group ? GET_GROUP_MILESTONES : GET_MILESTONES,
+        variables: { fullPath },
+      });
+      return (group ? data.data.group : data.data.project).milestones.nodes.map(
         (node: GqlMilestoneNode): MilestoneListEntry => ({
           id: getIdFromGqlId(node.id),
           title: node.title,
@@ -165,9 +163,7 @@ export function useSearch(
         }),
       );
     },
-    [projectFullPath, isGroup],
-    // The error is surfaced via `error` and toasted by the caller in render.
-    { onError: () => undefined },
+    [projectFullPath, isGroup]
   );
   return { milestones: data ?? [], error: error ? getErrorMessage(error) : undefined, isLoading };
 }

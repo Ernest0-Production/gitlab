@@ -32,7 +32,10 @@ export function usePaginatedProjectPipelines(options: {
       return { data: pipelines, hasMore };
     },
     [options.cacheKey],
-    { execute: options.execute, keepPreviousData: options.keepPreviousData },
+    {
+      execute: options.execute,
+      keepPreviousData: options.keepPreviousData,
+    },
   );
 
   return {
@@ -73,7 +76,10 @@ export function usePaginatedMRPipelines(options: {
       return { data: pipelines, hasMore };
     },
     [options.cacheKey],
-    { execute: options.execute, keepPreviousData: options.keepPreviousData },
+    {
+      execute: options.execute,
+      keepPreviousData: options.keepPreviousData,
+    },
   );
 
   return {
