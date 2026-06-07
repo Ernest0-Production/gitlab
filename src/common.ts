@@ -8,7 +8,7 @@ import { getPreferences, parseCommaSeparatedPreference } from "./utils";
 
 let gitlabClient: GitLab | undefined;
 
-export function createGitLabClient(): GitLab {
+function createGitLabClient(): GitLab {
   const preferences = getPreferences();
   const instance = preferences.instance || "https://gitlab.com";
   return new GitLab(instance, preferences.token);
@@ -21,7 +21,7 @@ function getGitLabClient(): GitLab {
   return gitlabClient;
 }
 
-export class GitLabGQL {
+class GitLabGQL {
   public url: string;
   public client: ApolloClient<NormalizedCacheObject>;
   constructor(url: string, client: ApolloClient<NormalizedCacheObject>) {
@@ -33,7 +33,7 @@ export class GitLabGQL {
   }
 }
 
-export function createGitLabGQLClient(): GitLabGQL {
+function createGitLabGQLClient(): GitLabGQL {
   const preferences = getPreferences();
   const instance = preferences.instance || "https://gitlab.com";
   const token = preferences.token;

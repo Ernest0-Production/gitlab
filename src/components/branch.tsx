@@ -8,7 +8,6 @@ import { CreateMRAction, ShowBranchCommitsAction } from "./branch_actions";
 import { GitLabOpenInBrowserAction } from "./actions";
 import { useCommitStatus } from "./commits/utils";
 import { getCIJobStatusIcon, getMRPipelineStatusTooltip } from "./jobs";
-import { getErrorMessage, showErrorToast } from "../utils";
 
 export function BranchListItem(props: { branch: Branch; project: Project }) {
   const states = [];
@@ -30,13 +29,11 @@ export function BranchListItem(props: { branch: Branch; project: Project }) {
           props.branch.merged === true
             ? { source: GitLabIcons.merged, tintColor: Color.Purple }
             : { source: GitLabIcons.mropen, tintColor: Color.Green },
-        tooltip: `Status: ${props.branch.merged === true ? "Merged" : "Open"}`,
-      }}
+        tooltip: `Status: ${props.branch.merged === true ? "Merged" : "Open"}` }}
       accessories={[
         {
           icon: commitStatus ? getCIJobStatusIcon(commitStatus.status, commitStatus.allow_failure) : undefined,
-          tooltip: commitStatus?.status ? getMRPipelineStatusTooltip(commitStatus.status) : undefined,
-        },
+          tooltip: commitStatus?.status ? getMRPipelineStatusTooltip(commitStatus.status) : undefined },
       ]}
       actions={
         <ActionPanel>

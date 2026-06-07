@@ -2,9 +2,9 @@ import { Action, ActionPanel, Color, Icon, showToast, Toast } from "@raycast/api
 import { gitlab } from "../common";
 import { jsonDataToIssue, jsonDataToMergeRequest as jsonDataToMergeRequest, Todo } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
-import { getErrorMessage, showErrorToast } from "../utils";
 import { IssueDetail } from "./issues";
 import { MRDetail } from "./mr";
+import { showFailureToast } from "@raycast/utils";
 
 export function ShowTodoDetailsAction(props: { todo: Todo }): React.ReactNode | null {
   if (props.todo.target_type === "MergeRequest") {
@@ -37,7 +37,7 @@ export function CloseTodoAction(props: { todo: Todo; finished?: () => void }) {
         props.finished();
       }
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Failed to mark Todo as done");
+      showFailureToast(error, { title: "Failed to mark Todo as done" });
     }
   }
   return (
@@ -59,7 +59,7 @@ export function CloseAllTodoAction(props: { finished?: () => void }) {
         props.finished();
       }
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Failed to Close All to do's");
+      showFailureToast(error, { title: "Failed to Close All to do's" });
     }
   }
   return (

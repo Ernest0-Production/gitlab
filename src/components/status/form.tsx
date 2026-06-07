@@ -1,5 +1,6 @@
 import { Form, ActionPanel, useNavigation, Action } from "@raycast/api";
 import { isValidStatus, Status } from "../../gitlabapi";
+import { showFailureToast } from "@raycast/utils";
 import {
   clearDurations,
   clearDurationText,
@@ -8,7 +9,6 @@ import {
   getClearDurationDate,
 } from "./utils";
 import { gitlab } from "../../common";
-import { getErrorMessage, showErrorToast } from "../../utils";
 
 export function StatusForm(props: {
   submitTitle: string;
@@ -62,7 +62,7 @@ export function StatusFormSet(props: { setCurrentStatus?: React.Dispatch<React.S
       }
       pop();
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Could not set Status");
+      showFailureToast(error, { title: "Could not set Status" });
     }
   };
   return <StatusForm onSubmit={handle} submitTitle="Set Status" />;
@@ -73,8 +73,7 @@ function getValidStatusFromFormValue(values: Form.Values): Status {
     emoji: values.emoji,
     message: values.message,
     clear_status_after: values.clear_status_after,
-    clear_status_at: getClearDurationDate(values.clear_status_after),
-  };
+    clear_status_at: getClearDurationDate(values.clear_status_after) };
   if (!isValidStatus(status)) {
     throw Error("Invalid Status");
   }
@@ -91,7 +90,7 @@ export function StatusFormPresetCreate(props: {
       const status = getValidStatusFromFormValue(values);
       props.onFinish(status);
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Could not create Preset");
+      showFailureToast(error, { title: "Could not create Preset" });
     }
   };
   return <StatusForm onSubmit={handle} submitTitle="Create Preset" />;
@@ -108,7 +107,7 @@ export function StatusFormPresetEdit(props: {
       const status = getValidStatusFromFormValue(values);
       await props.onFinish(status);
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Could not edit Preset");
+      showFailureToast(error, { title: "Could not edit Preset" });
     }
   };
   return <StatusForm onSubmit={handle} submitTitle="Edit Preset" existingStatus={props.status} />;

@@ -12,7 +12,7 @@ import { useState } from "react";
 import { useCachedPromise } from "@raycast/utils";
 import { gitlab } from "../common";
 import { Issue, Project } from "../gitlabapi";
-import { getErrorMessage, showErrorToast } from "../utils";
+import { getErrorMessage } from "../utils";
 import { IssueListEmptyView, IssueListItem, IssueScope, IssueState } from "./issues";
 import { MyProjectsDropdown } from "./project";
 
@@ -73,8 +73,7 @@ export function useMyIssues(
     data: issues,
     isLoading,
     error,
-    revalidate,
-  } = useCachedPromise(
+    revalidate } = useCachedPromise(
     async (
       scope: IssueScope,
       state: IssueState,

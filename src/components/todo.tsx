@@ -1,5 +1,5 @@
 import { ActionPanel, Color, Image, launchCommand, LaunchType, List } from "@raycast/api";
-import { Project, Todo, User } from "../gitlabapi";
+import { Project, Todo } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
 import { CloseAllTodoAction, CloseTodoAction, ShowTodoDetailsAction } from "./todo_actions";
 import { MRState } from "./mr";
@@ -7,7 +7,8 @@ import { GitLabOpenInBrowserAction } from "./actions";
 import { useTodos } from "./todo/utils";
 import { MyProjectsDropdown } from "./project";
 import { useState } from "react";
-import { capitalizeFirstLetter, formatDateTime, getErrorMessage, isWindows, showErrorToast } from "../utils";
+import { capitalizeFirstLetter, formatDateTime, isWindows } from "../utils";
+import { showFailureToast } from "@raycast/utils";
 
 const actionColors: Record<string, Color> = {
   marked: Color.Green,
@@ -27,12 +28,8 @@ export function getTodoIcon(todo: Todo, overrideTintColor?: Color.ColorLike | nu
     return { source: GitLabIcons.merged, tintColor: overrideTintColor ?? Color.Purple };
   }
   return {
-    source: todo.target_type
-      ? targetTypeSouce[todo.target_type.toLowerCase()] || GitLabIcons.todo
-      : GitLabIcons.todo,
-    tintColor:
-      overrideTintColor ??
-      (todo.action_name ? actionColors[todo.action_name] || Color.Green : Color.Green),
+    source: todo.target_type ? targetTypeSouce[todo.target_type.toLowerCase()] || GitLabIcons.todo : GitLabIcons.todo,
+    tintColor: overrideTintColor ?? (todo.action_name ? actionColors[todo.action_name] || Color.Green : Color.Green),
   };
 }
 
@@ -64,7 +61,7 @@ export function TodoList() {
         await launchCommand({ name: "todomenubar", type: LaunchType.UserInitiated });
       }
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Could not open Todos Menu Command");
+      showFailureToast(error, { title: "Could not open Todos Menu Command" });
     }
   };
 
@@ -105,9 +102,7 @@ export function TodoListItem(props: { todo: Todo; refreshData: () => void }) {
           tooltip: props.todo.updated_at ? `Updated: ${formatDateTime(props.todo.updated_at)}` : undefined,
         },
         {
-          icon: props.todo.author?.avatar_url
-            ? { source: props.todo.author.avatar_url, mask: Image.Mask.Circle }
-            : "",
+          icon: props.todo.author?.avatar_url ? { source: props.todo.author.avatar_url, mask: Image.Mask.Circle } : "",
           tooltip: props.todo.author?.name,
         },
       ]}

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useCachedPromise } from "@raycast/utils";
 import { Project, User, searchData } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
-import { capitalizeFirstLetter, getErrorMessage, shortify, showErrorToast } from "../utils";
+import { capitalizeFirstLetter, shortify } from "../utils";
 import { DefaultActions, GitLabOpenInBrowserAction } from "./actions";
 import { fetchEventsWithProjects } from "./events_data";
 import { IssueDetailFetch } from "./issues";
@@ -123,10 +123,7 @@ export function EventListItem(props: { event: Event }) {
           actionElement = (
             <DefaultActions
               webAction={
-                <GitLabOpenInBrowserAction
-                  url={`${props.event.project.web_url}`}
-                  title="Open Project in Browser"
-                />
+                <GitLabOpenInBrowserAction url={`${props.event.project.web_url}`} title="Open Project in Browser" />
               }
             />
           );
@@ -440,7 +437,7 @@ function EventListEmptyView() {
 export function EventList() {
   const [scope, setScope] = useState<string>(ScopeType.MyActivities);
   const [searchText, setSearchText] = useState<string>();
-  const { data, error, isLoading } = useCachedPromise(
+  const { data, isLoading } = useCachedPromise(
     async (scopeType: string): Promise<Event[]> => {
       const params: Record<string, string> = {};
       if (scopeType === ScopeType.MyProjects) {
@@ -448,7 +445,7 @@ export function EventList() {
       }
       return fetchEventsWithProjects(params);
     },
-    [scope]
+    [scope],
   );
   if (!data) {
     return <List isLoading={true} />;

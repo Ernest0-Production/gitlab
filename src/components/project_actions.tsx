@@ -4,7 +4,6 @@ import React from "react";
 import { getGitLabGQL, getPrimaryActionPreference, PrimaryAction } from "../common";
 import { Project } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
-import { getErrorMessage, showErrorToast } from "../utils";
 import { getVSCodeAppPath } from "../vscode";
 import { GitLabOpenInBrowserAction } from "./actions";
 import { BranchList } from "./branch";
@@ -15,6 +14,7 @@ import { PipelineList } from "./pipelines";
 import { ProjectLabelList } from "./project_label";
 import { ProjectNavMenusList } from "./project_nav";
 import { ProjectReadmeDetail } from "./project_readme";
+import { showFailureToast } from "@raycast/utils";
 
 function CloneURLInVSCodeListItem(props: { url?: string }) {
   const clone = async (url: string) => {
@@ -25,7 +25,7 @@ function CloneURLInVSCodeListItem(props: { url?: string }) {
         await open.default(`vscode://vscode.git/clone?url=${encodeURIComponent(url)}`);
       }
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Could not clone in VSCode");
+      showFailureToast(error, { title: "Could not clone in VSCode" });
     }
   };
   if (props.url && props.url.length > 0) {

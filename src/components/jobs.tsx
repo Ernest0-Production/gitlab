@@ -2,14 +2,13 @@ import { Action, ActionPanel, List, Icon, Image, Color } from "@raycast/api";
 import { usePromise } from "@raycast/utils";
 import { getGitLabGQL, gitlab } from "../common";
 import { gql } from "@apollo/client";
-import { copyShortcut, getErrorMessage, getIdFromGqlId, showErrorToast } from "../utils";
+import { copyShortcut, getErrorMessage, getIdFromGqlId } from "../utils";
 import {
   CancelJobAction,
   DownloadJobArtifactsSubmenu,
   RefreshJobsAction,
   RetryJobAction,
-  RunJobAction,
-} from "./job_actions";
+  RunJobAction } from "./job_actions";
 import { GitLabOpenInBrowserAction } from "./actions";
 import { Project } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
@@ -142,8 +141,7 @@ const CI_JOB_STATUS_LABELS: Record<string, string> = {
   canceled: "canceled",
   skipped: "skipped",
   scheduled: "scheduled",
-  manual: "manual",
-};
+  manual: "manual" };
 
 const MR_PIPELINE_STATUS_LABELS: Record<string, string> = {
   success: "Pipeline Passed",
@@ -158,8 +156,7 @@ const MR_PIPELINE_STATUS_LABELS: Record<string, string> = {
   canceled: "Pipeline Canceled",
   skipped: "Pipeline Skipped",
   scheduled: "Pipeline Scheduled",
-  manual: "Pipeline Manual",
-};
+  manual: "Pipeline Manual" };
 
 export function getMRPipelineStatusTooltip(status: string): string {
   return MR_PIPELINE_STATUS_LABELS[status] ?? "Pipeline Status Unknown";
@@ -179,8 +176,7 @@ export function JobListItem(props: { job: Job; projectFullPath: string; onRefres
       id={props.job.id}
       icon={{
         value: getCIJobStatusIcon(props.job.status, props.job.allowFailure),
-        tooltip: getCIJobStatusTooltip(props.job.status, props.job.allowFailure),
-      }}
+        tooltip: getCIJobStatusTooltip(props.job.status, props.job.allowFailure) }}
       title={props.job.name}
       subtitle={"#" + getIdFromGqlId(props.job.id)}
       actions={
@@ -270,18 +266,15 @@ export function useSearch(
                   file_type: artifact.file_type,
                   size: artifact.size,
                   filename: artifact.filename,
-                  file_format: artifact.file_format,
-                }))
-              : [],
-          });
+                  file_format: artifact.file_format }))
+              : [] });
         }
         return stages;
       }
       if (piid) {
         const data = await getGitLabGQL().client.query({
           query: GET_PIPELINE_JOBS,
-          variables: { fullPath, pipelineIID: piid },
-        });
+          variables: { fullPath, pipelineIID: piid } });
         const stages: Record<string, Job[]> = {};
         for (const stage of data.data.project.pipeline.stages.nodes) {
           if (!stages[stage.name]) {
@@ -294,8 +287,7 @@ export function useSearch(
               name: job.name,
               status: gqlCiJobStatus(job.status),
               allowFailure: job.allowFailure === true,
-              artifacts: [],
-            });
+              artifacts: [] });
           }
         }
         return stages;

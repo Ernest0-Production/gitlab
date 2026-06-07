@@ -3,13 +3,14 @@ import { gitlab } from "./common";
 import { getTodoIcon, getPrettyTodoActionName } from "./components/todo";
 import { useTodos } from "./components/todo/utils";
 import { MenuBarItem, MenuBarItemConfigureCommand, MenuBarRoot, MenuBarSection } from "./components/menu";
-import { getBoundedPreferenceNumber, getErrorMessage, getPreferences, showErrorToast } from "./utils";
+import { getBoundedPreferenceNumber,  getPreferences } from "./utils";
+import { showFailureToast } from "@raycast/utils";
 
 async function launchTodosCommand() {
   try {
     await launchCommand({ name: "todos", type: LaunchType.UserInitiated });
   } catch (error) {
-    await showErrorToast(getErrorMessage(error), "Could not open Todos Command");
+    await showFailureToast(error, { title: "Could not open Todos Command" });
   }
 }
 

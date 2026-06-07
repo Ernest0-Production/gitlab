@@ -2,8 +2,8 @@ import { showToast, Toast, Form, Icon, popToRoot, Image, ActionPanel, Action } f
 import { Project, Branch, Issue, TemplateDetail } from "../gitlabapi";
 import { gitlab } from "../common";
 import { useState, useEffect } from "react";
-import { usePromise, useCachedPromise } from "@raycast/utils";
-import { getErrorMessage, projectIcon, showErrorToast, stringToSlug, toFormValues } from "../utils";
+import { showFailureToast, usePromise, useCachedPromise } from "@raycast/utils";
+import { projectIcon, stringToSlug, toFormValues } from "../utils";
 import { useProjectMR, useMilestones, ProjectInfoMR } from "../hooks";
 
 interface MRFormValues {
@@ -35,7 +35,7 @@ async function submit(values: MRFormValues) {
     await showToast(Toast.Style.Success, "Merge Request created", "Merge Request creation successful");
     popToRoot();
   } catch (error) {
-    await showErrorToast(getErrorMessage(error));
+    await showFailureToast(error);
   }
 }
 
@@ -48,8 +48,7 @@ export function IssueMRCreateForm({ issue, projectID, title }: { issue: Issue; p
     },
     [projectID],
     {
-      execute: !!projectID,
-    },
+      execute: !!projectID },
   );
   async function submit(values: { source_branch: string; target_branch: string }) {
     const { source_branch, target_branch } = values;
@@ -61,12 +60,11 @@ export function IssueMRCreateForm({ issue, projectID, title }: { issue: Issue; p
         source_branch: source_branch,
         target_branch: target_branch,
         title: title,
-        assignee_id: data?.project?.owner?.id,
-      });
+        assignee_id: data?.project?.owner?.id });
       showToast(Toast.Style.Success, "Merge Request created", "Merge Request creation successful");
       popToRoot();
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Cannot create Merge Request");
+      showFailureToast(error, { title: "Cannot create Merge Request" });
     }
   }
 

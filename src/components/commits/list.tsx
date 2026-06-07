@@ -4,7 +4,6 @@ import { useCachedPromise } from "@raycast/utils";
 import urljoin from "url-join";
 import { Project } from "../../gitlabapi";
 import { GitLabIcons } from "../../icons";
-import { getErrorMessage, showErrorToast } from "../../utils";
 import { GitLabOpenInBrowserAction } from "../actions";
 import { Event } from "../event";
 import { fetchPushEventsWithProjects } from "../events_data";
@@ -84,8 +83,7 @@ export function MRCommitList(props: { projectID: number; mrIID: number; navigati
   const { commits, isLoading, pagination } = usePaginatedMergeRequestCommits({
     cacheKey: `mr_commits_${props.projectID}_${props.mrIID}`,
     projectID: props.projectID,
-    mrIID: props.mrIID,
-  });
+    mrIID: props.mrIID });
 
   return (
     <List isLoading={isLoading} pagination={pagination} navigationTitle={props.navigationTitle}>
@@ -103,8 +101,7 @@ export function ProjectCommitList(props: { projectID: number; refName?: string; 
       ? `project_commits_${props.projectID}_${props.refName}`
       : `project_commits_${props.projectID}`,
     projectID: props.projectID,
-    refName: props.refName,
-  });
+    refName: props.refName });
 
   return (
     <List isLoading={isLoading} pagination={pagination} navigationTitle={props.navigationTitle}>

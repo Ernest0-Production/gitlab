@@ -3,7 +3,7 @@ import { ActionPanel, Color, List } from "@raycast/api";
 import { usePromise } from "@raycast/utils";
 import { getGitLabGQL } from "../common";
 import { Group, Project } from "../gitlabapi";
-import { getErrorMessage, getIdFromGqlId, showErrorToast } from "../utils";
+import { getErrorMessage, getIdFromGqlId } from "../utils";
 import { GitLabOpenInBrowserAction } from "./actions";
 
 const GET_MILESTONES = gql`
@@ -94,9 +94,7 @@ export function MilestoneListItem(props: { milestone: MilestoneListEntry }) {
             value: `${(issueRatio * 100).toFixed(0)}%`,
             color: [Color.Red, Color.Orange, Color.Yellow, Color.Blue, Color.Green][
               Math.floor(issueRatio * 4)
-            ],
-          },
-        },
+            ] } },
       ]}
       actions={
         <ActionPanel>
@@ -147,8 +145,7 @@ export function useSearch(
     async (fullPath: string, group: boolean): Promise<MilestoneListEntry[]> => {
       const data = await getGitLabGQL().client.query({
         query: group ? GET_GROUP_MILESTONES : GET_MILESTONES,
-        variables: { fullPath },
-      });
+        variables: { fullPath } });
       return (group ? data.data.group : data.data.project).milestones.nodes.map(
         (node: GqlMilestoneNode): MilestoneListEntry => ({
           id: getIdFromGqlId(node.id),
@@ -159,8 +156,7 @@ export function useSearch(
           expired: node.expired,
           webUrl: `${getGitLabGQL().url}/${node.webPath}`,
           closedIssuesCount: node.stats.closedIssuesCount,
-          totalIssuesCount: node.stats.totalIssuesCount,
-        }),
+          totalIssuesCount: node.stats.totalIssuesCount }),
       );
     },
     [projectFullPath, isGroup]

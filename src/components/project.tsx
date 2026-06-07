@@ -1,9 +1,9 @@
-import { Action, ActionPanel, Color, Icon, Image, List } from "@raycast/api";
+import { Action, ActionPanel, Color, Icon, List } from "@raycast/api";
 import { useCachedPromise } from "@raycast/utils";
 import { useState } from "react";
 import { gitlab } from "../common";
 import { Project, searchData } from "../gitlabapi";
-import { getErrorMessage, getFirstChar, projectIconUrl, showErrorToast } from "../utils";
+import { getErrorMessage, getFirstChar, projectIconUrl } from "../utils";
 import {
   CloneProjectInGitPod,
   CloneProjectInVSCodeAction,
@@ -108,7 +108,7 @@ export function ProjectList({ membership = true, starred = false }: ProjectListP
       }
       return [];
     },
-    [starred, membership]
+    [starred, membership],
   );
 
   const projects: Project[] = searchData<Project[]>(data ?? [], {
@@ -142,10 +142,7 @@ export function useMyProjects(): {
   error?: string;
   isLoading?: boolean;
 } {
-  const { data, error, isLoading } = useCachedPromise(
-    () => gitlab.getUserProjects({ search: "" }, true),
-    [],
-  );
+  const { data, error, isLoading } = useCachedPromise(() => gitlab.getUserProjects({ search: "" }, true), []);
   return {
     projects: data,
     error: error ? getErrorMessage(error) : undefined,

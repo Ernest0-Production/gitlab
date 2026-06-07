@@ -2,7 +2,7 @@ import { Action, Alert, Color, confirmAlert, Icon, Keyboard, showToast, Toast } 
 import React from "react";
 import { gitlab } from "../common";
 import { Pipeline } from "../gitlabapi";
-import { getErrorMessage, showErrorToast } from "../utils";
+import { showFailureToast } from "@raycast/utils";
 
 export function RefreshPipelinesAction(props: {
   onRefreshPipelines?: () => void;
@@ -39,8 +39,7 @@ export function CancelPipelineAction(props: { pipeline: Pipeline; onRefreshPipel
       !(await confirmAlert({
         title: "Cancel Pipeline?",
         message: `Cancel all jobs in pipeline #${props.pipeline.iid}?`,
-        primaryAction: { title: "Cancel Pipeline", style: Alert.ActionStyle.Destructive },
-      }))
+        primaryAction: { title: "Cancel Pipeline", style: Alert.ActionStyle.Destructive } }))
     ) {
       return;
     }
@@ -49,7 +48,7 @@ export function CancelPipelineAction(props: { pipeline: Pipeline; onRefreshPipel
       showToast(Toast.Style.Success, "Canceled pipeline");
       props.onRefreshPipelines?.();
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Failed to cancel pipeline");
+      showFailureToast(error, { title: "Failed to cancel pipeline" });
     }
   }
   return (
@@ -68,8 +67,7 @@ export function RetryPipelineAction(props: { pipeline: Pipeline; onRetryFinished
       !(await confirmAlert({
         title: "Retry Pipeline?",
         message: `Restart failed jobs in pipeline #${props.pipeline.iid}?`,
-        primaryAction: { title: "Retry", style: Alert.ActionStyle.Destructive },
-      }))
+        primaryAction: { title: "Retry", style: Alert.ActionStyle.Destructive } }))
     ) {
       return;
     }
@@ -78,7 +76,7 @@ export function RetryPipelineAction(props: { pipeline: Pipeline; onRetryFinished
       showToast(Toast.Style.Success, "Restarted jobs");
       props.onRetryFinished?.();
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Failed to restart jobs");
+      showFailureToast(error, { title: "Failed to restart jobs" });
     }
   }
   return (
@@ -106,8 +104,7 @@ export function RunPipelineAction(props: {
       !(await confirmAlert({
         title: "Run Pipeline?",
         message: `Create a new pipeline for ref "${ref}"?`,
-        primaryAction: { title: "Run Pipeline" },
-      }))
+        primaryAction: { title: "Run Pipeline" } }))
     ) {
       return;
     }
@@ -116,7 +113,7 @@ export function RunPipelineAction(props: {
       showToast(Toast.Style.Success, "Started pipeline", created?.id ? `#${created.id}` : "");
       props.onFinished?.();
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Failed to run pipeline");
+      showFailureToast(error, { title: "Failed to run pipeline" });
     }
   }
   return (

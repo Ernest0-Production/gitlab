@@ -1,10 +1,10 @@
 import { Action, ActionPanel, Color, Icon, useNavigation } from "@raycast/api";
 import { gitlab } from "../../common";
 import { Status } from "../../gitlabapi";
-import { getErrorMessage, showErrorToast } from "../../utils";
 import { StatusFormPresetCreate, StatusFormPresetEdit, StatusFormSet } from "./form";
 import { wipePresets, predefinedPresets } from "./presets";
 import { clearDurations, clearDurationText, getClearDurationDate } from "./utils";
+import { showFailureToast } from "@raycast/utils";
 
 export function StatusSetCustomAction(props: {
   setCurrentStatus: React.Dispatch<React.SetStateAction<Status | undefined>>;
@@ -32,7 +32,7 @@ export function StatusClearCurrentAction(props: {
         await gitlab.clearUserStatus();
         props.setCurrentStatus({ emoji: "", message: "" });
       } catch (error) {
-        showErrorToast(getErrorMessage(error), "Could not clear Status");
+        showFailureToast(error, { title: "Could not clear Status" });
       }
     };
     return <Action title="Clear Status" icon={{ source: Icon.XMarkCircle, tintColor: Color.Red }} onAction={handle} />;
@@ -46,7 +46,7 @@ export function StatusPresetFactoryResetAction(props: { setPresets: React.Dispat
       await wipePresets();
       props.setPresets(predefinedPresets());
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Could not reset Presets");
+      showFailureToast(error, { title: "Could not reset Presets" });
     }
   };
   return (
@@ -90,7 +90,7 @@ export function StatusPresetSetAction(props: {
       props.status.clear_status_at = getClearDurationDate(props.status.clear_status_after);
       props.setCurrentStatus(props.status);
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Could not set Status");
+      showFailureToast(error, { title: "Could not set Status" });
     }
   };
   return <Action title="Set Status" icon={{ source: Icon.Pencil, tintColor: Color.PrimaryText }} onAction={handle} />;
@@ -107,7 +107,7 @@ export function StatusPresetSetWithDurationAction(props: {
       newStatus.clear_status_at = getClearDurationDate(newStatus.clear_status_after);
       props.setCurrentStatus(newStatus);
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Could not set Status");
+      showFailureToast(error, { title: "Could not set Status" });
     }
   };
 
@@ -137,7 +137,7 @@ export function StatusPresetEditAction(props: {
         throw Error("Preset index out of bounds");
       }
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Could not edit Preset");
+      showFailureToast(error, { title: "Could not edit Preset" });
     }
   };
   const { push, pop } = useNavigation();
@@ -173,7 +173,7 @@ export function StatusPresetDeleteAction(props: {
         throw Error("Preset index out of bounds");
       }
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Could not remove Preset");
+      showFailureToast(error, { title: "Could not remove Preset" });
     }
   };
   return (

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useCachedPromise } from "@raycast/utils";
 import { gitlab } from "../common";
 import { Epic, EpicScope, EpicState, searchData } from "../gitlabapi";
-import { getErrorMessage, getFirstChar, getPreferences, showErrorToast } from "../utils";
+import { getFirstChar, getPreferences } from "../utils";
 import { EpicListItem } from "./epics";
 import { GroupInfo, useMyGroups } from "./groups";
 import { getTextIcon } from "../icons";
@@ -42,8 +42,7 @@ export function MyEpicList(props: { scope: EpicScope; state: EpicState }) {
         scope,
         groupid: groupID === "" ? undefined : groupID,
         include_descendant_groups: true,
-        include_ancestor_groups: getPreferences().includeEpicAncestor,
-      });
+        include_ancestor_groups: getPreferences().includeEpicAncestor });
     },
     [props.scope, props.state, selectedGroupID]
   );

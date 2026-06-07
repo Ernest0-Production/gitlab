@@ -2,7 +2,7 @@ import { ActionPanel, Color, List } from "@raycast/api";
 import { useCachedState } from "@raycast/utils";
 import { useEffect, useMemo, useState } from "react";
 import { GitLabIcons } from "../icons";
-import { getErrorMessage, hashRecord, showErrorToast } from "../utils";
+import { hashRecord } from "../utils";
 import {
   MRScope,
   MRState,
@@ -11,8 +11,7 @@ import {
   MRListMetadataToggleAction,
   mrSearchBarPlaceholder,
   buildMRListParams,
-  useMRListDetails,
-} from "./mr";
+  useMRListDetails } from "./mr";
 import { RefreshMergeRequestsAction } from "./mr_actions";
 import { usePaginatedMergeRequests } from "./mr_data";
 import { appendMROrderByParams, MergeRequestSortSubmenu, MR_DEFAULT_ORDER_BY, MRSearchOrderBy } from "./mr_sort";
@@ -28,8 +27,7 @@ const MR_STATE_FILTERS: { state: MRState; title: string }[] = [
 const MR_SCOPE_LABELS: Record<Exclude<MRScope, MRScope.all>, string> = {
   [MRScope.created_by_me]: "created by me",
   [MRScope.assigned_to_me]: "assigned to me",
-  [MRScope.reviews_for_me]: "reviews for me",
-};
+  [MRScope.reviews_for_me]: "reviews for me" };
 
 const MR_SORT_LABELS: Record<Exclude<MRSearchOrderBy, "default">, string> = {
   created_at: "created",
@@ -39,8 +37,7 @@ const MR_SORT_LABELS: Record<Exclude<MRSearchOrderBy, "default">, string> = {
   priority: "priority",
   label_priority: "label priority",
   milestone_due: "milestone due",
-  popularity: "popularity",
-};
+  popularity: "popularity" };
 
 function MergeRequestFilterActions(props: {
   mrState: MRState;
@@ -134,14 +131,12 @@ export function SearchMyMergeRequests() {
     mrs: data,
     isLoading,
     performRefetch,
-    pagination,
-  } = usePaginatedMergeRequests({
+    pagination } = usePaginatedMergeRequests({
     cacheKey: `mymrssearch_${project?.id ?? "none"}_${hashRecord(params)}`,
     buildParams: () => params,
     project,
     execute: !!project,
-    keepPreviousData: true,
-  });
+    keepPreviousData: true });
 
   const hasProjects = !!myprojects && myprojects.length > 0;
 

@@ -2,14 +2,7 @@ import { ActionPanel, List, Color, Detail, Action, Image, Icon, Keyboard } from 
 import { Group, MergeRequest, Project } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
 import { useCallback, useMemo, useState } from "react";
-import {
-  getErrorMessage,
-  hashRecord,
-  optimizeMarkdownText,
-  Query,
-  showErrorToast,
-  tokenizeQueryText,
-} from "../utils";
+import { getErrorMessage, hashRecord, optimizeMarkdownText, Query, tokenizeQueryText } from "../utils";
 import { getMRDiscussionMetadataLabel, discussionStatsFromMergeRequest, useMRDiscussionStats } from "./mr_discussions";
 import { getMRStateListIcon } from "./mr_status";
 import { MRCopySection, MRItemActions, ShowMRCommitsAction, ShowMRPipelinesAction } from "./mr_actions";
@@ -26,16 +19,14 @@ export enum MRScope {
   created_by_me = "created_by_me",
   assigned_to_me = "assigned_to_me",
   reviews_for_me = "reviews_for_me",
-  all = "all",
-}
+  all = "all" }
 
 export enum MRState {
   opened = "opened",
   closed = "closed",
   locked = "locked",
   merged = "merged",
-  all = "all",
-}
+  all = "all" }
 
 export const mrListDetailsShortcut: Keyboard.Shortcut = { modifiers: ["cmd", "shift"], key: "d" };
 export const mrListMetadataShortcut: Keyboard.Shortcut = { modifiers: ["cmd", "shift"], key: "i" };
@@ -47,8 +38,7 @@ export function useMRListDetails(): { isShowingDetail: boolean; toggleListDetail
   const toggleListDetails = useCallback(() => setIsShowingDetail((current) => !current), [setIsShowingDetail]);
   return {
     isShowingDetail,
-    toggleListDetails,
-  };
+    toggleListDetails };
 }
 
 export function useMRListMetadata(): { isShowingMetadata: boolean; toggleListMetadata: () => void } {
@@ -56,8 +46,7 @@ export function useMRListMetadata(): { isShowingMetadata: boolean; toggleListMet
   const toggleListMetadata = useCallback(() => setIsShowingMetadata((current) => !current), [setIsShowingMetadata]);
   return {
     isShowingMetadata,
-    toggleListMetadata,
-  };
+    toggleListMetadata };
 }
 
 export function MRListDetailsToggleAction(props: { isShowingDetail: boolean; onToggle: () => void }) {
@@ -154,8 +143,7 @@ export function buildMRListParams(query: string | undefined, scope: MRScope, sta
     state,
     scope,
     search: parsedQuery.query || "",
-    in: "title",
-  };
+    in: "title" };
   injectMRQueryNamedParameters(params, parsedQuery, scope, false);
   injectMRQueryNamedParameters(params, parsedQuery, scope, true);
   return params;
@@ -177,16 +165,14 @@ export function MRList({
   state = MRState.all,
   project = undefined,
   group = undefined,
-  searchBarAccessory = undefined,
-}: MRListProps) {
+  searchBarAccessory = undefined }: MRListProps) {
   const [searchText, setSearchText] = useState<string>();
   const params = useMemo(() => buildMRListParams(searchText, scope, state), [searchText, scope, state]);
   const { mrs, isLoading, performRefetch, pagination } = usePaginatedMergeRequests({
     cacheKey: `mrlist_${project?.id ?? "none"}_${group?.id ?? "none"}_${hashRecord(params)}`,
     buildParams: () => params,
     project,
-    group,
-  });
+    group });
 
   const { isShowingDetail, toggleListDetails } = useMRListDetails();
 
@@ -262,8 +248,7 @@ export function MRListItem(props: {
             {
               tag: { value: "Conflicts", color: Color.Red },
               icon: { source: Icon.Warning, tintColor: Color.Red },
-              tooltip: "You should resolve merge conflict before merge",
-            },
+              tooltip: "You should resolve merge conflict before merge" },
           ]
         : []),
       ...(discussionStats
@@ -271,8 +256,7 @@ export function MRListItem(props: {
             {
               text: `${discussionStats.resolved}/${discussionStats.resolvableTotal}`,
               icon: { source: Icon.SpeechBubble, tintColor: Color.PrimaryText },
-              tooltip: "Resolved discussions",
-            },
+              tooltip: "Resolved discussions" },
           ]
         : []),
     );
@@ -280,8 +264,7 @@ export function MRListItem(props: {
   if ((props.showCIStatus === undefined || props.showCIStatus === true) && props.mr.head_pipeline?.status) {
     accessories.push({
       icon: getCIJobStatusIcon(props.mr.head_pipeline.status, false),
-      tooltip: getMRPipelineStatusTooltip(props.mr.head_pipeline.status),
-    });
+      tooltip: getMRPipelineStatusTooltip(props.mr.head_pipeline.status) });
   }
   if (showAuthor && accessoryIcon) {
     accessories.push({ icon: accessoryIcon, tooltip: props.mr.author?.name });
@@ -290,8 +273,7 @@ export function MRListItem(props: {
     accessories.push(
       {
         icon: props.mr.merge_when_pipeline_succeeds && props.mr.state === "opened" ? Icon.Rewind : undefined,
-        tooltip: props.mr.merge_when_pipeline_succeeds && props.mr.state === "opened" ? "Auto Merge" : undefined,
-      },
+        tooltip: props.mr.merge_when_pipeline_succeeds && props.mr.state === "opened" ? "Auto Merge" : undefined },
       ...(props.mr.milestone?.title ? [{ tag: props.mr.milestone.title, tooltip: "Milestone" }] : []),
     );
   }

@@ -3,7 +3,7 @@ import { usePromise } from "@raycast/utils";
 import { User } from "../gitlabapi";
 import { gitlab } from "../common";
 import { useState } from "react";
-import { getErrorMessage, showErrorToast } from "../utils";
+import { getErrorMessage } from "../utils";
 import { GitLabOpenInBrowserAction } from "./actions";
 
 export function UserList() {

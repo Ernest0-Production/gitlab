@@ -8,10 +8,9 @@ import {
   launchCommand,
   openCommandPreferences,
 } from "@raycast/api";
+import { showFailureToast } from "@raycast/utils";
 import React from "react";
 import { ReactNode } from "react";
-import { showErrorToast, getErrorMessage } from "../utils";
-
 export function MenuBarRoot(props: {
   children: React.ReactNode;
   icon?: Image.ImageLike;
@@ -25,7 +24,7 @@ export function MenuBarRoot(props: {
     try {
       await launchCommand({ name: environment.commandName, type: LaunchType.UserInitiated });
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Could not open Command");
+      showFailureToast(error, { title: "Could not open Command" });
     }
   };
   return (

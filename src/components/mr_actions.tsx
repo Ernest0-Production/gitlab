@@ -3,10 +3,11 @@ import React from "react";
 import { gitlab } from "../common";
 import { MergeRequest } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
-import { copyMarkdownShortcut, copyShortcut, getErrorMessage, showErrorToast } from "../utils";
+import { copyMarkdownShortcut, copyShortcut } from "../utils";
 import { MRCommitList } from "./commits/list";
 import { MRPipelineList } from "./mr_pipelines";
 import { findTodoForMR, useTodos } from "./todo/utils";
+import { showFailureToast } from "@raycast/utils";
 
 async function createNote(mr: MergeRequest, body: string): Promise<void> {
   return await gitlab.post(`projects/${mr.project_id}/merge_requests/${mr.iid}/notes`, { body: body });
@@ -18,8 +19,7 @@ export function CloseMRAction(props: { mr: MergeRequest; finished?: () => void }
       !(await confirmAlert({
         title: "Close Merge Request?",
         message: `Close !${props.mr.iid} "${props.mr.title}"?`,
-        primaryAction: { title: "Close", style: Alert.ActionStyle.Destructive },
-      }))
+        primaryAction: { title: "Close", style: Alert.ActionStyle.Destructive } }))
     ) {
       return;
     }
@@ -30,7 +30,7 @@ export function CloseMRAction(props: { mr: MergeRequest; finished?: () => void }
         props.finished();
       }
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Failed to close Merge Request");
+      showFailureToast(error, { title: "Failed to close Merge Request" });
     }
   }
   return (
@@ -53,7 +53,7 @@ export function ReopenMRAction(props: { mr: MergeRequest; finished?: () => void 
         props.finished();
       }
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Failed to reopen Merge Request");
+      showFailureToast(error, { title: "Failed to reopen Merge Request" });
     }
   }
   return <Action title="Reopen" icon={{ source: Icon.ExclamationMark }} onAction={handleAction} />;
@@ -65,8 +65,7 @@ export function RebaseMRAction(props: { mr: MergeRequest; shortcut?: Keyboard.Sh
       !(await confirmAlert({
         title: "Rebase Merge Request?",
         message: `Rebase !${props.mr.iid} "${props.mr.title}"?`,
-        primaryAction: { title: "Rebase", style: Alert.ActionStyle.Destructive },
-      }))
+        primaryAction: { title: "Rebase", style: Alert.ActionStyle.Destructive } }))
     ) {
       return;
     }
@@ -75,7 +74,7 @@ export function RebaseMRAction(props: { mr: MergeRequest; shortcut?: Keyboard.Sh
       showToast(Toast.Style.Success, "Rebased");
       props.finished?.();
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Failed to rebase Merge Request");
+      showFailureToast(error, { title: "Failed to rebase Merge Request" });
     }
   }
   return (
@@ -98,8 +97,7 @@ export function MergeMRAction(props: {
       !(await confirmAlert({
         title: "Merge Merge Request?",
         message: `Merge !${props.mr.iid} "${props.mr.title}"?`,
-        primaryAction: { title: "Merge", style: Alert.ActionStyle.Destructive },
-      }))
+        primaryAction: { title: "Merge", style: Alert.ActionStyle.Destructive } }))
     ) {
       return;
     }
@@ -110,7 +108,7 @@ export function MergeMRAction(props: {
         props.finished();
       }
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Failed to Merge");
+      showFailureToast(error, { title: "Failed to Merge" });
     }
   }
   if (props.mr.state === "opened" && props.mr.user?.can_merge === true) {
@@ -146,7 +144,7 @@ function MRTodoAction(props: {
         performRefetch();
         props.finished?.();
       } catch (error) {
-        showErrorToast(getErrorMessage(error), "Failed to mark Todo as done");
+        showFailureToast(error, { title: "Failed to mark Todo as done" });
       }
     }
     return (
@@ -166,7 +164,7 @@ function MRTodoAction(props: {
       performRefetch();
       props.finished?.();
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Failed to add to do");
+      showFailureToast(error, { title: "Failed to add to do" });
     }
   }
 

@@ -3,7 +3,6 @@ import { useCachedPromise } from "@raycast/utils";
 import { gitlab } from "../common";
 import { Label, Project, searchData } from "../gitlabapi";
 import { LabelList } from "./label";
-import { getErrorMessage, showErrorToast } from "../utils";
 
 export function ProjectLabelList(props: { project: Project; navigationTitle?: string }) {
   const [searchText, setSearchText] = useState<string>();
@@ -11,8 +10,7 @@ export function ProjectLabelList(props: { project: Project; navigationTitle?: st
     (projectId: number) => gitlab.getProjectLabels(projectId),
     [props.project.id],
     {
-      keepPreviousData: true,
-    },
+      keepPreviousData: true },
   );
 
   return (

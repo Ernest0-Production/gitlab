@@ -3,15 +3,13 @@ import { useState } from "react";
 import { useCachedPromise } from "@raycast/utils";
 import { gitlab } from "../common";
 import { Issue } from "../gitlabapi";
-import { getErrorMessage, showErrorToast } from "../utils";
 import {
   IssueListEmptyView,
   IssueListItem,
   IssueScope,
   IssueState,
   getIssueQuery,
-  injectQueryNamedParameters,
-} from "./issues";
+  injectQueryNamedParameters } from "./issues";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 

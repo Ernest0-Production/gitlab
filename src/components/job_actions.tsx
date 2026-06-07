@@ -3,8 +3,9 @@ import React from "react";
 import fs from "fs";
 import path from "path";
 import { getArtifactDownloadDirectoryPreference, gitlab } from "../common";
-import { getErrorMessage, getIdFromGqlId, showErrorToast } from "../utils";
+import { getIdFromGqlId } from "../utils";
 import { Job, JobArtifact } from "./jobs";
+import { showFailureToast } from "@raycast/utils";
 
 function jobNumericId(job: Job): string {
   return getIdFromGqlId(job.id).toString();
@@ -27,8 +28,7 @@ export function CancelJobAction(props: { job: Job; onRefreshJobs?: () => void })
       !(await confirmAlert({
         title: "Cancel Job?",
         message: `Cancel "${props.job.name}" (#${jobId})?`,
-        primaryAction: { title: "Cancel Job", style: Alert.ActionStyle.Destructive },
-      }))
+        primaryAction: { title: "Cancel Job", style: Alert.ActionStyle.Destructive } }))
     ) {
       return;
     }
@@ -37,7 +37,7 @@ export function CancelJobAction(props: { job: Job; onRefreshJobs?: () => void })
       showToast(Toast.Style.Success, "Canceled job");
       props.onRefreshJobs?.();
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Failed to cancel job");
+      showFailureToast(error, { title: "Failed to cancel job" });
     }
   }
   return (
@@ -57,8 +57,7 @@ export function RunJobAction(props: { job: Job; onRefreshJobs?: () => void }) {
       !(await confirmAlert({
         title: "Run Job?",
         message: `Run manual job "${props.job.name}" (#${jobId})?`,
-        primaryAction: { title: "Run" },
-      }))
+        primaryAction: { title: "Run" } }))
     ) {
       return;
     }
@@ -67,7 +66,7 @@ export function RunJobAction(props: { job: Job; onRefreshJobs?: () => void }) {
       showToast(Toast.Style.Success, "Started job");
       props.onRefreshJobs?.();
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Failed to run job");
+      showFailureToast(error, { title: "Failed to run job" });
     }
   }
   return <Action title="Run" icon={{ source: Icon.Play, tintColor: Color.Green }} onAction={handle} />;
@@ -80,8 +79,7 @@ export function RetryJobAction(props: { job: Job }) {
       !(await confirmAlert({
         title: "Retry Job?",
         message: `Restart "${props.job.name}" (#${jobId})?`,
-        primaryAction: { title: "Retry", style: Alert.ActionStyle.Destructive },
-      }))
+        primaryAction: { title: "Retry", style: Alert.ActionStyle.Destructive } }))
     ) {
       return;
     }
@@ -89,7 +87,7 @@ export function RetryJobAction(props: { job: Job }) {
       await gitlab.post(`projects/${props.job.projectId}/jobs/${jobId}/retry`);
       showToast(Toast.Style.Success, "Restarted job");
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Failed to restart job");
+      showFailureToast(error, { title: "Failed to restart job" });
     }
   }
   return (
@@ -114,14 +112,12 @@ function resolveJobArtifactDownload(job: Job, artifact: JobArtifact): { url: str
   if (fileType === "archive") {
     return {
       url: gitlab.jobArtifactsArchiveDownloadUrl(job.projectId, jobId),
-      fileName: fileName || "artifacts.zip",
-    };
+      fileName: fileName || "artifacts.zip" };
   }
   if (artifact.filename) {
     return {
       url: gitlab.jobArtifactDownloadUrl(job.projectId, jobId, artifact.filename),
-      fileName: artifact.filename,
-    };
+      fileName: artifact.filename };
   }
   return undefined;
 }
@@ -129,7 +125,7 @@ function resolveJobArtifactDownload(job: Job, artifact: JobArtifact): { url: str
 async function downloadJobArtifact(job: Job, artifact: JobArtifact) {
   const resolved = resolveJobArtifactDownload(job, artifact);
   if (!resolved) {
-    showErrorToast("Artifact has no downloadable path", "Download Failed");
+    showFailureToast("Artifact has no downloadable path", { title: "Download Failed" });
     return;
   }
   const downloadDir = getArtifactDownloadDirectoryPreference();
@@ -140,7 +136,7 @@ async function downloadJobArtifact(job: Job, artifact: JobArtifact) {
     await open(localFilepath);
     showToast(Toast.Style.Success, "Downloaded artifact", path.basename(localFilepath));
   } catch (error) {
-    showErrorToast(getErrorMessage(error), "Failed to download artifact");
+    showFailureToast(error, { title: "Failed to download artifact" });
   }
 }
 

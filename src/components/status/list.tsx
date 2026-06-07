@@ -2,7 +2,7 @@ import { ActionPanel, List } from "@raycast/api";
 import { useCachedPromise } from "@raycast/utils";
 import { gitlab } from "../../common";
 import { Status } from "../../gitlabapi";
-import { formatDate, getErrorMessage, showErrorToast } from "../../utils";
+import { formatDate } from "../../utils";
 import { useEffect, useState } from "react";
 import { clearDurationText, emojiSymbol } from "./utils";
 import { usePresets } from "./presets";
@@ -16,8 +16,7 @@ import {
   StatusPresetMoveUpAction,
   StatusPresetSetAction,
   StatusPresetSetWithDurationAction,
-  StatusSetCustomAction,
-} from "./actions";
+  StatusSetCustomAction } from "./actions";
 
 export default function StatusList() {
   const { data, isLoading } = useCachedPromise(() => gitlab.getUserStatus(), []);

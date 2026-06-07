@@ -1,7 +1,6 @@
-import { Clipboard, getPreferenceValues, Image, Keyboard, showToast, Toast } from "@raycast/api";
+import { getPreferenceValues, Image, Keyboard } from "@raycast/api";
 import { Project } from "./gitlabapi";
 import { getSVGText, GitLabIcons } from "./icons";
-import * as fs from "fs/promises";
 import * as fsSync from "fs";
 import { constants } from "fs";
 import * as crypto from "crypto";
@@ -66,13 +65,6 @@ export function getIdFromGqlId(id: string): number {
   return parseInt(splits.pop() || "");
 }
 
-export async function fileExists(filename: string): Promise<boolean> {
-  return fs
-    .access(filename, constants.F_OK | constants.W_OK | constants.R_OK)
-    .then(() => true)
-    .catch(() => false);
-}
-
 export function fileExistsSync(filename: string): boolean {
   try {
     fsSync.accessSync(filename, constants.F_OK);
@@ -82,7 +74,7 @@ export function fileExistsSync(filename: string): boolean {
   }
 }
 
-export function replaceAll(str: string, find: RegExp, replace: string): string {
+function replaceAll(str: string, find: RegExp, replace: string): string {
   return str.replace(find, replace);
 }
 
@@ -129,12 +121,6 @@ export function optimizeMarkdownText(text: string, baseUrl?: string): string {
   }
 
   return result;
-}
-
-export function hashString(text: string): string {
-  const sha256 = crypto.createHash("sha256");
-  sha256.update(text);
-  return sha256.digest("hex");
 }
 
 export function hashRecord(record: Record<string, unknown>, prefix?: string | undefined): string {
@@ -262,14 +248,6 @@ export function formatDateTime(input: Date | string): string {
   return date.toLocaleString();
 }
 
-export function now(): Date {
-  return new Date();
-}
-
-export function daysInSeconds(days: number): number {
-  return days * 24 * 60 * 60;
-}
-
 export interface Preferences {
   instance: string;
   token: string;
@@ -320,20 +298,6 @@ export function getBoundedPreferenceNumber(
   return max;
 }
 
-export function showErrorToast(message: string, title?: string): Promise<Toast> {
-  const toastTitle = title || "Something went wrong";
-  return showToast({
-    style: Toast.Style.Failure,
-    title: toastTitle,
-    message: message,
-    primaryAction: {
-      title: "Copy Error Message",
-      onAction: (toast) => Clipboard.copy(`${toastTitle}: ${toast.message ?? ""}`),
-      shortcut: { modifiers: ["cmd", "shift"], key: "c" },
-    },
-  });
-}
-
 export const isWindows = process.platform === "win32";
 
 export function shortify(text: string, maxLength: number): string {
@@ -344,8 +308,4 @@ export function shortify(text: string, maxLength: number): string {
     return text.slice(0, maxLength);
   }
   return text.slice(0, maxLength - 3) + "...";
-}
-
-export function isNumber(value?: unknown): value is number {
-  return typeof value === "number" && !isNaN(value);
 }

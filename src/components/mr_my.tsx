@@ -1,7 +1,6 @@
 import { ActionPanel, List } from "@raycast/api";
 import { useState } from "react";
 import { MergeRequest, Project } from "../gitlabapi";
-import { getErrorMessage, showErrorToast } from "../utils";
 import {
   MRListDetailsToggleAction,
   MRListMetadataToggleAction,
@@ -10,8 +9,7 @@ import {
   MRScope,
   MRState,
   mrSearchBarPlaceholder,
-  useMRListDetails,
-} from "./mr";
+  useMRListDetails } from "./mr";
 import { RefreshMergeRequestsAction } from "./mr_actions";
 import { ListPagination, usePaginatedMergeRequests } from "./mr_data";
 import { MyProjectsDropdown } from "./project";
@@ -114,6 +112,5 @@ export function useMyMergeRequests(
   // applied client-side in `MyMergeRequests` against the (global) fetched pages.
   return usePaginatedMergeRequests({
     cacheKey: `mymrs_${scope}_${state}_${labels ? labels.join(",") : "[]"}`,
-    buildParams: () => ({ state, scope, ...(labels && { labels }) }),
-  });
+    buildParams: () => ({ state, scope, ...(labels && { labels }) }) });
 }

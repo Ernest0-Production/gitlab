@@ -3,7 +3,7 @@ import { usePromise } from "@raycast/utils";
 import { useState } from "react";
 import { gitlab } from "../common";
 import { Project } from "../gitlabapi";
-import { getErrorMessage, getPreferences, showErrorToast } from "../utils";
+import { getErrorMessage, getPreferences } from "../utils";
 import { ProjectListEmptyView, ProjectListItem, ProjectScope } from "./project";
 
 export function ProjectSearchList() {
@@ -49,8 +49,7 @@ export function useSearch(
         searchText: searchQuery,
         searchIn: "title",
         membership: projectScope === ProjectScope.membership ? "true" : "false",
-        active: isActive,
-      }),
+        active: isActive }),
     [query ?? "", scope, active]
   );
   return { projects: data, error: error ? getErrorMessage(error) : undefined, isLoading };

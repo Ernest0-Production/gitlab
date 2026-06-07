@@ -1,7 +1,7 @@
 import { useCachedPromise } from "@raycast/utils";
 import { getExcludeTodoAuthorUsernamesPreference, gitlab } from "../../common";
 import { MergeRequest, Project, Todo } from "../../gitlabapi";
-import { getErrorMessage, showErrorToast } from "../../utils";
+import { getErrorMessage } from "../../utils";
 
 export function findTodoForMR(todos: Todo[] | undefined, mr: MergeRequest): Todo | undefined {
   return todos?.find(

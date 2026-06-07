@@ -3,7 +3,7 @@ import { usePromise } from "@raycast/utils";
 import { useState } from "react";
 import { gitlab } from "../common";
 import { Group } from "../gitlabapi";
-import { getErrorMessage, showErrorToast } from "../utils";
+import { getErrorMessage } from "../utils";
 import { GroupListEmptyView, GroupListItem } from "./groups";
 
 export function GroupSearchList() {

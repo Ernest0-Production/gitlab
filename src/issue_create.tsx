@@ -2,8 +2,8 @@ import { Action, showToast, Toast, Form, Icon, popToRoot, Image, ActionPanel } f
 import { Project } from "./gitlabapi";
 import { gitlab } from "./common";
 import { useState } from "react";
-import { useCachedPromise } from "@raycast/utils";
-import { getErrorMessage, projectIcon, showErrorToast, toFormValues } from "./utils";
+import { showFailureToast, useCachedPromise } from "@raycast/utils";
+import { projectIcon, toFormValues } from "./utils";
 import { useProject, useMilestones } from "./hooks";
 
 interface IssueFormValues {
@@ -30,7 +30,7 @@ async function submit(values: IssueFormValues) {
     await showToast(Toast.Style.Success, "Issue created", "Issue creation successful");
     popToRoot();
   } catch (error) {
-    await showErrorToast(getErrorMessage(error));
+    await showFailureToast(error);
   }
 }
 

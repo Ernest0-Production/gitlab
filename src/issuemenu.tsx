@@ -13,13 +13,14 @@ import { MenuBarItem, MenuBarItemConfigureCommand, MenuBarRoot, MenuBarSection }
 import { useMyIssues } from "./components/issues_my";
 import { IssueScope, IssueState } from "./components/issues";
 import { GitLabIcons } from "./icons";
-import { getBoundedPreferenceNumber, getErrorMessage, getPreferences, showErrorToast } from "./utils";
+import { getBoundedPreferenceNumber,  getPreferences } from "./utils";
+import { showFailureToast } from "@raycast/utils";
 
 async function launchMyIssues(): Promise<void> {
   try {
     return launchCommand({ name: "issue_my", type: LaunchType.UserInitiated });
   } catch (error) {
-    showErrorToast(getErrorMessage(error), "Could not open My Issues Command");
+    showFailureToast(error, { title: "Could not open My Issues Command" });
   }
 }
 
@@ -40,8 +41,7 @@ export default function MenuCommand() {
     excludeLabels:
       preferences.excludeLabels && preferences.excludeLabels.trim().length > 0
         ? preferences.excludeLabels
-        : undefined,
-  });
+        : undefined });
 
   return (
     <MenuBarRoot
@@ -75,8 +75,7 @@ export default function MenuCommand() {
               key={issue.iid}
               icon={{
                 source: GitLabIcons.issue,
-                tintColor: { light: "#000", dark: "#FFF", adjustContrast: false },
-              }}
+                tintColor: { light: "#000", dark: "#FFF", adjustContrast: false } }}
               title={`#${issue.iid} ${issue.title}`}
               tooltip={issue.reference_full}
               onAction={() => open(issue.web_url)}

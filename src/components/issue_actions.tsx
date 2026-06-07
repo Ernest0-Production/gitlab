@@ -2,9 +2,9 @@ import { Action, Color, Icon, Keyboard, showToast, Toast } from "@raycast/api";
 import { gitlab } from "../common";
 import { Issue, Label } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
-import { getErrorMessage, showErrorToast } from "../utils";
 import { LabelList } from "./label";
 import { IssueMRCreateForm } from "./mr_create";
+import { showFailureToast } from "@raycast/utils";
 
 export function CloseIssueAction(props: { issue: Issue; finished?: () => void }) {
   async function handleAction() {
@@ -14,7 +14,7 @@ export function CloseIssueAction(props: { issue: Issue; finished?: () => void })
         props.finished();
       }
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Failed to close Issue");
+      showFailureToast(error, { title: "Failed to close Issue" });
     }
   }
   return (
@@ -47,7 +47,7 @@ export function ReopenIssueAction(props: { issue: Issue; finished?: () => void }
         props.finished();
       }
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Failed to reopen Issue");
+      showFailureToast(error, { title: "Failed to reopen Issue" });
     }
   }
   return <Action title="Reopen Issue" icon={{ source: Icon.ExclamationMark }} onAction={handleAction} />;
@@ -73,7 +73,7 @@ export function CreateIssueTodoAction(props: { issue: Issue; shortcut?: Keyboard
       await gitlab.post(`projects/${props.issue.project_id}/issues/${props.issue.iid}/todo`);
       showToast(Toast.Style.Success, "To do created");
     } catch (error) {
-      showErrorToast(getErrorMessage(error), "Failed to add as to do");
+      showFailureToast(error, { title: "Failed to add as to do" });
     }
   }
   if (props.issue.state === "opened") {
