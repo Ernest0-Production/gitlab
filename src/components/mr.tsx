@@ -85,7 +85,7 @@ export function MRDetailFetch(props: { project: Project; mrId: number }) {
 }
 
 function mrDescriptionMarkdown(mr: MergeRequest, lineBreak = "  \n"): string {
-  return [`# ${mr.title}`, optimizeMarkdownText(mr.description || "<no description>", mr.project_web_url)].join(
+  return [`## ${mr.title}`, optimizeMarkdownText(mr.description || "<no description>", mr.project_web_url)].join(
     lineBreak,
   );
 }
@@ -287,7 +287,7 @@ export function MRListItem(props: {
       icon: getCIJobStatusIcon(props.mr.head_pipeline.status, false),
       tooltip: getMRPipelineStatusTooltip(props.mr.head_pipeline.status) });
   }
-  if (showAuthor && accessoryIcon) {
+  if (!props.isShowingDetail && showAuthor && accessoryIcon) {
     accessories.push({ icon: accessoryIcon, tooltip: props.mr.author?.name });
   }
   if (!props.isShowingDetail) {
