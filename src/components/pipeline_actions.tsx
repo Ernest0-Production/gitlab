@@ -39,11 +39,13 @@ export function CancelPipelineAction(props: { pipeline: Pipeline; onRefreshPipel
       !(await confirmAlert({
         title: "Cancel Pipeline?",
         message: `Cancel all jobs in pipeline #${props.pipeline.iid}?`,
-        primaryAction: { title: "Cancel Pipeline", style: Alert.ActionStyle.Destructive } }))
+        primaryAction: { title: "Cancel Pipeline", style: Alert.ActionStyle.Destructive },
+      }))
     ) {
       return;
     }
     try {
+      await showToast({ style: Toast.Style.Animated, title: "Canceling pipeline..." });
       await gitlab.post(`projects/${props.pipeline.projectId}/pipelines/${props.pipeline.id}/cancel`);
       showToast(Toast.Style.Success, "Canceled pipeline");
       props.onRefreshPipelines?.();
@@ -67,11 +69,13 @@ export function RetryPipelineAction(props: { pipeline: Pipeline; onRetryFinished
       !(await confirmAlert({
         title: "Retry Pipeline?",
         message: `Restart failed jobs in pipeline #${props.pipeline.iid}?`,
-        primaryAction: { title: "Retry", style: Alert.ActionStyle.Destructive } }))
+        primaryAction: { title: "Retry", style: Alert.ActionStyle.Destructive },
+      }))
     ) {
       return;
     }
     try {
+      await showToast({ style: Toast.Style.Animated, title: "Restarting jobs..." });
       await gitlab.post(`projects/${props.pipeline.projectId}/pipelines/${props.pipeline.id}/retry`);
       showToast(Toast.Style.Success, "Restarted jobs");
       props.onRetryFinished?.();
@@ -104,11 +108,13 @@ export function RunPipelineAction(props: {
       !(await confirmAlert({
         title: "Run Pipeline?",
         message: `Create a new pipeline for ref "${ref}"?`,
-        primaryAction: { title: "Run Pipeline" } }))
+        primaryAction: { title: "Run Pipeline" },
+      }))
     ) {
       return;
     }
     try {
+      await showToast({ style: Toast.Style.Animated, title: "Starting pipeline..." });
       const created = await gitlab.post(`projects/${props.projectId}/pipeline`, { ref });
       showToast(Toast.Style.Success, "Started pipeline", created?.id ? `#${created.id}` : "");
       props.onFinished?.();

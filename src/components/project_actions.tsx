@@ -1,4 +1,4 @@
-import { Action, ActionPanel, closeMainWindow, Color, Icon, Keyboard, List, popToRoot } from "@raycast/api";
+import { Action, ActionPanel, closeMainWindow, Color, Icon, Keyboard, List, popToRoot, showToast, Toast } from "@raycast/api";
 import * as open from "open";
 import React from "react";
 import { getGitLabGQL, getPrimaryActionPreference, PrimaryAction } from "../common";
@@ -18,12 +18,15 @@ import { showFailureToast } from "@raycast/utils";
 
 function CloneURLInVSCodeListItem(props: { url?: string }) {
   const clone = async (url: string) => {
+    if (!url || url.length === 0) {
+      return;
+    }
     try {
-      if (url && url.length > 0) {
-        closeMainWindow();
-        popToRoot();
-        await open.default(`vscode://vscode.git/clone?url=${encodeURIComponent(url)}`);
-      }
+      await showToast({ style: Toast.Style.Animated, title: "Opening in VS Code..." });
+      closeMainWindow();
+      popToRoot();
+      await open.default(`vscode://vscode.git/clone?url=${encodeURIComponent(url)}`);
+      showToast(Toast.Style.Success, "Opened in VS Code");
     } catch (error) {
       showFailureToast(error, { title: "Could not clone in VSCode" });
     }

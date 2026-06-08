@@ -31,11 +31,10 @@ export function ShowTodoDetailsAction(props: { todo: Todo }): React.ReactNode | 
 export function CloseTodoAction(props: { todo: Todo; finished?: () => void }) {
   async function handleAction() {
     try {
+      await showToast({ style: Toast.Style.Animated, title: "Marking Todo as done..." });
       await gitlab.post(`todos/${props.todo.id}/mark_as_done`);
       showToast(Toast.Style.Success, "Done", "Todo is now marked as done");
-      if (props.finished) {
-        props.finished();
-      }
+      props.finished?.();
     } catch (error) {
       showFailureToast(error, { title: "Failed to mark Todo as done" });
     }
@@ -53,11 +52,10 @@ export function CloseTodoAction(props: { todo: Todo; finished?: () => void }) {
 export function CloseAllTodoAction(props: { finished?: () => void }) {
   async function handleAction() {
     try {
+      await showToast({ style: Toast.Style.Animated, title: "Marking all Todos as done..." });
       await gitlab.post(`todos/mark_as_done`);
       showToast(Toast.Style.Success, "Done", "All Todos are now marked as done");
-      if (props.finished) {
-        props.finished();
-      }
+      props.finished?.();
     } catch (error) {
       showFailureToast(error, { title: "Failed to Close All to do's" });
     }

@@ -1,4 +1,4 @@
-import { Action, ActionPanel, Color, Icon, useNavigation } from "@raycast/api";
+import { Action, ActionPanel, Color, Icon, showToast, Toast, useNavigation } from "@raycast/api";
 import { gitlab } from "../../common";
 import { Status } from "../../gitlabapi";
 import { StatusFormPresetCreate, StatusFormPresetEdit, StatusFormSet } from "./form";
@@ -29,7 +29,9 @@ export function StatusClearCurrentAction(props: {
   if (props.status.emoji || props.status.message) {
     const handle = async () => {
       try {
+        await showToast({ style: Toast.Style.Animated, title: "Clearing Status..." });
         await gitlab.clearUserStatus();
+        showToast(Toast.Style.Success, "Status cleared");
         props.setCurrentStatus({ emoji: "", message: "" });
       } catch (error) {
         showFailureToast(error, { title: "Could not clear Status" });
@@ -86,7 +88,9 @@ export function StatusPresetSetAction(props: {
 }) {
   const handle = async () => {
     try {
+      await showToast({ style: Toast.Style.Animated, title: "Setting Status..." });
       await gitlab.setUserStatus(props.status);
+      showToast(Toast.Style.Success, "Status set");
       props.status.clear_status_at = getClearDurationDate(props.status.clear_status_after);
       props.setCurrentStatus(props.status);
     } catch (error) {
@@ -101,9 +105,11 @@ export function StatusPresetSetWithDurationAction(props: {
   setCurrentStatus: React.Dispatch<React.SetStateAction<Status | undefined>>;
 }) {
   const handle = async (durationKey: string) => {
+    const newStatus = { ...props.status, clear_status_after: durationKey };
     try {
-      const newStatus = { ...props.status, clear_status_after: durationKey };
+      await showToast({ style: Toast.Style.Animated, title: "Setting Status..." });
       await gitlab.setUserStatus(newStatus);
+      showToast(Toast.Style.Success, "Status set");
       newStatus.clear_status_at = getClearDurationDate(newStatus.clear_status_after);
       props.setCurrentStatus(newStatus);
     } catch (error) {

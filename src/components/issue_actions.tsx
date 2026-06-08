@@ -9,10 +9,10 @@ import { showFailureToast } from "@raycast/utils";
 export function CloseIssueAction(props: { issue: Issue; finished?: () => void }) {
   async function handleAction() {
     try {
+      await showToast({ style: Toast.Style.Animated, title: "Closing Issue..." });
       await gitlab.post(`projects/${props.issue.project_id}/issues/${props.issue.iid}/notes`, { body: "/close" });
-      if (props.finished) {
-        props.finished();
-      }
+      showToast(Toast.Style.Success, "Issue closed");
+      props.finished?.();
     } catch (error) {
       showFailureToast(error, { title: "Failed to close Issue" });
     }
@@ -42,10 +42,10 @@ export function CreateMRAction(props: { issue: Issue }) {
 export function ReopenIssueAction(props: { issue: Issue; finished?: () => void }) {
   async function handleAction() {
     try {
+      await showToast({ style: Toast.Style.Animated, title: "Reopening Issue..." });
       await gitlab.post(`projects/${props.issue.project_id}/issues/${props.issue.iid}/notes`, { body: "/reopen" });
-      if (props.finished) {
-        props.finished();
-      }
+      showToast(Toast.Style.Success, "Issue reopened");
+      props.finished?.();
     } catch (error) {
       showFailureToast(error, { title: "Failed to reopen Issue" });
     }
@@ -70,6 +70,7 @@ function ShowIssueLabelsAction(props: { labels: Label[] }) {
 export function CreateIssueTodoAction(props: { issue: Issue; shortcut?: Keyboard.Shortcut }) {
   async function handleAction() {
     try {
+      await showToast({ style: Toast.Style.Animated, title: "Adding To-Do..." });
       await gitlab.post(`projects/${props.issue.project_id}/issues/${props.issue.iid}/todo`);
       showToast(Toast.Style.Success, "To do created");
     } catch (error) {

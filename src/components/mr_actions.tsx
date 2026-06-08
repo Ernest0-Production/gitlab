@@ -1,4 +1,15 @@
-import { Action, ActionPanel, Alert, Color, confirmAlert, Icon, Image, Keyboard, showToast, Toast } from "@raycast/api";
+import {
+  Action,
+  ActionPanel,
+  Alert,
+  Color,
+  confirmAlert,
+  Icon,
+  Image,
+  Keyboard,
+  showToast,
+  Toast,
+} from "@raycast/api";
 import React from "react";
 import { gitlab } from "../common";
 import { MergeRequest } from "../gitlabapi";
@@ -19,16 +30,16 @@ export function CloseMRAction(props: { mr: MergeRequest; finished?: () => void }
       !(await confirmAlert({
         title: "Close Merge Request?",
         message: `Close !${props.mr.iid} "${props.mr.title}"?`,
-        primaryAction: { title: "Close", style: Alert.ActionStyle.Destructive } }))
+        primaryAction: { title: "Close", style: Alert.ActionStyle.Destructive },
+      }))
     ) {
       return;
     }
     try {
+      await showToast({ style: Toast.Style.Animated, title: "Closing Merge Request..." });
       await createNote(props.mr, "/close");
       showToast(Toast.Style.Success, "Closed");
-      if (props.finished) {
-        props.finished();
-      }
+      props.finished?.();
     } catch (error) {
       showFailureToast(error, { title: "Failed to close Merge Request" });
     }
@@ -47,11 +58,10 @@ export function CloseMRAction(props: { mr: MergeRequest; finished?: () => void }
 export function ReopenMRAction(props: { mr: MergeRequest; finished?: () => void }) {
   async function handleAction() {
     try {
+      await showToast({ style: Toast.Style.Animated, title: "Reopening Merge Request..." });
       await createNote(props.mr, "/reopen");
       showToast(Toast.Style.Success, "Reopened");
-      if (props.finished) {
-        props.finished();
-      }
+      props.finished?.();
     } catch (error) {
       showFailureToast(error, { title: "Failed to reopen Merge Request" });
     }
@@ -65,11 +75,13 @@ export function RebaseMRAction(props: { mr: MergeRequest; shortcut?: Keyboard.Sh
       !(await confirmAlert({
         title: "Rebase Merge Request?",
         message: `Rebase !${props.mr.iid} "${props.mr.title}"?`,
-        primaryAction: { title: "Rebase", style: Alert.ActionStyle.Destructive } }))
+        primaryAction: { title: "Rebase", style: Alert.ActionStyle.Destructive },
+      }))
     ) {
       return;
     }
     try {
+      await showToast({ style: Toast.Style.Animated, title: "Rebasing Merge Request..." });
       await createNote(props.mr, "/rebase");
       showToast(Toast.Style.Success, "Rebased");
       props.finished?.();
@@ -97,16 +109,16 @@ export function MergeMRAction(props: {
       !(await confirmAlert({
         title: "Merge Merge Request?",
         message: `Merge !${props.mr.iid} "${props.mr.title}"?`,
-        primaryAction: { title: "Merge", style: Alert.ActionStyle.Destructive } }))
+        primaryAction: { title: "Merge", style: Alert.ActionStyle.Destructive },
+      }))
     ) {
       return;
     }
     try {
+      await showToast({ style: Toast.Style.Animated, title: "Merging Merge Request..." });
       await gitlab.put(`projects/${props.mr.project_id}/merge_requests/${props.mr.iid}/merge`);
       showToast(Toast.Style.Success, "Merged");
-      if (props.finished) {
-        props.finished();
-      }
+      props.finished?.();
     } catch (error) {
       showFailureToast(error, { title: "Failed to Merge" });
     }
@@ -139,6 +151,7 @@ function MRTodoAction(props: {
   if (existingTodo) {
     async function markAsDone() {
       try {
+        await showToast({ style: Toast.Style.Animated, title: "Marking Todo as done..." });
         await gitlab.post(`todos/${existingTodo!.id}/mark_as_done`);
         showToast(Toast.Style.Success, "Done", "Todo is now marked as done");
         performRefetch();
@@ -159,6 +172,7 @@ function MRTodoAction(props: {
 
   async function addTodo() {
     try {
+      await showToast({ style: Toast.Style.Animated, title: "Adding To-Do..." });
       await gitlab.post(`projects/${props.mr.project_id}/merge_requests/${props.mr.iid}/todo`);
       showToast(Toast.Style.Success, "To do created");
       performRefetch();

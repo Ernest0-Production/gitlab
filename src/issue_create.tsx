@@ -1,4 +1,4 @@
-import { Action, showToast, Toast, Form, Icon, popToRoot, Image, ActionPanel } from "@raycast/api";
+import { Action, Form, Icon, popToRoot, Image, ActionPanel, showToast, Toast } from "@raycast/api";
 import { Project } from "./gitlabapi";
 import { gitlab } from "./common";
 import { useState } from "react";
@@ -26,11 +26,12 @@ async function submit(values: IssueFormValues) {
     }
     const formValues = toFormValues(values as unknown as Record<string, unknown>);
     console.log(formValues);
+    await showToast({ style: Toast.Style.Animated, title: "Creating Issue..." });
     await gitlab.createIssue(values.project_id, formValues);
     await showToast(Toast.Style.Success, "Issue created", "Issue creation successful");
     popToRoot();
   } catch (error) {
-    await showFailureToast(error);
+    await showFailureToast(error, { title: "Cannot create Issue" });
   }
 }
 

@@ -1,4 +1,4 @@
-import { showToast, Toast, Form, Icon, popToRoot, Image, ActionPanel, Action } from "@raycast/api";
+import { Form, Icon, popToRoot, Image, ActionPanel, Action, showToast, Toast } from "@raycast/api";
 import { Project, Branch, Issue, TemplateDetail } from "../gitlabapi";
 import { gitlab } from "../common";
 import { useState, useEffect } from "react";
@@ -31,11 +31,12 @@ async function submit(values: MRFormValues) {
     }
     const formValues = toFormValues(values as unknown as Record<string, unknown>);
     console.log(formValues);
+    await showToast({ style: Toast.Style.Animated, title: "Creating Merge Request..." });
     await gitlab.createMR(values.project_id, formValues);
     await showToast(Toast.Style.Success, "Merge Request created", "Merge Request creation successful");
     popToRoot();
   } catch (error) {
-    await showFailureToast(error);
+    await showFailureToast(error, { title: "Cannot create Merge Request" });
   }
 }
 
@@ -48,11 +49,13 @@ export function IssueMRCreateForm({ issue, projectID, title }: { issue: Issue; p
     },
     [projectID],
     {
-      execute: !!projectID },
+      execute: !!projectID,
+    },
   );
   async function submit(values: { source_branch: string; target_branch: string }) {
     const { source_branch, target_branch } = values;
     try {
+      await showToast({ style: Toast.Style.Animated, title: "Creating Merge Request..." });
       await gitlab.post(`projects/${projectID}/repository/branches?branch=${source_branch}&ref=${target_branch}`);
       await gitlab.createMR(projectID, {
         id: projectID,
@@ -60,7 +63,8 @@ export function IssueMRCreateForm({ issue, projectID, title }: { issue: Issue; p
         source_branch: source_branch,
         target_branch: target_branch,
         title: title,
-        assignee_id: data?.project?.owner?.id });
+        assignee_id: data?.project?.owner?.id,
+      });
       showToast(Toast.Style.Success, "Merge Request created", "Merge Request creation successful");
       popToRoot();
     } catch (error) {
@@ -117,7 +121,7 @@ export function MRCreateForm(props: { project?: Project | undefined; branch?: st
       if (templateName === NO_TEMPLATE) return undefined;
       return gitlab.getProjectMergeRequestTemplate(project?.id || 0, templateName);
     },
-    [selectedTemplateName]
+    [selectedTemplateName],
   );
 
   useEffect(() => {

@@ -7,6 +7,7 @@ import { showFailureToast } from "@raycast/utils";
 export function CreateEpicTodoAction(props: { epic: Epic; shortcut?: Keyboard.Shortcut }) {
   async function handleAction() {
     try {
+      await showToast({ style: Toast.Style.Animated, title: "Adding To-Do..." });
       await gitlab.post(`groups/${props.epic.group_id}/epics/${props.epic.iid}/todo`);
       showToast(Toast.Style.Success, "To do created");
     } catch (error) {

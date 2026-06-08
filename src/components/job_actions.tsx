@@ -28,11 +28,13 @@ export function CancelJobAction(props: { job: Job; onRefreshJobs?: () => void })
       !(await confirmAlert({
         title: "Cancel Job?",
         message: `Cancel "${props.job.name}" (#${jobId})?`,
-        primaryAction: { title: "Cancel Job", style: Alert.ActionStyle.Destructive } }))
+        primaryAction: { title: "Cancel Job", style: Alert.ActionStyle.Destructive },
+      }))
     ) {
       return;
     }
     try {
+      await showToast({ style: Toast.Style.Animated, title: "Canceling job..." });
       await gitlab.post(`projects/${props.job.projectId}/jobs/${jobId}/cancel`);
       showToast(Toast.Style.Success, "Canceled job");
       props.onRefreshJobs?.();
@@ -57,11 +59,13 @@ export function RunJobAction(props: { job: Job; onRefreshJobs?: () => void }) {
       !(await confirmAlert({
         title: "Run Job?",
         message: `Run manual job "${props.job.name}" (#${jobId})?`,
-        primaryAction: { title: "Run" } }))
+        primaryAction: { title: "Run" },
+      }))
     ) {
       return;
     }
     try {
+      await showToast({ style: Toast.Style.Animated, title: "Starting job..." });
       await gitlab.post(`projects/${props.job.projectId}/jobs/${jobId}/play`);
       showToast(Toast.Style.Success, "Started job");
       props.onRefreshJobs?.();
@@ -79,11 +83,13 @@ export function RetryJobAction(props: { job: Job }) {
       !(await confirmAlert({
         title: "Retry Job?",
         message: `Restart "${props.job.name}" (#${jobId})?`,
-        primaryAction: { title: "Retry", style: Alert.ActionStyle.Destructive } }))
+        primaryAction: { title: "Retry", style: Alert.ActionStyle.Destructive },
+      }))
     ) {
       return;
     }
     try {
+      await showToast({ style: Toast.Style.Animated, title: "Restarting job..." });
       await gitlab.post(`projects/${props.job.projectId}/jobs/${jobId}/retry`);
       showToast(Toast.Style.Success, "Restarted job");
     } catch (error) {
@@ -112,12 +118,14 @@ function resolveJobArtifactDownload(job: Job, artifact: JobArtifact): { url: str
   if (fileType === "archive") {
     return {
       url: gitlab.jobArtifactsArchiveDownloadUrl(job.projectId, jobId),
-      fileName: fileName || "artifacts.zip" };
+      fileName: fileName || "artifacts.zip",
+    };
   }
   if (artifact.filename) {
     return {
       url: gitlab.jobArtifactDownloadUrl(job.projectId, jobId, artifact.filename),
-      fileName: artifact.filename };
+      fileName: artifact.filename,
+    };
   }
   return undefined;
 }
@@ -129,9 +137,10 @@ async function downloadJobArtifact(job: Job, artifact: JobArtifact) {
     return;
   }
   const downloadDir = getArtifactDownloadDirectoryPreference();
+  const localFilepath = path.join(downloadDir, `${jobNumericId(job)}-${path.basename(resolved.fileName)}`);
   try {
+    await showToast({ style: Toast.Style.Animated, title: "Downloading artifact..." });
     fs.mkdirSync(downloadDir, { recursive: true });
-    const localFilepath = path.join(downloadDir, `${jobNumericId(job)}-${path.basename(resolved.fileName)}`);
     await gitlab.downloadFile(resolved.url, { localFilepath });
     await open(localFilepath);
     showToast(Toast.Style.Success, "Downloaded artifact", path.basename(localFilepath));

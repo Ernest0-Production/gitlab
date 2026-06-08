@@ -1,4 +1,4 @@
-import { Form, ActionPanel, useNavigation, Action } from "@raycast/api";
+import { Form, ActionPanel, useNavigation, Action, showToast, Toast } from "@raycast/api";
 import { isValidStatus, Status } from "../../gitlabapi";
 import { showFailureToast } from "@raycast/utils";
 import {
@@ -56,7 +56,9 @@ export function StatusFormSet(props: { setCurrentStatus?: React.Dispatch<React.S
   const handle = async (values: Form.Values) => {
     try {
       const status = getValidStatusFromFormValue(values);
+      await showToast({ style: Toast.Style.Animated, title: "Setting Status..." });
       await gitlab.setUserStatus(status);
+      showToast(Toast.Style.Success, "Status set");
       if (props.setCurrentStatus) {
         props.setCurrentStatus(status);
       }
@@ -73,7 +75,8 @@ function getValidStatusFromFormValue(values: Form.Values): Status {
     emoji: values.emoji,
     message: values.message,
     clear_status_after: values.clear_status_after,
-    clear_status_at: getClearDurationDate(values.clear_status_after) };
+    clear_status_at: getClearDurationDate(values.clear_status_after),
+  };
   if (!isValidStatus(status)) {
     throw Error("Invalid Status");
   }
