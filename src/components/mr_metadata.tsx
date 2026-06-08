@@ -251,6 +251,7 @@ export function MRListDetailMetadata(props: { mr: MergeRequest; discussionLabel?
         users={assigneesForPeopleSection(props.mr)}
       />
       <DiscussionsMetadataLabel discussionLabel={props.discussionLabel} Label={List.Item.Detail.Metadata.Label} />
+      <ApprovalsMetadataLabel approvalsCount={props.mr.approvals_count} Label={List.Item.Detail.Metadata.Label} />
       <UserListDetailTagList
         title={props.mr.reviewers.length === 1 ? "Reviewer" : "Reviewers"}
         users={props.mr.reviewers}

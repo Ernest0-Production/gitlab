@@ -1,7 +1,7 @@
 import { ActionPanel, List, Color, Detail, Action, Image, Icon, Keyboard } from "@raycast/api";
 import { Group, MergeRequest, Project } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { hashRecord, optimizeMarkdownText, Query, tokenizeQueryText } from "../utils";
 import { getMRDiscussionMetadataLabel, discussionStatsFromMergeRequest, useMRDiscussionStats } from "./mr_discussions";
 import { getMRStateListIcon } from "./mr_status";
@@ -10,7 +10,7 @@ import { GitLabOpenInBrowserAction } from "./actions";
 import { getCIJobStatusIcon, getMRPipelineStatusTooltip } from "./jobs";
 import { MRDetailMetadata, MRListDetailMetadata } from "./mr_metadata";
 import { useCachedState, usePromise } from "@raycast/utils";
-import { fetchMergeRequestGqlByProjectIid } from "./mr_gql";
+import { fetchMergeRequestGqlByProjectIdIid, fetchMergeRequestGqlByProjectIid } from "./mr_gql";
 import { usePaginatedMergeRequests } from "./mr_data";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -76,11 +76,11 @@ export function MRListMetadataToggleAction(props: { isShowingDetail: boolean }) 
 }
 
 export function MRDetailFetch(props: { project: Project; mrId: number }) {
-  const { mr, isLoading } = useMR(props.project, props.mrId);
+  const { mr, isLoading, revalidate } = useMR(props.project, props.mrId);
   if (isLoading || !mr) {
     return <Detail isLoading={isLoading} />;
   } else {
-    return <MRDetail mr={mr} />;
+    return <MRDetail mr={mr} onDataChange={revalidate} />;
   }
 }
 
@@ -90,28 +90,40 @@ function mrDescriptionMarkdown(mr: MergeRequest, lineBreak = "  \n"): string {
   );
 }
 
-export function MRDetail(props: { mr: MergeRequest }) {
-  const { stats: discussionStats, isLoading: discussionsLoading } = useMRDiscussionStats(props.mr);
+export function MRDetail(props: { mr: MergeRequest; onDataChange?: () => void }) {
+  const [mergeRequest, setMergeRequest] = useState(props.mr);
+
+  useEffect(() => {
+    setMergeRequest(props.mr);
+  }, [props.mr]);
+
+  const refreshMergeRequest = useCallback(async () => {
+    const updated = await fetchMergeRequestGqlByProjectIdIid(mergeRequest.project_id, mergeRequest.iid);
+    setMergeRequest(updated);
+    props.onDataChange?.();
+  }, [mergeRequest.project_id, mergeRequest.iid, props.onDataChange]);
+
+  const { stats: discussionStats, isLoading: discussionsLoading } = useMRDiscussionStats(mergeRequest);
 
   return (
     <Detail
-      markdown={mrDescriptionMarkdown(props.mr)}
-      navigationTitle={`${props.mr.reference_full}`}
+      markdown={mrDescriptionMarkdown(mergeRequest)}
+      navigationTitle={`${mergeRequest.reference_full}`}
       actions={
         <ActionPanel>
           <ActionPanel.Section>
-            <GitLabOpenInBrowserAction url={props.mr.web_url} />
-            <ShowMRCommitsAction mr={props.mr} />
-            <ShowMRPipelinesAction mr={props.mr} />
+            <GitLabOpenInBrowserAction url={mergeRequest.web_url} />
+            <ShowMRCommitsAction mr={mergeRequest} />
+            <ShowMRPipelinesAction mr={mergeRequest} />
           </ActionPanel.Section>
-          <MRCopySection mr={props.mr} />
-          <MRItemActions mr={props.mr} />
+          <MRCopySection mr={mergeRequest} />
+          <MRItemActions mr={mergeRequest} onDataChange={refreshMergeRequest} />
         </ActionPanel>
       }
       metadata={
         <MRDetailMetadata
-          mr={props.mr}
-          discussionLabel={getMRDiscussionMetadataLabel(props.mr, discussionStats, discussionsLoading)}
+          mr={mergeRequest}
+          discussionLabel={getMRDiscussionMetadataLabel(mergeRequest, discussionStats, discussionsLoading)}
         />
       }
     />
@@ -259,6 +271,15 @@ export function MRListItem(props: {
               tooltip: "Resolved discussions" },
           ]
         : []),
+      ...(props.mr.approvals_count && props.mr.approvals_count > 0
+        ? [
+            {
+              tag: { value: `${props.mr.approvals_count}`, color: Color.Green },
+              icon: { source: Icon.ThumbsUpFilled, tintColor: Color.Green },
+              tooltip: "Approvals",
+            },
+          ]
+        : []),
     );
   }
   if ((props.showCIStatus === undefined || props.showCIStatus === true) && props.mr.head_pipeline?.status) {
@@ -291,7 +312,7 @@ export function MRListItem(props: {
             <Action.Push
               icon={{ source: Icon.ArrowRight, tintColor: Color.PrimaryText }}
               title="Show Details"
-              target={<MRDetail mr={props.mr} />}
+              target={<MRDetail mr={props.mr} onDataChange={props.refreshData} />}
             />
             <GitLabOpenInBrowserAction url={props.mr.web_url} />
             <ShowMRCommitsAction mr={props.mr} />
@@ -425,11 +446,12 @@ export function useMR(
 ): {
   mr?: MergeRequest;
   isLoading: boolean;
+  revalidate: () => void;
 } {
-  const { data, isLoading } = usePromise(
+  const { data, isLoading, revalidate } = usePromise(
     (proj: Project, iid: number) => fetchMergeRequestGqlByProjectIid(proj, iid),
     [project, mrIID]
   );
 
-  return { mr: data, isLoading };
+  return { mr: data, isLoading, revalidate };
 }
