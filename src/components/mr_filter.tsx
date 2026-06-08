@@ -1,4 +1,5 @@
-import { Action, ActionPanel, Icon } from "@raycast/api";
+import { Action, ActionPanel, Color, Icon } from "@raycast/api";
+import { GitLabIcons } from "../icons";
 import { MRScope, MRState } from "./mr";
 import { MergeRequestScopeSubmenu } from "./mr_scope";
 import { mrStateFilterIcon } from "./mr_status";
@@ -11,16 +12,24 @@ const MR_STATE_FILTERS: { state: MRState; title: string }[] = [
 
 function MergeRequestStatusSubmenu(props: { state: MRState; onSelect: (state: MRState) => void }) {
   return (
-    <ActionPanel.Submenu title="Status" icon={Icon.Circle}>
+    <ActionPanel.Submenu
+      title={
+        props.state === MRState.all
+          ? "All Statuses"
+          : `Only ${MR_STATE_FILTERS.find((filter) => filter.state === props.state)?.title ?? props.state}`
+      }
+      icon={
+        props.state === MRState.all
+          ? { source: GitLabIcons.merge_request, tintColor: Color.PrimaryText }
+          : mrStateFilterIcon(props.state, false)
+      }
+    >
       <ActionPanel.Section>
         <Action
           title="All"
-          icon={mrStateFilterIcon(MRState.all, props.state === MRState.all)}
           autoFocus={props.state === MRState.all}
           onAction={() => props.onSelect(MRState.all)}
         />
-      </ActionPanel.Section>
-      <ActionPanel.Section>
         {MR_STATE_FILTERS.map(({ state, title }) => (
           <Action
             key={state}
@@ -40,11 +49,22 @@ export function MergeRequestFilterSubmenu(props: {
   onSelectScope: (scope: MRScope) => void;
   state: MRState;
   onSelectState: (state: MRState) => void;
+  draftOnly: boolean;
+  onToggleDraftOnly: () => void;
 }) {
   return (
     <ActionPanel.Submenu title="Filter" shortcut={{ modifiers: ["cmd"], key: "f" }} icon={Icon.Filter}>
       <MergeRequestScopeSubmenu scope={props.scope} onSelect={props.onSelectScope} />
       <MergeRequestStatusSubmenu state={props.state} onSelect={props.onSelectState} />
+      <Action
+        title={props.draftOnly ? "Hide Drafts" : "Show Drafts"}
+        icon={
+          props.draftOnly
+            ? { source: Icon.Xmark, tintColor: Color.Red }
+            : { source: "https://api.iconify.design/tabler/edit.svg" }
+        }
+        onAction={props.onToggleDraftOnly}
+      />
     </ActionPanel.Submenu>
   );
 }

@@ -11,7 +11,8 @@ import {
   MRListMetadataToggleAction,
   mrSearchBarPlaceholder,
   buildMRListParams,
-  useMRListDetails } from "./mr";
+  useMRListDetails,
+} from "./mr";
 import { RefreshMergeRequestsAction } from "./mr_actions";
 import { usePaginatedMergeRequests } from "./mr_data";
 import { appendMROrderByParams, MergeRequestSortSubmenu, MR_DEFAULT_ORDER_BY, MRSearchOrderBy } from "./mr_sort";
@@ -27,7 +28,8 @@ const MR_STATE_FILTERS: { state: MRState; title: string }[] = [
 const MR_SCOPE_LABELS: Record<Exclude<MRScope, MRScope.all>, string> = {
   [MRScope.created_by_me]: "created by me",
   [MRScope.assigned_to_me]: "assigned to me",
-  [MRScope.reviews_for_me]: "reviews for me" };
+  [MRScope.reviews_for_me]: "reviews for me",
+};
 
 const MR_SORT_LABELS: Record<Exclude<MRSearchOrderBy, "default">, string> = {
   created_at: "created",
@@ -37,13 +39,40 @@ const MR_SORT_LABELS: Record<Exclude<MRSearchOrderBy, "default">, string> = {
   priority: "priority",
   label_priority: "label priority",
   milestone_due: "milestone due",
-  popularity: "popularity" };
+  popularity: "popularity",
+};
+
+function buildMRSearchSectionTitle(
+  mrState: MRState,
+  scope: MRScope,
+  draftOnly: boolean,
+  orderBy: MRSearchOrderBy,
+): string | undefined {
+  if (mrState === MRState.all && scope === MRScope.all && !draftOnly && orderBy === MR_DEFAULT_ORDER_BY) {
+    return undefined;
+  }
+
+  const stateTitle =
+    mrState !== MRState.all
+      ? `Only ${(MR_STATE_FILTERS.find((filter) => filter.state === mrState)?.title ?? mrState).toLowerCase()} MRs`
+      : "MRs";
+  const draftSuffix = draftOnly ? " (+drafts)" : "";
+  const scopeSuffix = scope !== MRScope.all ? ` ${MR_SCOPE_LABELS[scope]}` : "";
+  const sortSuffix =
+    orderBy !== MR_DEFAULT_ORDER_BY
+      ? `, sorted by ${MR_SORT_LABELS[orderBy as Exclude<MRSearchOrderBy, "default">]}`
+      : "";
+
+  return `${stateTitle}${draftSuffix}${scopeSuffix}${sortSuffix}`;
+}
 
 function MergeRequestFilterActions(props: {
   mrState: MRState;
   onSelectState: (state: MRState) => void;
   scope: MRScope;
   onSelectScope: (scope: MRScope) => void;
+  draftOnly: boolean;
+  onToggleDraftOnly: () => void;
   orderBy: MRSearchOrderBy;
   onSelectOrderBy: (orderBy: MRSearchOrderBy) => void;
   onRefresh: () => void;
@@ -56,6 +85,8 @@ function MergeRequestFilterActions(props: {
           onSelectScope={props.onSelectScope}
           state={props.mrState}
           onSelectState={props.onSelectState}
+          draftOnly={props.draftOnly}
+          onToggleDraftOnly={props.onToggleDraftOnly}
         />
         <MergeRequestSortSubmenu orderBy={props.orderBy} onSelect={props.onSelectOrderBy} />
       </ActionPanel.Section>
@@ -71,6 +102,8 @@ function SearchMergeRequestsEmptyView(props: {
   onSelectState: (state: MRState) => void;
   scope: MRScope;
   onSelectScope: (scope: MRScope) => void;
+  draftOnly: boolean;
+  onToggleDraftOnly: () => void;
   orderBy: MRSearchOrderBy;
   onSelectOrderBy: (orderBy: MRSearchOrderBy) => void;
   onRefresh: () => void;
@@ -91,6 +124,8 @@ function SearchMergeRequestsEmptyView(props: {
             onSelectState={props.onSelectState}
             scope={props.scope}
             onSelectScope={props.onSelectScope}
+            draftOnly={props.draftOnly}
+            onToggleDraftOnly={props.onToggleDraftOnly}
             orderBy={props.orderBy}
             onSelectOrderBy={props.onSelectOrderBy}
             onRefresh={props.onRefresh}
@@ -107,8 +142,10 @@ export function SearchMyMergeRequests() {
   const [mrState, setMrState] = useCachedState<MRState>("mr-search-state", MRState.opened);
   const [scope, setScope] = useCachedState<MRScope>("mr-search-scope", MRScope.all);
   const [orderBy, setOrderBy] = useCachedState<MRSearchOrderBy>("mr-search-order-by", MR_DEFAULT_ORDER_BY);
+  const [draftOnly, setDraftOnly] = useCachedState("mr-search-draft-only", false);
   const [search, setSearch] = useState<string>("");
   const { isShowingDetail, toggleListDetails } = useMRListDetails();
+  const toggleDraftOnly = () => setDraftOnly((current) => !current);
 
   const project = useMemo(
     () => myprojects.find((candidate) => `${candidate.id}` === projectId),
@@ -125,18 +162,23 @@ export function SearchMyMergeRequests() {
   const params = useMemo(() => {
     const requestParams = buildMRListParams(search, scope, mrState);
     appendMROrderByParams(requestParams, orderBy);
+    if (!draftOnly) {
+      requestParams.wip = "no";
+    }
     return requestParams;
-  }, [mrState, scope, orderBy, search]);
+  }, [draftOnly, mrState, scope, orderBy, search]);
   const {
     mrs: data,
     isLoading,
     performRefetch,
-    pagination } = usePaginatedMergeRequests({
+    pagination,
+  } = usePaginatedMergeRequests({
     cacheKey: `mymrssearch_${project?.id ?? "none"}_${hashRecord(params)}`,
     buildParams: () => params,
     project,
     execute: !!project,
-    keepPreviousData: true });
+    keepPreviousData: true,
+  });
 
   const hasProjects = !!myprojects && myprojects.length > 0;
 
@@ -172,6 +214,8 @@ export function SearchMyMergeRequests() {
             onSelectState={setMrState}
             scope={scope}
             onSelectScope={setScope}
+            draftOnly={draftOnly}
+            onToggleDraftOnly={toggleDraftOnly}
             orderBy={orderBy}
             onSelectOrderBy={setOrderBy}
             onRefresh={performRefetch}
@@ -187,21 +231,7 @@ export function SearchMyMergeRequests() {
         />
       ) : (
         <>
-          <List.Section
-            title={
-              [
-                mrState !== MRState.all
-                  ? `Only ${MR_STATE_FILTERS.find((filter) => filter.state === mrState)?.title ?? mrState}`
-                  : undefined,
-                scope !== MRScope.all ? MR_SCOPE_LABELS[scope] : undefined,
-                orderBy !== MR_DEFAULT_ORDER_BY
-                  ? `sorted by ${MR_SORT_LABELS[orderBy as Exclude<MRSearchOrderBy, "default">]}`
-                  : undefined,
-              ]
-                .filter((part): part is string => !!part)
-                .join(", ") || undefined
-            }
-          >
+          <List.Section title={buildMRSearchSectionTitle(mrState, scope, draftOnly, orderBy)}>
             {data.map((mergeRequest) => (
               <MRListItem
                 key={mergeRequest.id}
@@ -216,6 +246,8 @@ export function SearchMyMergeRequests() {
                     onSelectScope={setScope}
                     state={mrState}
                     onSelectState={setMrState}
+                    draftOnly={draftOnly}
+                    onToggleDraftOnly={toggleDraftOnly}
                   />
                 }
                 sortAction={<MergeRequestSortSubmenu orderBy={orderBy} onSelect={setOrderBy} />}
@@ -228,6 +260,8 @@ export function SearchMyMergeRequests() {
             onSelectState={setMrState}
             scope={scope}
             onSelectScope={setScope}
+            draftOnly={draftOnly}
+            onToggleDraftOnly={toggleDraftOnly}
             orderBy={orderBy}
             onSelectOrderBy={setOrderBy}
             onRefresh={performRefetch}
