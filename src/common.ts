@@ -1,4 +1,5 @@
-import { ApolloClient, ApolloLink, HttpLink, InMemoryCache, concat, NormalizedCacheObject } from "@apollo/client";
+import { ApolloClient, ApolloLink, HttpLink, InMemoryCache, NormalizedCacheObject } from "@apollo/client";
+import { onError } from "@apollo/client/link/error";
 import fetch from "node-fetch";
 
 import os from "os";
@@ -54,8 +55,22 @@ function createGitLabGQLClient(): GitLabGQL {
     return forward(operation);
   });
 
+  const errorLink = onError(({ graphQLErrors, networkError }) => {
+    if (graphQLErrors) {
+      for (const error of graphQLErrors) {
+        console.warn(`GitLab GraphQL: ${error.message}`);
+      }
+    }
+    if (networkError) {
+      const statusCode = "statusCode" in networkError ? networkError.statusCode : undefined;
+      console.warn(
+        `GitLab GraphQL network error${statusCode ? ` ${statusCode}` : ""}: ${networkError.message}`,
+      );
+    }
+  });
+
   const client = new ApolloClient({
-    link: concat(authMiddleware, httpLink),
+    link: ApolloLink.from([authMiddleware, errorLink, httpLink]),
     cache: new InMemoryCache(),
     defaultOptions: {
       query: {

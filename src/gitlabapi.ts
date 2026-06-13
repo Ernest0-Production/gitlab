@@ -609,6 +609,43 @@ export function isValidStatus(status: Status): boolean {
   return false;
 }
 
+function gitLabApiErrorDescription(json: GitLabApiErrorBody, statusCode: number): string {
+  if (statusCode === 401) {
+    return "Unauthorized";
+  }
+  if (statusCode === 403) {
+    if (json.error === "insufficient_scope") {
+      return "Insufficient API token scope";
+    }
+    return json.error ?? (typeof json.message === "string" ? json.message : undefined) ?? "Forbidden";
+  }
+  if (statusCode === 404) {
+    return "Not found";
+  }
+  if (typeof json.message === "string") {
+    return json.message;
+  }
+  if (json.message) {
+    return JSON.stringify(json.message);
+  }
+  if (json.error) {
+    return json.error;
+  }
+  return `http status ${statusCode}`;
+}
+
+async function warnGitLabApiErrorResponse(response: Response, url: string): Promise<void> {
+  const statusCode = response.status;
+  let description = response.statusText || `http status ${statusCode}`;
+  try {
+    const json = (await response.clone().json()) as GitLabApiErrorBody;
+    description = gitLabApiErrorDescription(json, statusCode);
+  } catch {
+    // non-JSON error body
+  }
+  console.warn(`GitLab API ${statusCode}: ${description} (${url})`);
+}
+
 async function toJsonOrError(response: Response): Promise<any> {
   const statusCode = response.status;
   logAPI(`status code: ${statusCode}`);
@@ -619,10 +656,7 @@ async function toJsonOrError(response: Response): Promise<any> {
     throw Error("Unauthorized");
   } else if (statusCode == 403) {
     const json = (await response.json()) as GitLabApiErrorBody;
-    let msg = "Forbidden";
-    if (json.error && json.error == "insufficient_scope") {
-      msg = "Insufficient API token scope";
-    }
+    const msg = gitLabApiErrorDescription(json, statusCode);
     logAPI(msg);
     throw Error(msg);
   } else if (statusCode == 404) {
@@ -630,8 +664,7 @@ async function toJsonOrError(response: Response): Promise<any> {
   } else if (statusCode >= 400 && statusCode < 500) {
     const json = (await response.json()) as GitLabApiErrorBody;
     logAPI(json);
-    const msg = typeof json.message === "string" ? json.message : JSON.stringify(json.message ?? "http error");
-    throw Error(msg);
+    throw Error(gitLabApiErrorDescription(json, statusCode));
   } else {
     logAPI("unknown error");
     throw Error(`http status ${statusCode}`);
@@ -651,7 +684,7 @@ export class GitLab {
       const [fullUrl, options] = args;
       const agent = getHttpAgent();
 
-      return await fetch(fullUrl, {
+      const response = await fetch(fullUrl, {
         headers: {
           "Content-Type": "application/json",
           "PRIVATE-TOKEN": this.token,
@@ -659,6 +692,10 @@ export class GitLab {
         agent: agent,
         ...options,
       });
+      if (!response.ok) {
+        await warnGitLabApiErrorResponse(response, fullUrl);
+      }
+      return response;
     };
   }
 
@@ -791,10 +828,7 @@ export class GitLab {
 
       if (statusCode === 403) {
         const json = (await response.json()) as GitLabApiErrorBody;
-        let msg = "Forbidden";
-        if (json.error && json.error == "insufficient_scope") {
-          msg = "Insufficient API token scope";
-        }
+        const msg = gitLabApiErrorDescription(json, statusCode);
         logAPI(msg);
         throw Error(msg);
       }
@@ -806,12 +840,7 @@ export class GitLab {
       if (statusCode >= 400 && statusCode < 500) {
         const json = (await response.json()) as GitLabApiErrorBody;
         logAPI(json);
-        let msg = `http status ${statusCode}`;
-        if (json.message) {
-          // TODO better form error handling
-          msg = JSON.stringify(json.message);
-        }
-        throw Error(msg);
+        throw Error(gitLabApiErrorDescription(json, statusCode));
       }
 
       logAPI("unknown error");
