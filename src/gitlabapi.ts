@@ -271,6 +271,7 @@ export function jsonDataToMergeRequest(mr: GitLabMergeRequestJson): MergeRequest
   return {
     title: mr.title,
     web_url: mr.web_url,
+    gql_id: "",
     project_web_url: projectWebUrlFromMrWebUrl(mr.web_url),
     project_full_path: projectFullPathFromWebUrl(projectWebUrlFromMrWebUrl(mr.web_url)),
     id: mr.id,
@@ -443,13 +444,25 @@ export class Issue {
   public merge_requests_count: number = 0;
 }
 
+export interface MRDiscussionNotePosition {
+  file_path: string;
+  line?: number;
+}
+
 export interface MRDiscussionNote {
+  id: number;
+  body: string;
+  author?: User;
+  created_at: string;
+  web_url: string;
+  position?: MRDiscussionNotePosition;
   resolvable?: boolean;
   resolved?: boolean;
   system?: boolean;
 }
 
 export interface MRDiscussion {
+  id: string;
   resolvable?: boolean;
   resolved?: boolean;
   notes?: MRDiscussionNote[];
@@ -471,6 +484,7 @@ export class MergeRequest {
   public project_web_url = "";
   public project_full_path = "";
   public web_url = "";
+  public gql_id = "";
   public id = 0;
   public iid = 0;
   public state = "";
@@ -1105,10 +1119,6 @@ export class GitLab {
     const projectPrefix = `projects/${projectID}/merge_requests/${mrIID}/approvals`;
     const result: MergeRequestApprovals = (await this.fetch(`${projectPrefix}/`, params)) as MergeRequestApprovals;
     return result;
-  }
-
-  async getMergeRequestDiscussions(projectID: number, mrIID: number): Promise<MRDiscussion[]> {
-    return await this.fetch(`projects/${projectID}/merge_requests/${mrIID}/discussions`, {}, true);
   }
 
   async getTodos(params: Record<string, any>, all?: boolean): Promise<Todo[]> {

@@ -3,9 +3,15 @@ import { Group, MergeRequest, Project } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { hashRecord, optimizeMarkdownText, Query, tokenizeQueryText } from "../utils";
-import { getMRDiscussionMetadataLabel, discussionStatsFromMergeRequest, useMRDiscussionStats } from "./mr_discussions";
+import { getMRDiscussionMetadataLabel, discussionStatsFromMergeRequest } from "./mr_discussions";
 import { getMRStateListIcon } from "./mr_status";
-import { MRCopySection, MRItemActions, ShowMRCommitsAction, ShowMRPipelinesAction } from "./mr_actions";
+import {
+  MRCopySection,
+  MRItemActions,
+  ShowMRCommitsAction,
+  ShowMRDiscussionsAction,
+  ShowMRPipelinesAction,
+} from "./mr_actions";
 import { GitLabOpenInBrowserAction } from "./actions";
 import { getCIJobStatusIcon, getMRPipelineStatusTooltip } from "./jobs";
 import { MRDetailMetadata, MRListDetailMetadata } from "./mr_metadata";
@@ -19,14 +25,16 @@ export enum MRScope {
   created_by_me = "created_by_me",
   assigned_to_me = "assigned_to_me",
   reviews_for_me = "reviews_for_me",
-  all = "all" }
+  all = "all",
+}
 
 export enum MRState {
   opened = "opened",
   closed = "closed",
   locked = "locked",
   merged = "merged",
-  all = "all" }
+  all = "all",
+}
 
 export const mrListDetailsShortcut: Keyboard.Shortcut = { modifiers: ["cmd", "shift"], key: "d" };
 export const mrListMetadataShortcut: Keyboard.Shortcut = { modifiers: ["cmd", "shift"], key: "i" };
@@ -38,7 +46,8 @@ export function useMRListDetails(): { isShowingDetail: boolean; toggleListDetail
   const toggleListDetails = useCallback(() => setIsShowingDetail((current) => !current), [setIsShowingDetail]);
   return {
     isShowingDetail,
-    toggleListDetails };
+    toggleListDetails,
+  };
 }
 
 export function useMRListMetadata(): { isShowingMetadata: boolean; toggleListMetadata: () => void } {
@@ -46,7 +55,8 @@ export function useMRListMetadata(): { isShowingMetadata: boolean; toggleListMet
   const toggleListMetadata = useCallback(() => setIsShowingMetadata((current) => !current), [setIsShowingMetadata]);
   return {
     isShowingMetadata,
-    toggleListMetadata };
+    toggleListMetadata,
+  };
 }
 
 export function MRListDetailsToggleAction(props: { isShowingDetail: boolean; onToggle: () => void }) {
@@ -103,8 +113,6 @@ export function MRDetail(props: { mr: MergeRequest; onDataChange?: () => void })
     props.onDataChange?.();
   }, [mergeRequest.project_id, mergeRequest.iid, props.onDataChange]);
 
-  const { stats: discussionStats, isLoading: discussionsLoading } = useMRDiscussionStats(mergeRequest);
-
   return (
     <Detail
       markdown={mrDescriptionMarkdown(mergeRequest)}
@@ -115,6 +123,7 @@ export function MRDetail(props: { mr: MergeRequest; onDataChange?: () => void })
             <GitLabOpenInBrowserAction url={mergeRequest.web_url} />
             <ShowMRCommitsAction mr={mergeRequest} />
             <ShowMRPipelinesAction mr={mergeRequest} />
+            <ShowMRDiscussionsAction mr={mergeRequest} />
           </ActionPanel.Section>
           <MRCopySection mr={mergeRequest} />
           <MRItemActions mr={mergeRequest} onDataChange={refreshMergeRequest} />
@@ -123,7 +132,7 @@ export function MRDetail(props: { mr: MergeRequest; onDataChange?: () => void })
       metadata={
         <MRDetailMetadata
           mr={mergeRequest}
-          discussionLabel={getMRDiscussionMetadataLabel(mergeRequest, discussionStats, discussionsLoading)}
+          discussionLabel={getMRDiscussionMetadataLabel(discussionStatsFromMergeRequest(mergeRequest))}
         />
       }
     />
@@ -131,7 +140,6 @@ export function MRDetail(props: { mr: MergeRequest; onDataChange?: () => void })
 }
 
 export function MRListDetail(props: { mr: MergeRequest }) {
-  const { stats: discussionStats, isLoading: discussionsLoading } = useMRDiscussionStats(props.mr);
   const { isShowingMetadata } = useMRListMetadata();
 
   return (
@@ -141,7 +149,7 @@ export function MRListDetail(props: { mr: MergeRequest }) {
         isShowingMetadata ? (
           <MRListDetailMetadata
             mr={props.mr}
-            discussionLabel={getMRDiscussionMetadataLabel(props.mr, discussionStats, discussionsLoading)}
+            discussionLabel={getMRDiscussionMetadataLabel(discussionStatsFromMergeRequest(props.mr))}
           />
         ) : undefined
       }
@@ -155,7 +163,8 @@ export function buildMRListParams(query: string | undefined, scope: MRScope, sta
     state,
     scope,
     search: parsedQuery.query || "",
-    in: "title" };
+    in: "title",
+  };
   injectMRQueryNamedParameters(params, parsedQuery, scope, false);
   injectMRQueryNamedParameters(params, parsedQuery, scope, true);
   return params;
@@ -177,14 +186,16 @@ export function MRList({
   state = MRState.all,
   project = undefined,
   group = undefined,
-  searchBarAccessory = undefined }: MRListProps) {
+  searchBarAccessory = undefined,
+}: MRListProps) {
   const [searchText, setSearchText] = useState<string>();
   const params = useMemo(() => buildMRListParams(searchText, scope, state), [searchText, scope, state]);
   const { mrs, isLoading, performRefetch, pagination } = usePaginatedMergeRequests({
     cacheKey: `mrlist_${project?.id ?? "none"}_${group?.id ?? "none"}_${hashRecord(params)}`,
     buildParams: () => params,
     project,
-    group });
+    group,
+  });
 
   const { isShowingDetail, toggleListDetails } = useMRListDetails();
 
@@ -260,7 +271,8 @@ export function MRListItem(props: {
             {
               tag: { value: "Conflicts", color: Color.Red },
               icon: { source: Icon.Warning, tintColor: Color.Red },
-              tooltip: "You should resolve merge conflict before merge" },
+              tooltip: "You should resolve merge conflict before merge",
+            },
           ]
         : []),
       ...(discussionStats
@@ -268,7 +280,8 @@ export function MRListItem(props: {
             {
               text: `${discussionStats.resolved}/${discussionStats.resolvableTotal}`,
               icon: { source: Icon.SpeechBubble, tintColor: Color.PrimaryText },
-              tooltip: "Resolved discussions" },
+              tooltip: "Resolved discussions",
+            },
           ]
         : []),
       ...(props.mr.approvals_count && props.mr.approvals_count > 0
@@ -285,7 +298,8 @@ export function MRListItem(props: {
   if ((props.showCIStatus === undefined || props.showCIStatus === true) && props.mr.head_pipeline?.status) {
     accessories.push({
       icon: getCIJobStatusIcon(props.mr.head_pipeline.status, false),
-      tooltip: getMRPipelineStatusTooltip(props.mr.head_pipeline.status) });
+      tooltip: getMRPipelineStatusTooltip(props.mr.head_pipeline.status),
+    });
   }
   if (!props.isShowingDetail && showAuthor && accessoryIcon) {
     accessories.push({ icon: accessoryIcon, tooltip: props.mr.author?.name });
@@ -294,7 +308,8 @@ export function MRListItem(props: {
     accessories.push(
       {
         icon: props.mr.merge_when_pipeline_succeeds && props.mr.state === "opened" ? Icon.Rewind : undefined,
-        tooltip: props.mr.merge_when_pipeline_succeeds && props.mr.state === "opened" ? "Auto Merge" : undefined },
+        tooltip: props.mr.merge_when_pipeline_succeeds && props.mr.state === "opened" ? "Auto Merge" : undefined,
+      },
       ...(props.mr.milestone?.title ? [{ tag: props.mr.milestone.title, tooltip: "Milestone" }] : []),
     );
   }
@@ -317,10 +332,8 @@ export function MRListItem(props: {
             <GitLabOpenInBrowserAction url={props.mr.web_url} />
             <ShowMRCommitsAction mr={props.mr} />
             <ShowMRPipelinesAction mr={props.mr} />
-            <MRListDetailsToggleAction
-              isShowingDetail={props.isShowingDetail}
-              onToggle={props.onToggleListDetails}
-            />
+            <ShowMRDiscussionsAction mr={props.mr} />
+            <MRListDetailsToggleAction isShowingDetail={props.isShowingDetail} onToggle={props.onToggleListDetails} />
             <MRListMetadataToggleAction isShowingDetail={props.isShowingDetail} />
           </ActionPanel.Section>
           <MRCopySection mr={props.mr} showCopyMarkdown />
@@ -450,7 +463,7 @@ export function useMR(
 } {
   const { data, isLoading, revalidate } = usePromise(
     (proj: Project, iid: number) => fetchMergeRequestGqlByProjectIid(proj, iid),
-    [project, mrIID]
+    [project, mrIID],
   );
 
   return { mr: data, isLoading, revalidate };

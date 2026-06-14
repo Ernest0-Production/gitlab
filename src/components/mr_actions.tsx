@@ -16,6 +16,7 @@ import { MergeRequest } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
 import { copyMarkdownShortcut, copyShortcut } from "../utils";
 import { MRCommitList } from "./commits/list";
+import { MRDiscussionList } from "./mr_discussion_list";
 import { MRPipelineList } from "./mr_pipelines";
 import { findTodoForMR, useTodos } from "./todo/utils";
 import { showFailureToast } from "@raycast/utils";
@@ -320,6 +321,17 @@ export function ShowMRPipelinesAction(props: { mr: MergeRequest }) {
       icon={{ source: GitLabIcons.ci, tintColor: Color.PrimaryText }}
       shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
       target={<MRPipelineList mr={props.mr} />}
+    />
+  );
+}
+
+export function ShowMRDiscussionsAction(props: { mr: MergeRequest }) {
+  return (
+    <Action.Push
+      title="Show Discussions"
+      icon={{ source: Icon.SpeechBubble, tintColor: Color.PrimaryText }}
+      shortcut={{ modifiers: ["cmd"], key: "d" }}
+      target={<MRDiscussionList mr={props.mr} />}
     />
   );
 }

@@ -494,6 +494,7 @@ export function gqlNodeToMergeRequest(node: GqlMRListNode, currentUsername?: str
   return {
     title: node.title,
     web_url: node.webUrl,
+    gql_id: node.id,
     id: getIdFromGqlId(node.id),
     iid: parseInt(node.iid, 10),
     state: node.state,
