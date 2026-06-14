@@ -2,7 +2,7 @@ import { Form, Icon, popToRoot, Image, ActionPanel, Action, showToast, Toast } f
 import { Project, Branch, Issue, TemplateDetail } from "../gitlabapi";
 import { gitlab } from "../common";
 import { useState, useEffect } from "react";
-import { showFailureToast, usePromise, useCachedPromise } from "@raycast/utils";
+import { showFailureToast, useCachedPromise, useCachedState, usePromise } from "@raycast/utils";
 import { projectIcon, stringToSlug, toFormValues } from "../utils";
 import { useProjectMR, useMilestones, ProjectInfoMR } from "../hooks";
 
@@ -93,9 +93,7 @@ export function IssueMRCreateForm({ issue, projectID, title }: { issue: Issue; p
 }
 
 export function MRCreateForm(props: { project?: Project | undefined; branch?: string | undefined }) {
-  const [selectedProject, setSelectedProject] = useState<string | undefined>(
-    props.project ? props.project.id.toString() : undefined,
-  );
+  const [selectedProject, setSelectedProject] = useCachedState("mr-create-project-id", "");
   const { data: projects, isLoading: isLoadingProjects } = useCachedPromise(
     async (): Promise<Project[]> => (await gitlab.getUserProjects({}, true)) || [],
     [],
@@ -114,7 +112,7 @@ export function MRCreateForm(props: { project?: Project | undefined; branch?: st
 
   const [removeBranch, setRemoveBranch] = useState<boolean | undefined>(undefined);
   const [selectedTemplateName, setSelectedTemplateName] = useState<string>(NO_TEMPLATE);
-  const [description, setDescription] = useState<string | undefined>(undefined);
+  const [description, setDescription] = useState("");
 
   const { data: selectedTemplateDetail } = useCachedPromise(
     async (templateName: string): Promise<TemplateDetail | undefined> => {
@@ -123,6 +121,12 @@ export function MRCreateForm(props: { project?: Project | undefined; branch?: st
     },
     [selectedTemplateName],
   );
+
+  useEffect(() => {
+    if (props.project) {
+      setSelectedProject(props.project.id.toString());
+    }
+  }, [props.project?.id, setSelectedProject]);
 
   useEffect(() => {
     setDescription(selectedTemplateDetail?.content ?? "");
@@ -147,7 +151,13 @@ export function MRCreateForm(props: { project?: Project | undefined; branch?: st
       />
       <SourceBranchDropdown project={project} info={projectinfo} value={props.branch} />
       <TargetBranchDropdown project={project} info={projectinfo} />
-      <Form.TextField id="title" title="Title" placeholder="Enter title" />
+      <Form.Separator />
+      <Form.TextField
+        id="title"
+        title="Title"
+        placeholder="Enter title"
+        autoFocus={selectedProject !== ""}
+      />
       <Form.Dropdown id="template_id" title="Template" value={selectedTemplateName} onChange={setSelectedTemplateName}>
         <Form.Dropdown.Item key={NO_TEMPLATE} value={NO_TEMPLATE} title={"None"} />
         {(projectinfo?.mergeRequestTemplates || []).map((template) => (
@@ -158,6 +168,7 @@ export function MRCreateForm(props: { project?: Project | undefined; branch?: st
         id="description"
         title="Description"
         placeholder="Enter description"
+        enableMarkdown
         value={description}
         onChange={setDescription}
       />
@@ -212,8 +223,8 @@ export function MRCreateForm(props: { project?: Project | undefined; branch?: st
 
 function ProjectDropdown(props: {
   projects: Project[];
-  setSelectedProject: React.Dispatch<React.SetStateAction<string | undefined>>;
-  value?: string;
+  setSelectedProject: (value: string | ((previous: string) => string)) => void;
+  value: string;
 }) {
   return (
     <Form.Dropdown
