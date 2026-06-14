@@ -9,12 +9,12 @@ import { GitLabOpenInBrowserAction } from "./actions";
 import { BranchList } from "./branch";
 import { IssueList, IssueScope } from "./issues";
 import { MilestoneList } from "./milestones";
-import { MRList, MRScope } from "./mr";
+import { SearchMyMergeRequests } from "./mr_search";
 import { PipelineList } from "./pipelines";
 import { ProjectLabelList } from "./project_label";
 import { ProjectNavMenusList } from "./project_nav";
 import { ProjectReadmeDetail } from "./project_readme";
-import { showFailureToast } from "@raycast/utils";
+import { createDeeplink, showFailureToast } from "@raycast/utils";
 
 function CloneURLInVSCodeListItem(props: { url?: string }) {
   const clone = async (url: string) => {
@@ -115,6 +115,22 @@ export function OpenProjectAction(props: { project: Project }) {
   );
 }
 
+export function CreateProjectQuickLinkAction(props: { project: Project }) {
+  return (
+    <Action.CreateQuicklink
+      title="Create Quicklink"
+      icon={Icon.Link}
+      quicklink={{
+        name: props.project.name_with_namespace,
+        link: createDeeplink({
+          command: "project_view",
+          arguments: { projectId: `${props.project.id}` },
+        }),
+      }}
+    />
+  );
+}
+
 export function OpenProjectInBrowserAction(props: { project: Project }) {
   return <GitLabOpenInBrowserAction url={props.project.web_url} />;
 }
@@ -137,44 +153,24 @@ export function ProjectDefaultActions(props: { project: Project }) {
   }
 }
 
-function CloneUrlList(props: { project: Project }) {
-  return (
-    <List navigationTitle="Copy Clone URL">
-      <List.Item
-        title={props.project.http_url_to_repo || ""}
-        icon={{ source: Icon.Link, tintColor: Color.PrimaryText }}
-        actions={
-          <ActionPanel>
-            <Action.CopyToClipboard title="Http" content={props.project.http_url_to_repo || ""} />
-          </ActionPanel>
-        }
-      />
-      <List.Item
-        title={props.project.ssh_url_to_repo || ""}
-        icon={{ source: Icon.Link, tintColor: Color.PrimaryText }}
-        actions={
-          <ActionPanel>
-            <Action.CopyToClipboard title="Ssh" content={props.project.ssh_url_to_repo || ""} />
-          </ActionPanel>
-        }
-      />
-    </List>
-  );
-}
-
 export function CopyCloneUrlToClipboardAction(props: { shortcut?: Keyboard.Shortcut; project: Project }) {
-  if (props.project.http_url_to_repo || props.project.ssh_url_to_repo) {
-    return (
-      <Action.Push
-        title="Copy Clone URL"
-        shortcut={props.shortcut}
-        icon={{ source: Icon.Link, tintColor: Color.PrimaryText }}
-        target={<CloneUrlList project={props.project} />}
-      />
-    );
-  } else {
+  if (!props.project.http_url_to_repo && !props.project.ssh_url_to_repo) {
     return null;
   }
+  return (
+    <ActionPanel.Submenu
+      title="Copy Clone URL"
+      shortcut={props.shortcut}
+      icon={{ source: Icon.Link, tintColor: Color.PrimaryText }}
+    >
+      {props.project.http_url_to_repo && (
+        <Action.CopyToClipboard title="HTTPS" content={props.project.http_url_to_repo} />
+      )}
+      {props.project.ssh_url_to_repo && (
+        <Action.CopyToClipboard title="SSH" content={props.project.ssh_url_to_repo} />
+      )}
+    </ActionPanel.Submenu>
+  );
 }
 
 export function OpenProjectIssuesPushAction(props: { project: Project }) {
@@ -205,7 +201,7 @@ export function OpenProjectMergeRequestsPushAction(props: { project: Project }) 
       title="Merge Requests"
       shortcut={{ modifiers: ["cmd"], key: "m" }}
       icon={{ source: GitLabIcons.merge_request, tintColor: Color.PrimaryText }}
-      target={<MRList scope={MRScope.all} project={props.project} />}
+      target={<SearchMyMergeRequests project={props.project} />}
     />
   );
 }

@@ -20,6 +20,7 @@ import {
   ProjectDefaultActions,
   ShowProjectLabels,
   CreateNewProjectIssuePushAction,
+  CreateProjectQuickLinkAction,
   ShowProjectReadmeAction,
 } from "./project_actions";
 import { GitLabIcons, getTextIcon } from "../icons";
@@ -29,7 +30,7 @@ export enum ProjectScope {
   all = "all",
 }
 
-export function ProjectListItem(props: { project: Project; nameOnly?: boolean }) {
+export function ProjectListItem(props: { project: Project; nameOnly?: boolean; showCreateQuickLink?: boolean }) {
   const accessories = [];
   if (props.project.archived) {
     accessories.push({ tooltip: "Archived", icon: { source: Icon.ExclamationMark, tintColor: Color.Yellow } });
@@ -60,6 +61,7 @@ export function ProjectListItem(props: { project: Project; nameOnly?: boolean })
             <Action.CopyToClipboard title="Copy Project ID" content={props.project.id} />
             <Action.CopyToClipboard title="Copy Project URL" content={props.project.web_url} />
             <CopyCloneUrlToClipboardAction shortcut={{ modifiers: ["cmd"], key: "u" }} project={props.project} />
+            {props.showCreateQuickLink && <CreateProjectQuickLinkAction project={props.project} />}
           </ActionPanel.Section>
           <ActionPanel.Section>
             <ShowProjectReadmeAction project={props.project} />
@@ -130,7 +132,7 @@ export function ProjectList({ membership = true, starred = false }: ProjectListP
         subtitle={`${projects.length}`}
       >
         {projects.map((project) => (
-          <ProjectListItem key={project.id} project={project} />
+          <ProjectListItem key={project.id} project={project} showCreateQuickLink={membership && !starred} />
         ))}
       </List.Section>
       <ProjectListEmptyView />

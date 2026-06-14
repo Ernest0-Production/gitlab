@@ -26,7 +26,7 @@ export function ProjectSearchList() {
     >
       <List.Section title="Projects" subtitle={`${projects?.length}`}>
         {projects?.map((project) => (
-          <ProjectListItem key={project.id} project={project} />
+          <ProjectListItem key={project.id} project={project} showCreateQuickLink={scope === ProjectScope.membership} />
         ))}
       </List.Section>
       <ProjectListEmptyView />

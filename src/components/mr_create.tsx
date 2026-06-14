@@ -113,6 +113,7 @@ export function MRCreateForm(props: { project?: Project | undefined; branch?: st
   const [removeBranch, setRemoveBranch] = useState<boolean | undefined>(undefined);
   const [selectedTemplateName, setSelectedTemplateName] = useState<string>(NO_TEMPLATE);
   const [description, setDescription] = useState("");
+  const [sourceBranch, setSourceBranch] = useState(props.branch ?? "");
 
   const { data: selectedTemplateDetail } = useCachedPromise(
     async (templateName: string): Promise<TemplateDetail | undefined> => {
@@ -127,6 +128,12 @@ export function MRCreateForm(props: { project?: Project | undefined; branch?: st
       setSelectedProject(props.project.id.toString());
     }
   }, [props.project?.id, setSelectedProject]);
+
+  useEffect(() => {
+    if (props.branch) {
+      setSourceBranch(props.branch);
+    }
+  }, [props.branch]);
 
   useEffect(() => {
     setDescription(selectedTemplateDetail?.content ?? "");
@@ -146,10 +153,18 @@ export function MRCreateForm(props: { project?: Project | undefined; branch?: st
         setSelectedProject={(newValue) => {
           setRemoveBranch(undefined);
           setSelectedProject(newValue);
+          if (!props.branch || props.project?.id.toString() !== newValue) {
+            setSourceBranch("");
+          }
         }}
         value={selectedProject}
       />
-      <SourceBranchDropdown project={project} info={projectinfo} value={props.branch} />
+      <SourceBranchDropdown
+        project={project}
+        info={projectinfo}
+        value={sourceBranch}
+        onChange={setSourceBranch}
+      />
       <TargetBranchDropdown project={project} info={projectinfo} />
       <Form.Separator />
       <Form.TextField
@@ -252,34 +267,53 @@ function branchesByCommittedDate(branches: Branch[]): Branch[] {
 function SourceBranchDropdown(props: {
   project?: Project | undefined;
   info?: ProjectInfoMR | undefined;
-  value?: string | undefined;
+  value: string;
+  onChange: (value: string) => void;
 }) {
   if (props.project && props.info) {
-    const branches = branchesByCommittedDate(props.info.branches).filter((branch) => branch.name !== "main");
+    const branches = branchesByCommittedDate(props.info.branches).filter(
+      (branch) => branch.name !== props.project?.default_branch,
+    );
+    const branchNames = new Set(branches.map((branch) => branch.name));
+    if (props.value) {
+      branchNames.add(props.value);
+    }
+    const sourceBranches = [...branchNames].sort((left, right) => {
+      if (left === props.value) {
+        return -1;
+      }
+      if (right === props.value) {
+        return 1;
+      }
+      return left.localeCompare(right);
+    });
     return (
       <Form.Dropdown
         id="source_branch"
         title="Source Branch"
-        defaultValue={
-          props.value && branches.find((branch) => branch.name === props.value)
-            ? props.value
-            : branches.length > 0
-              ? branches[0].name
-              : ""
-        }
+        value={props.value && sourceBranches.includes(props.value) ? props.value : sourceBranches[0] ?? ""}
+        onChange={props.onChange}
       >
-        {branches.map((branch) => (
-          <Form.Dropdown.Item key={branch.name} value={branch.name} title={branch.name} />
+        {sourceBranches.map((name) => (
+          <Form.Dropdown.Item key={name} value={name} title={name} />
         ))}
       </Form.Dropdown>
     );
-  } else {
-    return (
-      <Form.Dropdown id="source_branch" title="Source Branch">
-        <Form.Dropdown.Item key="_empty" value="" title="-" />
-      </Form.Dropdown>
-    );
   }
+  return (
+    <Form.Dropdown
+      id="source_branch"
+      title="Source Branch"
+      value={props.value}
+      onChange={props.onChange}
+    >
+      {props.value ? (
+        <Form.Dropdown.Item key={props.value} value={props.value} title={props.value} />
+      ) : (
+        <Form.Dropdown.Item key="_empty" value="" title="-" />
+      )}
+    </Form.Dropdown>
+  );
 }
 
 function TargetBranchDropdown(props: {

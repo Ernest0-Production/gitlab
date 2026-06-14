@@ -301,7 +301,14 @@ export function ShowMRCommitsAction(props: { mr: MergeRequest }) {
       title="Show Commits"
       icon={{ source: GitLabIcons.commit, tintColor: Color.PrimaryText }}
       shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
-      target={<MRCommitList projectID={props.mr.project_id} mrIID={props.mr.iid} navigationTitle={props.mr.title} />}
+      target={
+        <MRCommitList
+          projectID={props.mr.project_id}
+          projectFullPath={props.mr.project_full_path}
+          mrIID={props.mr.iid}
+          navigationTitle={props.mr.title}
+        />
+      }
     />
   );
 }

@@ -20,4 +20,5 @@ export interface Commit {
   web_url: string;
   author_avatar_url?: string;
   pipeline_status?: string;
+  head_pipeline?: { id: number; iid: string };
 }

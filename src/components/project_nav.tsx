@@ -4,7 +4,7 @@ import { ReactNode } from "react";
 import { PipelineList } from "./pipelines";
 import { BranchList } from "./branch";
 import { MilestoneList } from "./milestones";
-import { MRList, MRScope } from "./mr";
+import { SearchMyMergeRequests } from "./mr_search";
 import { IssueList, IssueScope } from "./issues";
 import { GitLabIcons } from "../icons";
 import { GitLabOpenInBrowserAction } from "./actions";
@@ -74,7 +74,7 @@ export function ProjectNavMenusList(props: { project: Project }) {
         title="Merge Requests"
         url={webUrl(props.project, "-/merge_requests")}
         icon={{ source: GitLabIcons.merge_request, tintColor: Color.PrimaryText }}
-        target={<MRList scope={MRScope.all} project={props.project} />}
+        target={<SearchMyMergeRequests project={props.project} />}
       />
       <ProjectNavMenuItem
         title="Branches"
@@ -86,7 +86,7 @@ export function ProjectNavMenusList(props: { project: Project }) {
         title="Commits"
         url={webUrl(props.project, "-/commits")}
         icon={{ source: GitLabIcons.commit, tintColor: Color.PrimaryText }}
-        target={<ProjectCommitList projectID={props.project.id} navigationTitle={props.project.name_with_namespace} />}
+        target={<ProjectCommitList project={props.project} navigationTitle={props.project.name_with_namespace} />}
       />
       <ProjectNavMenuItem
         title="Pipelines"

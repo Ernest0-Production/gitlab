@@ -1,14 +1,5 @@
-import { Action, ActionPanel, Color, Detail, Icon, List } from "@raycast/api";
+import { Action, ActionPanel, Icon, List } from "@raycast/api";
 import { Label } from "../gitlabapi";
-import { GitLabIcons } from "../icons";
-
-export function LabelDetail(props: { label: Label }) {
-  let md = `## Color\n${props.label.color}`;
-  if (props.label.description) {
-    md += `\n## Description\n${props.label.description}`;
-  }
-  return <Detail markdown={md} />;
-}
 
 export function LabelListItem(props: { label: Label }) {
   return (
@@ -23,11 +14,6 @@ export function LabelListItem(props: { label: Label }) {
       ]}
       actions={
         <ActionPanel>
-          <Action.Push
-            title="Show Details"
-            target={<LabelDetail label={props.label} />}
-            icon={{ source: GitLabIcons.show_details, tintColor: Color.PrimaryText }}
-          />
           <Action.CopyToClipboard title="Copy Color" content={props.label.color} />
         </ActionPanel>
       }

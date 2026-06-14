@@ -3,9 +3,10 @@ import { GitLabIcons } from "../../icons";
 import { copySecondaryShortcut, copyShortcut, formatDate, formatDateTime } from "../../utils";
 import { GitLabOpenInBrowserAction } from "../actions";
 import { getCIJobStatusIcon, getMRPipelineStatusTooltip } from "../jobs";
+import { ShowCommitPipelineAction } from "./actions";
 import { Commit } from "./types";
 
-export function CommitListItem(props: { commit: Commit }) {
+export function CommitListItem(props: { commit: Commit; projectFullPath?: string }) {
   return (
     <List.Item
       key={props.commit.id}
@@ -32,6 +33,9 @@ export function CommitListItem(props: { commit: Commit }) {
       actions={
         <ActionPanel>
           <ActionPanel.Section>
+            {props.projectFullPath && (
+              <ShowCommitPipelineAction commit={props.commit} projectFullPath={props.projectFullPath} />
+            )}
             <GitLabOpenInBrowserAction url={props.commit.web_url} />
             <Action.CopyToClipboard
               title="Copy URL"

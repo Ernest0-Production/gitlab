@@ -1,5 +1,6 @@
 import { gql } from "@apollo/client";
 import { getGitLabGQL, gitlab } from "../../common";
+import { getIdFromGqlId } from "../../utils";
 import { Commit } from "./types";
 
 export const MR_COMMITS_PAGE_SIZE = 20;
@@ -21,6 +22,8 @@ const COMMIT_LIST_FIELDS = gql`
     }
     pipelines(first: 1) {
       nodes {
+        id
+        iid
         status
         detailedStatus {
           label
@@ -50,7 +53,28 @@ const MR_COMMITS = gql`
   }
 `;
 
+const PROJECT_COMMITS = gql`
+  ${COMMIT_LIST_FIELDS}
+  query ProjectCommits($fullPath: ID!, $ref: String!, $first: Int!, $after: String) {
+    project(fullPath: $fullPath) {
+      repository {
+        commits(ref: $ref, first: $first, after: $after) {
+          nodes {
+            ...CommitListFields
+          }
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+        }
+      }
+    }
+  }
+`;
+
 interface GqlPipelineNode {
+  id: string;
+  iid: string;
   status: string;
   detailedStatus?: { label?: string | null; name?: string | null } | null;
 }
@@ -79,9 +103,14 @@ interface GqlCommitConnection {
 }
 
 const endCursorsByCacheKey = new Map<string, string[]>();
+const projectCommitEndCursorsByCacheKey = new Map<string, string[]>();
 
 export function resetMRCommitsGqlCursors(cacheKey: string): void {
   endCursorsByCacheKey.delete(cacheKey);
+}
+
+export function resetProjectCommitsGqlCursors(cacheKey: string): void {
+  projectCommitEndCursorsByCacheKey.delete(cacheKey);
 }
 
 function resolveAvatarUrl(avatarUrl: string | null | undefined): string | undefined {
@@ -119,6 +148,7 @@ function pipelineStatusFromGql(pipeline: GqlPipelineNode | null | undefined): st
 }
 
 function gqlCommitToCommit(node: GqlCommitNode): Commit {
+  const pipeline = node.pipelines?.nodes?.[0];
   return {
     id: node.sha,
     short_id: node.shortId,
@@ -131,7 +161,11 @@ function gqlCommitToCommit(node: GqlCommitNode): Commit {
     committed_date: node.committedDate,
     web_url: node.webUrl,
     author_avatar_url: resolveAvatarUrl(node.author?.avatarUrl),
-    pipeline_status: pipelineStatusFromGql(node.pipelines?.nodes?.[0]),
+    pipeline_status: pipelineStatusFromGql(pipeline),
+    head_pipeline:
+      pipeline?.id && pipeline?.iid
+        ? { id: getIdFromGqlId(pipeline.id), iid: `${pipeline.iid}` }
+        : undefined,
   };
 }
 
@@ -189,6 +223,71 @@ export async function fetchMRCommitsGqlPage(options: {
 
   const after = page > 0 ? cursors[page - 1] : undefined;
   const connection = await queryMRCommitsConnection(projectFullPath, mrIID, {
+    first: MR_COMMITS_PAGE_SIZE,
+    after,
+  });
+  cursors[page] = connection.pageInfo.endCursor ?? "";
+
+  return {
+    commits: connection.nodes.map(gqlCommitToCommit),
+    hasMore: connection.pageInfo.hasNextPage,
+  };
+}
+
+async function queryProjectCommitsConnection(
+  projectFullPath: string,
+  ref: string,
+  variables: { first: number; after?: string },
+): Promise<GqlCommitConnection> {
+  const response = await getGitLabGQL().client.query({
+    query: PROJECT_COMMITS,
+    variables: {
+      fullPath: projectFullPath,
+      ref,
+      first: variables.first,
+      after: variables.after,
+    },
+  });
+  const connection = response.data?.project?.repository?.commits as GqlCommitConnection | undefined;
+  if (!connection) {
+    throw new Error("Could not load project commits");
+  }
+  return connection;
+}
+
+export async function fetchProjectCommitsGqlPage(options: {
+  cacheKey: string;
+  page: number;
+  projectFullPath: string;
+  ref: string;
+}): Promise<{ commits: Commit[]; hasMore: boolean }> {
+  const { cacheKey, page, projectFullPath, ref } = options;
+
+  if (!projectCommitEndCursorsByCacheKey.has(cacheKey)) {
+    projectCommitEndCursorsByCacheKey.set(cacheKey, []);
+  }
+  const cursors = projectCommitEndCursorsByCacheKey.get(cacheKey)!;
+
+  if (page === 0) {
+    cursors.length = 0;
+  }
+
+  if (page > 0 && cursors.length < page) {
+    for (let index = cursors.length; index < page; index += 1) {
+      const after = index === 0 ? undefined : cursors[index - 1];
+      const connection = await queryProjectCommitsConnection(projectFullPath, ref, {
+        first: MR_COMMITS_PAGE_SIZE,
+        after,
+      });
+      cursors[index] = connection.pageInfo.endCursor ?? "";
+      if (!connection.pageInfo.hasNextPage) {
+        return { commits: [], hasMore: false };
+      }
+    }
+  }
+
+  const after = page > 0 ? cursors[page - 1] : undefined;
+  const connection = await queryProjectCommitsConnection(projectFullPath, ref, {
     first: MR_COMMITS_PAGE_SIZE,
     after,
   });

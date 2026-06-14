@@ -3,6 +3,7 @@ import { useCachedState } from "@raycast/utils";
 import { useEffect, useMemo, useState } from "react";
 import { GitLabIcons } from "../icons";
 import { hashRecord } from "../utils";
+import { Project } from "../gitlabapi";
 import {
   MRScope,
   MRState,
@@ -136,7 +137,7 @@ function SearchMergeRequestsEmptyView(props: {
   );
 }
 
-export function SearchMyMergeRequests() {
+export function SearchMyMergeRequests(props: { project?: Project } = {}) {
   const [projectId, setProjectId] = useCachedState<string | undefined>("mr-search-project-id", undefined);
   const { projects: myprojects, isLoading: projectsLoading } = useMyProjects();
   const [mrState, setMrState] = useCachedState<MRState>("mr-search-state", MRState.opened);
@@ -146,6 +147,12 @@ export function SearchMyMergeRequests() {
   const [search, setSearch] = useState<string>("");
   const { isShowingDetail, toggleListDetails } = useMRListDetails();
   const toggleDraftOnly = () => setDraftOnly((current) => !current);
+
+  useEffect(() => {
+    if (props.project) {
+      setProjectId(`${props.project.id}`);
+    }
+  }, [props.project?.id, setProjectId]);
 
   const project = useMemo(
     () => myprojects.find((candidate) => `${candidate.id}` === projectId),

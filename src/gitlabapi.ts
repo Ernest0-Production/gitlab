@@ -380,7 +380,7 @@ export interface Branch {
   merged?: boolean;
   protected?: boolean;
   id?: string;
-  commit?: { id?: string; committed_date?: string };
+  commit?: { id?: string; committed_date?: string; title?: string };
 }
 
 export interface Epic {
@@ -871,6 +871,21 @@ export class GitLab {
       const response = await fetcher(fullUrl, {
         method: "PUT",
         body: JSON.stringify(params),
+      });
+      await toJsonOrError(response);
+    } catch (error: any) {
+      logAPI(`catch error: ${error}`);
+      throw Error(error.message); // rethrow error, otherwise raycast could not catch the error
+    }
+  }
+
+  public async delete(url: string): Promise<void> {
+    const fullUrl = this.url + "/api/v4/" + url;
+    logAPI(`send DELETE request: ${fullUrl}`);
+    try {
+      const fetcher = this.getFetcher();
+      const response = await fetcher(fullUrl, {
+        method: "DELETE",
       });
       await toJsonOrError(response);
     } catch (error: any) {

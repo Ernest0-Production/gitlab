@@ -1,10 +1,11 @@
 import { Action, ActionPanel, Color, List } from "@raycast/api";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useCachedPromise } from "@raycast/utils";
 import urljoin from "url-join";
 import { Project } from "../../gitlabapi";
 import { GitLabIcons } from "../../icons";
 import { GitLabOpenInBrowserAction } from "../actions";
+import { BranchDropdown } from "../branch_dropdown";
 import { Event } from "../event";
 import { fetchPushEventsWithProjects } from "../events_data";
 import { PipelineJobsListByCommit } from "../jobs";
@@ -79,7 +80,12 @@ function ProjectCommitListEmptyView() {
   return <List.EmptyView title="No Commits" icon={{ source: GitLabIcons.commit, tintColor: Color.PrimaryText }} />;
 }
 
-export function MRCommitList(props: { projectID: number; mrIID: number; navigationTitle?: string }) {
+export function MRCommitList(props: {
+  projectID: number;
+  projectFullPath: string;
+  mrIID: number;
+  navigationTitle?: string;
+}) {
   const { commits, isLoading, pagination } = usePaginatedMergeRequestCommits({
     cacheKey: `mr_commits_${props.projectID}_${props.mrIID}`,
     projectID: props.projectID,
@@ -93,20 +99,29 @@ export function MRCommitList(props: { projectID: number; mrIID: number; navigati
       searchBarPlaceholder={commitSearchBarPlaceholder}
     >
       {commits.map((commit) => (
-        <CommitListItem key={commit.id} commit={commit} />
+        <CommitListItem key={commit.id} commit={commit} projectFullPath={props.projectFullPath} />
       ))}
       <ProjectCommitListEmptyView />
     </List>
   );
 }
 
-export function ProjectCommitList(props: { projectID: number; refName?: string; navigationTitle?: string }) {
+export function ProjectCommitList(props: { project: Project; refName?: string; navigationTitle?: string }) {
+  const [branch, setBranch] = useState(props.refName ?? props.project.default_branch ?? "");
+
+  useEffect(() => {
+    if (props.refName) {
+      setBranch(props.refName);
+    }
+  }, [props.refName]);
+
   const { commits, isLoading, pagination } = usePaginatedProjectCommits({
-    cacheKey: props.refName
-      ? `project_commits_${props.projectID}_${props.refName}`
-      : `project_commits_${props.projectID}`,
-    projectID: props.projectID,
-    refName: props.refName });
+    cacheKey: `project_commits_${props.project.id}_${branch}`,
+    projectFullPath: props.project.fullPath,
+    refName: branch,
+    execute: branch.length > 0,
+    keepPreviousData: true,
+  });
 
   return (
     <List
@@ -114,9 +129,10 @@ export function ProjectCommitList(props: { projectID: number; refName?: string; 
       pagination={pagination}
       navigationTitle={props.navigationTitle}
       searchBarPlaceholder={commitSearchBarPlaceholder}
+      searchBarAccessory={<BranchDropdown project={props.project} value={branch} onChange={setBranch} storeValue />}
     >
       {commits.map((commit) => (
-        <CommitListItem key={commit.id} commit={commit} />
+        <CommitListItem key={commit.id} commit={commit} projectFullPath={props.project.fullPath} />
       ))}
       <ProjectCommitListEmptyView />
     </List>
