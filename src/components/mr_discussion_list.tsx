@@ -61,7 +61,7 @@ function discussionMarkdown(
           const url = new URL(avatarUrl);
           url.searchParams.set("raycast-width", "20");
           url.searchParams.set("raycast-height", "20");
-          avatar = `![](${url.href}) `;
+          avatar = `\u200B![](${url.href}) `;
         }
         return `${avatar ?? ""}**${authorName}** • ${formatDate(note.created_at)}:  \n${optimizeMarkdownText(note.body, mergeRequest.project_web_url, mergeRequest.project_id)}`;
       })
