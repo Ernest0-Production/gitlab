@@ -63,7 +63,7 @@ function discussionMarkdown(
           url.searchParams.set("raycast-height", "20");
           avatar = `![](${url.href}) `;
         }
-        return `${avatar ?? ""}**${authorName}** • ${formatDate(note.created_at)}:  \n${optimizeMarkdownText(note.body, mergeRequest.project_web_url)}`;
+        return `${avatar ?? ""}**${authorName}** • ${formatDate(note.created_at)}:  \n${optimizeMarkdownText(note.body, mergeRequest.project_web_url, mergeRequest.project_id)}`;
       })
       .join("\n\n---\n\n"),
   );

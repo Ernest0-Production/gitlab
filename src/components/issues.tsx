@@ -59,6 +59,7 @@ export function IssueDetail(props: { issue: Issue }) {
         optimizeMarkdownText(
           (issueDetail?.description ? issueDetail.description : props.issue.description) || "",
           issueDetail?.projectWebUrl,
+          props.issue.project_id,
         ),
       ].join("  \n")}
       isLoading={isLoading}

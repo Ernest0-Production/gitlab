@@ -78,7 +78,31 @@ function replaceAll(str: string, find: RegExp, replace: string): string {
   return str.replace(find, replace);
 }
 
-export function optimizeMarkdownText(text: string, baseUrl?: string): string {
+function resolveMarkdownUrl(link: string, baseUrl: string, projectId?: number): string {
+  const trimmed = link.trim();
+  if (/^(https?:|mailto:|#)/i.test(trimmed)) {
+    return trimmed;
+  }
+  const uploadsPath = trimmed.replace(/^\//, "");
+  if (projectId && uploadsPath.startsWith("uploads/")) {
+    try {
+      const instanceUrl = new URL(baseUrl).origin;
+      return urljoin(instanceUrl, `-/project/${projectId}`, uploadsPath);
+    } catch {
+      // fall through
+    }
+  }
+  try {
+    if (trimmed.startsWith("/")) {
+      return new URL(trimmed, baseUrl).href;
+    }
+    return urljoin(baseUrl, trimmed);
+  } catch {
+    return trimmed;
+  }
+}
+
+export function optimizeMarkdownText(text: string, baseUrl?: string, projectId?: number): string {
   let result = text;
   // remove html comments
   result = replaceAll(result, /<!--[\s\S]*?-->/g, "");
@@ -92,33 +116,19 @@ export function optimizeMarkdownText(text: string, baseUrl?: string): string {
   // replace all emojis
   result = result.replace(/:(\w+):/g, (original, emoji) => emojiSymbol(emoji) ?? original);
 
+  if (baseUrl) {
+    result = result.replace(/<img\b[^>]*\bsrc=["']([^"']+)["'][^>]*\/?>/gi, (_, source) => {
+      return `![](${resolveMarkdownUrl(source, baseUrl, projectId)})`;
+    });
+    result = result.replace(/!?\[([^[\]]*)\]\(([^)]+)\)/g, (match, label, link) => {
+      const resolved = resolveMarkdownUrl(link, baseUrl, projectId);
+      const image = match.startsWith("!") ? "!" : "";
+      return `${image}[${label}](${resolved})`;
+    });
+  }
+
   // remove inline HTML tags
   result = replaceAll(result, /<[^>]+>/g, "");
-
-  if (baseUrl) {
-    // replace relative links with absolute ones
-    try {
-      const regexMdLinks = /\[([^[]+)\](\(.*\))/gm;
-      const matches = result.match(regexMdLinks);
-      if (matches) {
-        const singleMatch = /\[([^[]+)\]\((.*)\)/;
-        for (let index = 0; index < matches.length; index++) {
-          const text = singleMatch.exec(matches[index]);
-          if (text) {
-            const word = text[1];
-            const link = text[2].trim();
-            if (link.startsWith("/")) {
-              const fullUrl = urljoin(baseUrl, link);
-              const mdUrl = `[${word}](${fullUrl})`;
-              result = result.replace(text[0], mdUrl);
-            }
-          }
-        }
-      }
-    } catch {
-      // Do nothing
-    }
-  }
 
   return result;
 }

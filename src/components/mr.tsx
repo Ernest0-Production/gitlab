@@ -95,9 +95,10 @@ export function MRDetailFetch(props: { project: Project; mrId: number }) {
 }
 
 function mrDescriptionMarkdown(mr: MergeRequest, lineBreak = "  \n"): string {
-  return [`## ${mr.title}`, optimizeMarkdownText(mr.description || "<no description>", mr.project_web_url)].join(
-    lineBreak,
-  );
+  return [
+    `## ${mr.title}`,
+    optimizeMarkdownText(mr.description || "<no description>", mr.project_web_url, mr.project_id),
+  ].join(lineBreak);
 }
 
 export function MRDetail(props: { mr: MergeRequest; onDataChange?: () => void }) {
