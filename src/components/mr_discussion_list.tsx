@@ -30,7 +30,7 @@ function discussionNotes(discussion: MRDiscussion): MRDiscussionNote[] {
 }
 
 function firstDiscussionNote(discussion: MRDiscussion): MRDiscussionNote | undefined {
-  return discussionNotes(discussion)[0];
+  return discussionNotes(discussion)[0] ?? discussion.notes?.[0];
 }
 
 function discussionUrl(discussion: MRDiscussion, mr: MergeRequest): string {
@@ -84,7 +84,13 @@ function discussionMarkdown(
       .map((note) => {
         const authorName = note.author?.name ?? "Unknown";
         const avatarUrl = resolveAvatarUrl(note.author?.avatar_url);
-        const avatar = avatarUrl && `![](${avatarUrl}?raycast-width=28&raycast-height=28) `;
+        let avatar: string | undefined;
+        if (avatarUrl) {
+          const url = new URL(avatarUrl);
+          url.searchParams.set("raycast-width", "20");
+          url.searchParams.set("raycast-height", "20");
+          avatar = `![](${url.href}) `;
+        }
         return `${avatar ?? ""}**${authorName}** (*${formatDate(note.created_at)}*):  \n${optimizeMarkdownText(note.body, mr.project_web_url)}`;
       })
       .join("\n\n---\n\n"),
@@ -192,6 +198,9 @@ function MRDiscussionListItem(props: {
         },
         tooltip: firstNote?.author?.name,
       }}
+      accessories={
+        isResolved ? [{ icon: { source: Icon.CheckCircle, tintColor: Color.Green }, tooltip: "Resolved" }] : []
+      }
       detail={<List.Item.Detail markdown={discussionMarkdown(props.discussion, props.mr, diff, isLoadingDiff)} />}
       actions={
         <ActionPanel>
@@ -204,10 +213,10 @@ function MRDiscussionListItem(props: {
             <GitLabOpenInBrowserAction url={discussionUrl(props.discussion, props.mr)} />
             {props.discussion.resolvable && (
               <Action
-                title={isResolved ? "Unresolve Discussion" : "Resolve Discussion"}
+                title={isResolved ? "Reopen thread" : "Resolve thread"}
                 icon={{
                   source: isResolved ? Icon.XmarkCircle : Icon.Checkmark,
-                  tintColor: isResolved ? Color.PrimaryText : Color.Green,
+                  tintColor: isResolved ? Color.Red : Color.Green,
                 }}
                 onAction={toggleResolved}
               />
@@ -233,9 +242,7 @@ export function MRDiscussionList(props: { mr: MergeRequest }) {
     },
     [props.mr.project_full_path, props.mr.iid],
   );
-  const discussions = (data ?? []).filter((discussion) => discussionNotes(discussion).length > 0);
-  const unresolvedDiscussions = discussions.filter((discussion) => !isDiscussionResolved(discussion));
-  const resolvedDiscussions = discussions.filter((discussion) => isDiscussionResolved(discussion));
+  const discussions = data ?? [];
   useEffect(() => {
     if (!selectedDiscussionId && discussions[0]) {
       setSelectedDiscussionId(discussions[0].id);
@@ -251,28 +258,15 @@ export function MRDiscussionList(props: { mr: MergeRequest }) {
       pagination={pagination}
       navigationTitle={`Discussions ${props.mr.reference_full}`}
     >
-      <List.Section title="Unresolved Discussions" subtitle={unresolvedDiscussions.length.toString()}>
-        {unresolvedDiscussions.map((discussion) => (
-          <MRDiscussionListItem
-            key={discussion.id}
-            mr={props.mr}
-            discussion={discussion}
-            isFocused={discussion.id === selectedDiscussionId}
-            onReply={revalidate}
-          />
-        ))}
-      </List.Section>
-      <List.Section title="Resolved Discussions" subtitle={resolvedDiscussions.length.toString()}>
-        {resolvedDiscussions.map((discussion) => (
-          <MRDiscussionListItem
-            key={discussion.id}
-            mr={props.mr}
-            discussion={discussion}
-            isFocused={discussion.id === selectedDiscussionId}
-            onReply={revalidate}
-          />
-        ))}
-      </List.Section>
+      {discussions.map((discussion) => (
+        <MRDiscussionListItem
+          key={discussion.id}
+          mr={props.mr}
+          discussion={discussion}
+          isFocused={discussion.id === selectedDiscussionId}
+          onReply={revalidate}
+        />
+      ))}
       <List.EmptyView title="No Discussions" />
     </List>
   );
