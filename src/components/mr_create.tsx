@@ -243,13 +243,19 @@ function ProjectDropdown(props: {
   );
 }
 
+function branchesByCommittedDate(branches: Branch[]): Branch[] {
+  return [...branches].sort(
+    (left, right) => Date.parse(right.commit?.committed_date ?? "") - Date.parse(left.commit?.committed_date ?? ""),
+  );
+}
+
 function SourceBranchDropdown(props: {
   project?: Project | undefined;
   info?: ProjectInfoMR | undefined;
   value?: string | undefined;
 }) {
   if (props.project && props.info) {
-    const branches = props.info.branches.filter((branch) => branch.name !== "main");
+    const branches = branchesByCommittedDate(props.info.branches).filter((branch) => branch.name !== "main");
     return (
       <Form.Dropdown
         id="source_branch"
@@ -291,7 +297,7 @@ function TargetBranchDropdown(props: {
             : undefined
         }
       >
-        {props.info?.branches.map((branch) => (
+        {branchesByCommittedDate(props.info.branches).map((branch) => (
           <Form.Dropdown.Item key={branch.name} value={branch.name} title={branch.name} />
         ))}
       </Form.Dropdown>

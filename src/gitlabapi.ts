@@ -380,7 +380,7 @@ export interface Branch {
   merged?: boolean;
   protected?: boolean;
   id?: string;
-  commit?: { id?: string };
+  commit?: { id?: string; committed_date?: string };
 }
 
 export interface Epic {
