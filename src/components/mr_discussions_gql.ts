@@ -201,19 +201,6 @@ function gqlDiscussionNoteToNote(node: GqlDiscussionNoteNode): MRDiscussionNote 
   };
 }
 
-function gqlDiscussionToDiscussion(node: GqlDiscussionNode): MRDiscussion {
-  return {
-    id: node.id,
-    resolvable: node.resolvable,
-    resolved: node.resolved,
-    notes: node.notes.nodes.map(gqlDiscussionNoteToNote),
-  };
-}
-
-function hasUserNotes(discussion: MRDiscussion): boolean {
-  return discussion.notes?.some((note) => !note.system) ?? false;
-}
-
 async function queryMRDiscussionsConnection(
   projectFullPath: string,
   mrIID: number,
@@ -249,7 +236,16 @@ async function fetchVisibleDiscussionGqlPage(options: {
       first: MR_DISCUSSIONS_PAGE_SIZE,
       after,
     });
-    discussions.push(...connection.nodes.map(gqlDiscussionToDiscussion).filter(hasUserNotes));
+    discussions.push(
+      ...connection.nodes
+        .map((node) => ({
+          id: node.id,
+          resolvable: node.resolvable,
+          resolved: node.resolved,
+          notes: node.notes.nodes.map(gqlDiscussionNoteToNote),
+        }))
+        .filter((discussion) => discussion.notes?.some((note) => !note.system) ?? false),
+    );
     after = connection.pageInfo.endCursor ?? undefined;
     hasMore = connection.pageInfo.hasNextPage;
   }

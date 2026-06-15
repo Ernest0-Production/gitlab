@@ -153,20 +153,6 @@ export function useMyProjects(): {
   };
 }
 
-function MyProjectsDropdownItem(props: { project: Project }) {
-  return (
-    <List.Dropdown.Item
-      title={props.project.name_with_namespace}
-      icon={
-        projectIconUrl(props.project)
-          ? { source: projectIconUrl(props.project)! }
-          : getTextIcon((props.project.name ? getFirstChar(props.project.name) : "?").toUpperCase())
-      }
-      value={`${props.project.id}`}
-    />
-  );
-}
-
 export function MyProjectsDropdown(props: {
   onChange: (project: Project | undefined) => void;
   projects?: Project[];
@@ -198,7 +184,16 @@ export function MyProjectsDropdown(props: {
       )}
       <List.Dropdown.Section>
         {myprojects.map((project) => (
-          <MyProjectsDropdownItem key={`${project.id}`} project={project} />
+          <List.Dropdown.Item
+            key={`${project.id}`}
+            title={project.name_with_namespace}
+            icon={
+              projectIconUrl(project)
+                ? { source: projectIconUrl(project)! }
+                : getTextIcon((project.name ? getFirstChar(project.name) : "?").toUpperCase())
+            }
+            value={`${project.id}`}
+          />
         ))}
       </List.Dropdown.Section>
     </List.Dropdown>

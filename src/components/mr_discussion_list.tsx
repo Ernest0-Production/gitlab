@@ -25,17 +25,12 @@ import {
   toggleMRDiscussionResolveGql,
 } from "./mr_discussions_gql";
 
-function discussionNotes(discussion: MRDiscussion): MRDiscussionNote[] {
-  return (discussion.notes ?? []).filter((note) => !note.system);
-}
-
 function discussionMarkdown(
-  discussion: MRDiscussion,
+  notes: MRDiscussionNote[],
   mergeRequest: MergeRequest,
   diff: string | undefined,
   isLoadingDiff?: boolean,
 ): string {
-  const notes = discussionNotes(discussion);
   const blocks: string[] = [];
   const firstNote = notes[0];
   if (firstNote?.position?.file_path) {
@@ -115,7 +110,8 @@ function MRDiscussionListItem(props: {
   isFocused: boolean;
   onRevalidate: () => void;
 }) {
-  const firstNote = discussionNotes(props.discussion)[0];
+  const notes = (props.discussion.notes ?? []).filter((note) => !note.system);
+  const firstNote = notes[0];
   const position = firstNote?.position;
   const { data: diff, isLoading: isLoadingDiff } = useCachedPromise(
     async (projectFullPath: string, notePosition: MRDiscussionNote["position"]) => {
@@ -173,7 +169,7 @@ function MRDiscussionListItem(props: {
       accessories={
         isResolved ? [{ icon: { source: Icon.CheckCircle, tintColor: Color.Green }, tooltip: "Resolved" }] : []
       }
-      detail={<List.Item.Detail markdown={discussionMarkdown(props.discussion, props.mr, diff, isLoadingDiff)} />}
+      detail={<List.Item.Detail markdown={discussionMarkdown(notes, props.mr, diff, isLoadingDiff)} />}
       actions={
         <ActionPanel>
           <ActionPanel.Section>

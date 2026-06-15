@@ -303,7 +303,12 @@ function ProjectDropdown(props: {
       }}
     >
       {props.projects.map((project) => (
-        <ProjectDropdownItem key={project.id} project={project} />
+        <Form.Dropdown.Item
+          key={project.id}
+          value={project.id.toString()}
+          title={project.name_with_namespace}
+          icon={projectIcon(project)}
+        />
       ))}
     </Form.Dropdown>
   );
@@ -398,15 +403,5 @@ function TargetBranchDropdown(props: {
         <Form.Dropdown.Item key="_empty" value="" title="-" />
       )}
     </Form.Dropdown>
-  );
-}
-
-function ProjectDropdownItem(props: { project: Project }) {
-  return (
-    <Form.Dropdown.Item
-      value={props.project.id.toString()}
-      title={props.project.name_with_namespace}
-      icon={projectIcon(props.project)}
-    />
   );
 }
