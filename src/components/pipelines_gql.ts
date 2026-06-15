@@ -93,6 +93,18 @@ const MR_PIPELINES = gql`
   }
 `;
 
+const PIPELINE_FOR_COMMIT = gql`
+  query PipelineForCommit($fullPath: ID!, $sha: String!) {
+    project(fullPath: $fullPath) {
+      pipelines(first: 1, sha: $sha) {
+        nodes {
+          iid
+        }
+      }
+    }
+  }
+`;
+
 interface GqlPipelineNode {
   id: string;
   iid: string;
@@ -251,4 +263,16 @@ export async function fetchMRPipelinesGqlPage(options: {
     page,
     queryConnection: (variables) => queryMRPipelinesConnection(projectFullPath, mrIID, variables),
   });
+}
+
+export async function fetchLatestPipelineIidByCommitShaGql(
+  projectFullPath: string,
+  sha: string,
+): Promise<string | undefined> {
+  const response = await getGitLabGQL().client.query({
+    query: PIPELINE_FOR_COMMIT,
+    variables: { fullPath: projectFullPath, sha },
+  });
+  const iid = response.data?.project?.pipelines?.nodes?.[0]?.iid as string | number | undefined;
+  return iid !== undefined ? `${iid}` : undefined;
 }

@@ -1,6 +1,6 @@
 import { Action, ActionPanel, List, Icon, Image, Color } from "@raycast/api";
 import { usePromise } from "@raycast/utils";
-import { getGitLabGQL, gitlab } from "../common";
+import { getGitLabGQL } from "../common";
 import { gql } from "@apollo/client";
 import { copyShortcut, formatDurationHuman, getIdFromGqlId } from "../utils";
 import {
@@ -11,6 +11,7 @@ import {
   RunJobAction,
 } from "./job_actions";
 import { GitLabOpenInBrowserAction } from "./actions";
+import { fetchLatestPipelineIidByCommitShaGql } from "./pipelines_gql";
 import { Project } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
 
@@ -279,35 +280,13 @@ export function useSearch(
   return { stages: data, isLoading, refresh: revalidate };
 }
 
-interface Pipeline {
-  id: number;
-  iid: number;
-  project_id: number;
-  sha: string;
-  ref: string;
-  status: string;
-  source: string;
-}
-
-interface Commit {
-  id: string;
-  short_id: string;
-  title: string;
-  message: string;
-  author_name: string;
-  author_email: string;
-  status?: string;
-  project_id: number;
-  last_pipeline?: Pipeline;
-}
-
 export function PipelineJobsListByCommit(props: { project: Project; sha: string }) {
-  const { commit, isLoading } = useCommit(props.project.id, props.sha);
-  if (isLoading || !commit) {
+  const { pipelineIID, isLoading } = usePipelineIidForCommit(props.project.fullPath, props.sha);
+  if (isLoading) {
     return <List isLoading={isLoading} />;
   }
-  if (commit.last_pipeline?.iid) {
-    return <JobList projectFullPath={props.project.fullPath} pipelineIID={`${commit.last_pipeline.iid}`} />;
+  if (pipelineIID) {
+    return <JobList projectFullPath={props.project.fullPath} pipelineIID={pipelineIID} />;
   }
   return (
     <List>
@@ -316,18 +295,17 @@ export function PipelineJobsListByCommit(props: { project: Project; sha: string 
   );
 }
 
-function useCommit(
-  projectID: number,
+function usePipelineIidForCommit(
+  projectFullPath: string,
   sha: string,
 ): {
-  commit?: Commit;
+  pipelineIID?: string;
   isLoading: boolean;
 } {
   const { data, isLoading } = usePromise(
-    (projectId: number, commitSha: string) =>
-      gitlab.fetch(`projects/${projectId}/repository/commits/${commitSha}`).then((data) => data as Commit),
-    [projectID, sha],
+    (fullPath: string, commitSha: string) => fetchLatestPipelineIidByCommitShaGql(fullPath, commitSha),
+    [projectFullPath, sha],
   );
 
-  return { commit: data, isLoading };
+  return { pipelineIID: data, isLoading };
 }
