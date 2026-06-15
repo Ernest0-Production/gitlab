@@ -64,7 +64,6 @@ export function PipelineListItem(props: {
               target={
                 <JobList
                   projectFullPath={props.projectFullPath}
-                  pipelineID={props.pipeline.id}
                   pipelineIID={props.pipeline.iid}
                   navigationTitle={props.navigationTitle}
                 />

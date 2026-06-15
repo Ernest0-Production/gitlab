@@ -11,13 +11,7 @@ export function ShowCommitPipelineAction(props: { commit: Commit; projectFullPat
     <Action.Push
       title="Show Pipeline"
       icon={{ source: GitLabIcons.ci, tintColor: Color.PrimaryText }}
-      target={
-        <JobList
-          projectFullPath={props.projectFullPath}
-          pipelineID={props.commit.head_pipeline.id}
-          pipelineIID={props.commit.head_pipeline.iid}
-        />
-      }
+      target={<JobList projectFullPath={props.projectFullPath} pipelineIID={props.commit.head_pipeline.iid} />}
     />
   );
 }

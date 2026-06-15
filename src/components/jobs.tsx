@@ -36,7 +36,7 @@ function gqlCiJobStatus(status: string): string {
 }
 
 const GET_PIPELINE_JOBS = gql`
-  query GetProjectPipelines($fullPath: ID!, $pipelineIID: ID!) {
+  query GetPipelineJobs($fullPath: ID!, $pipelineIID: ID!) {
     project(fullPath: $fullPath) {
       pipeline(iid: $pipelineIID) {
         stages {
@@ -52,6 +52,13 @@ const GET_PIPELINE_JOBS = gql`
                 pipeline {
                   project {
                     id
+                  }
+                }
+                artifacts {
+                  nodes {
+                    fileType
+                    name
+                    size
                   }
                 }
               }
@@ -209,13 +216,8 @@ export function JobListItem(props: { job: Job; projectFullPath: string; onRefres
   );
 }
 
-export function JobList(props: {
-  projectFullPath: string;
-  pipelineID: number;
-  pipelineIID?: string | undefined;
-  navigationTitle?: string;
-}) {
-  const { stages, isLoading, refresh } = useSearch(props.projectFullPath, props.pipelineID, props.pipelineIID);
+export function JobList(props: { projectFullPath: string; pipelineIID: string; navigationTitle?: string }) {
+  const { stages, isLoading, refresh } = useSearch(props.projectFullPath, props.pipelineIID);
   if (!stages) {
     return <List isLoading={isLoading} navigationTitle={props.navigationTitle || "Jobs"} />;
   }
@@ -232,84 +234,46 @@ export function JobList(props: {
   );
 }
 
-interface RESTJob {
-  id: number;
-  pipeline: Pipeline;
-  status: string;
-  stage: string;
-  name: string;
-  allow_failure: boolean;
-  duration?: number;
-  artifacts?: JobArtifact[];
-}
-
 export function useSearch(
   projectFullPath: string,
-  pipelineID: number,
-  pipelineIID?: string | undefined,
+  pipelineIID: string,
 ): {
   stages?: Record<string, Job[]>;
   isLoading: boolean;
   refresh: () => void;
 } {
   const { data, isLoading, revalidate } = usePromise(
-    async (fullPath: string, pid: number, piid?: string): Promise<Record<string, Job[]> | undefined> => {
-      if (pid) {
-        const jobs: RESTJob[] = await gitlab
-          .fetch(`projects/${encodeURIComponent(fullPath)}/pipelines/${pid}/jobs`)
-          .then((data) => data as RESTJob[]);
-        jobs.sort((firstJob, secondJob) => firstJob.id - secondJob.id);
-        const stages: Record<string, Job[]> = {};
-        for (const job of jobs) {
-          if (!stages[job.stage]) {
-            stages[job.stage] = [];
-          }
-          stages[job.stage].push({
-            id: `${job.id}`,
-            projectId: job.pipeline.project_id,
+    async (fullPath: string, pipelineIid: string): Promise<Record<string, Job[]> | undefined> => {
+      const data = await getGitLabGQL().client.query({
+        query: GET_PIPELINE_JOBS,
+        variables: { fullPath, pipelineIID: pipelineIid },
+      });
+      const stages: Record<string, Job[]> = {};
+      for (const stage of data.data.project.pipeline.stages.nodes) {
+        if (!stages[stage.name]) {
+          stages[stage.name] = [];
+        }
+        for (const job of stage.jobs.nodes) {
+          stages[stage.name].push({
+            id: job.id,
+            projectId: getIdFromGqlId(job.pipeline.project.id),
             name: job.name,
-            status: job.status,
-            allowFailure: job.allow_failure,
-            duration: job.duration,
-            artifacts: job.artifacts?.length
-              ? job.artifacts.map((artifact) => ({
-                  file_type: artifact.file_type,
-                  size: artifact.size,
-                  filename: artifact.filename,
-                  file_format: artifact.file_format,
-                }))
-              : [],
+            status: gqlCiJobStatus(job.status),
+            allowFailure: job.allowFailure === true,
+            duration: job.duration ?? undefined,
+            artifacts: (job.artifacts?.nodes ?? []).map(
+              (artifact: { fileType?: string; name?: string; size?: string | number }) => ({
+                file_type: artifact.fileType?.toLowerCase() ?? "",
+                size: artifact.size !== undefined ? Number(artifact.size) : undefined,
+                filename: artifact.name ?? undefined,
+              }),
+            ),
           });
         }
-        return stages;
       }
-      if (piid) {
-        const data = await getGitLabGQL().client.query({
-          query: GET_PIPELINE_JOBS,
-          variables: { fullPath, pipelineIID: piid },
-        });
-        const stages: Record<string, Job[]> = {};
-        for (const stage of data.data.project.pipeline.stages.nodes) {
-          if (!stages[stage.name]) {
-            stages[stage.name] = [];
-          }
-          for (const job of stage.jobs.nodes) {
-            stages[stage.name].push({
-              id: job.id,
-              projectId: getIdFromGqlId(job.pipeline.project.id),
-              name: job.name,
-              status: gqlCiJobStatus(job.status),
-              allowFailure: job.allowFailure === true,
-              duration: job.duration ?? undefined,
-              artifacts: [],
-            });
-          }
-        }
-        return stages;
-      }
-      return undefined;
+      return stages;
     },
-    [projectFullPath, pipelineID, pipelineIID],
+    [projectFullPath, pipelineIID],
   );
 
   return { stages: data, isLoading, refresh: revalidate };
@@ -342,14 +306,8 @@ export function PipelineJobsListByCommit(props: { project: Project; sha: string 
   if (isLoading || !commit) {
     return <List isLoading={isLoading} />;
   }
-  if (commit.last_pipeline) {
-    return (
-      <JobList
-        projectFullPath={props.project.fullPath}
-        pipelineID={commit.last_pipeline.id}
-        pipelineIID={commit.last_pipeline.iid ? `${commit.last_pipeline.iid}` : undefined}
-      />
-    );
+  if (commit.last_pipeline?.iid) {
+    return <JobList projectFullPath={props.project.fullPath} pipelineIID={`${commit.last_pipeline.iid}`} />;
   }
   return (
     <List>
