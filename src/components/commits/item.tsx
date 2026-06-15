@@ -1,4 +1,5 @@
 import { Action, ActionPanel, Color, Icon, Image, List } from "@raycast/api";
+import { useMemo } from "react";
 import { GitLabIcons } from "../../icons";
 import { copySecondaryShortcut, copyShortcut, formatDate, formatDateTime } from "../../utils";
 import { GitLabOpenInBrowserAction } from "../actions";
@@ -7,12 +8,18 @@ import { ShowCommitPipelineAction } from "./actions";
 import { Commit } from "./types";
 
 export function CommitListItem(props: { commit: Commit; projectFullPath?: string }) {
+  const keywords = useMemo(
+    () =>
+      [props.commit.message, props.commit.author_name, props.commit.author_email].filter(
+        (keyword): keyword is string => !!keyword,
+      ),
+    [props.commit.author_email, props.commit.author_name, props.commit.message],
+  );
+
   return (
     <List.Item
       title={props.commit.title}
-      keywords={[props.commit.message, props.commit.author_name, props.commit.author_email].filter(
-        (keyword): keyword is string => !!keyword,
-      )}
+      keywords={keywords}
       icon={{
         value: props.commit.author_avatar_url
           ? { source: props.commit.author_avatar_url, mask: Image.Mask.Circle }

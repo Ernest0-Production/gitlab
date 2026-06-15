@@ -12,7 +12,7 @@ import {
   useNavigation,
 } from "@raycast/api";
 import { showFailureToast, useCachedPromise } from "@raycast/utils";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MRDiscussion, MRDiscussionNote, MergeRequest } from "../gitlabapi";
 import { formatDate, optimizeMarkdownText, shortify } from "../utils";
 import { GitLabOpenInBrowserAction } from "./actions";
@@ -110,7 +110,7 @@ function MRDiscussionListItem(props: {
   isFocused: boolean;
   onRevalidate: () => void;
 }) {
-  const notes = (props.discussion.notes ?? []).filter((note) => !note.system);
+  const notes = useMemo(() => (props.discussion.notes ?? []).filter((note) => !note.system), [props.discussion.notes]);
   const firstNote = notes[0];
   const position = firstNote?.position;
   const { data: diff, isLoading: isLoadingDiff } = useCachedPromise(
@@ -127,6 +127,10 @@ function MRDiscussionListItem(props: {
   );
   const isResolved = isDiscussionResolved(props.discussion);
   const titleBody = firstNote?.body.replace(/\s+/g, " ").trim() || "Discussion";
+  const detailMarkdown = useMemo(
+    () => discussionMarkdown(notes, props.mr, diff, isLoadingDiff),
+    [diff, isLoadingDiff, notes, props.mr],
+  );
 
   async function toggleResolved() {
     if (
@@ -169,7 +173,7 @@ function MRDiscussionListItem(props: {
       accessories={
         isResolved ? [{ icon: { source: Icon.CheckCircle, tintColor: Color.Green }, tooltip: "Resolved" }] : []
       }
-      detail={<List.Item.Detail markdown={discussionMarkdown(notes, props.mr, diff, isLoadingDiff)} />}
+      detail={<List.Item.Detail markdown={detailMarkdown} />}
       actions={
         <ActionPanel>
           <ActionPanel.Section>

@@ -1,6 +1,6 @@
 import { ActionPanel, Color, List } from "@raycast/api";
 import { MergeRequest, Project } from "../gitlabapi";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { MyProjectsDropdown } from "./project";
 import {
   MRListDetailsToggleAction,
@@ -8,7 +8,8 @@ import {
   MRListItem,
   MRScope,
   MRState,
-  useMRListDetails } from "./mr";
+  useMRListDetails,
+} from "./mr";
 import { GitLabIcons } from "../icons";
 import { ListPagination, usePaginatedMergeRequests } from "./mr_data";
 
@@ -66,16 +67,24 @@ export function useMyReviews(
     isLoading,
     error,
     performRefetch,
-    pagination } = usePaginatedMergeRequests({
+    pagination,
+  } = usePaginatedMergeRequests({
     cacheKey: `reviews_${project?.id ?? "all"}_${labels ? labels.join(",") : "[]"}`,
     buildParams: () => ({
       state: MRState.opened,
       scope: MRScope.reviews_for_me,
-      ...(labels && { labels }) }) });
+      ...(labels && { labels }),
+    }),
+  });
+  const mrs = useMemo(
+    () => (project ? raw.filter((mergeRequest) => mergeRequest.project_id === project.id) : raw),
+    [project, raw],
+  );
   return {
-    mrs: project ? raw.filter((mergeRequest) => mergeRequest.project_id === project.id) : raw,
+    mrs,
     isLoading,
     error,
     performRefetch,
-    pagination };
+    pagination,
+  };
 }

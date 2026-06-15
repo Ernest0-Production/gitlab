@@ -1,4 +1,5 @@
 import { Action, ActionPanel, List, Icon, Color } from "@raycast/api";
+import { useMemo } from "react";
 import { copyShortcut, formatDate, formatDateTime, formatDurationHuman } from "../utils";
 import { getCIJobStatusIcon, getMRPipelineStatusTooltip, JobList } from "./jobs";
 import {
@@ -26,36 +27,43 @@ export function PipelineListItem(props: {
   const startedAt = props.pipeline.started_at || (props.pipeline as { startedAt?: string }).startedAt;
   const createdAt = props.pipeline.created_at || (props.pipeline as { createdAt?: string }).createdAt;
   const iso = finishedAt ?? startedAt ?? createdAt;
+  const keywords = useMemo(
+    () =>
+      [
+        props.pipeline.commit_title,
+        props.pipeline.ref,
+        props.pipeline.user?.name,
+        props.pipeline.user?.username,
+      ].filter((keyword): keyword is string => !!keyword),
+    [props.pipeline.commit_title, props.pipeline.ref, props.pipeline.user?.name, props.pipeline.user?.username],
+  );
+  const accessories = useMemo((): List.Item.Accessory[] => {
+    if (!iso) {
+      return [];
+    }
+    return [
+      {
+        text: formatDate(new Date(iso)),
+        tooltip: finishedAt
+          ? `Finished ${formatDateTime(new Date(iso))}`
+          : startedAt
+            ? `Started ${formatDateTime(new Date(iso))}`
+            : `Created ${formatDateTime(new Date(iso))}`,
+      },
+    ];
+  }, [finishedAt, iso, startedAt]);
 
   return (
     <List.Item
       id={`${props.pipeline.id}`}
       title={props.pipeline.id.toString()}
-      keywords={[
-        props.pipeline.commit_title,
-        props.pipeline.ref,
-        props.pipeline.user?.name,
-        props.pipeline.user?.username,
-      ].filter((keyword): keyword is string => !!keyword)}
+      keywords={keywords}
       icon={{
         value: getCIJobStatusIcon(props.pipeline.status, false),
         tooltip: props.pipeline.status ? getMRPipelineStatusTooltip(props.pipeline.status) : "",
       }}
       subtitle={props.pipeline.commit_title || props.pipeline.ref}
-      accessories={[
-        ...(iso
-          ? [
-              {
-                text: formatDate(new Date(iso)),
-                tooltip: finishedAt
-                  ? `Finished ${formatDateTime(new Date(iso))}`
-                  : startedAt
-                    ? `Started ${formatDateTime(new Date(iso))}`
-                    : `Created ${formatDateTime(new Date(iso))}`,
-              },
-            ]
-          : []),
-      ]}
+      accessories={accessories}
       actions={
         <ActionPanel>
           <ActionPanel.Section title={`#${props.pipeline.iid}`}>

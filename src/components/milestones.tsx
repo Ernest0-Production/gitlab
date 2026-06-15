@@ -1,6 +1,7 @@
 import { gql } from "@apollo/client";
 import { ActionPanel, Color, List } from "@raycast/api";
 import { usePromise } from "@raycast/utils";
+import { useMemo } from "react";
 import { getGitLabGQL } from "../common";
 import { Group, Project } from "../gitlabapi";
 import { getIdFromGqlId } from "../utils";
@@ -92,9 +93,9 @@ export function MilestoneListItem(props: { milestone: MilestoneListEntry }) {
         {
           tag: {
             value: `${(issueRatio * 100).toFixed(0)}%`,
-            color: [Color.Red, Color.Orange, Color.Yellow, Color.Blue, Color.Green][
-              Math.floor(issueRatio * 4)
-            ] } },
+            color: [Color.Red, Color.Orange, Color.Yellow, Color.Blue, Color.Green][Math.floor(issueRatio * 4)],
+          },
+        },
       ]}
       actions={
         <ActionPanel>
@@ -109,13 +110,18 @@ export function MilestoneList(props: { project?: Project; group?: Group; navigat
   const { milestones, isLoading } = useSearch(
     props.project?.fullPath && props.project.fullPath.length > 0
       ? props.project.fullPath
-      : props.group?.full_path ?? "",
+      : (props.group?.full_path ?? ""),
     !!props.group,
   );
-  const closeMilestones = milestones.filter((milestone) => milestone.state === "closed");
-  const openMilestones = milestones
-    .filter((milestone) => milestone.state !== "closed")
-    .sort((firstMilestone, secondMilestone) => (firstMilestone.dueDateTime || 0) - (secondMilestone.dueDateTime || 0));
+  const { closeMilestones, openMilestones } = useMemo(() => {
+    const closed = milestones.filter((milestone) => milestone.state === "closed");
+    const open = milestones
+      .filter((milestone) => milestone.state !== "closed")
+      .sort(
+        (firstMilestone, secondMilestone) => (firstMilestone.dueDateTime || 0) - (secondMilestone.dueDateTime || 0),
+      );
+    return { closeMilestones: closed, openMilestones: open };
+  }, [milestones]);
 
   return (
     <List isLoading={isLoading} navigationTitle={props.navigationTitle || "Milestones"}>
@@ -144,7 +150,8 @@ export function useSearch(
     async (fullPath: string, group: boolean): Promise<MilestoneListEntry[]> => {
       const data = await getGitLabGQL().client.query({
         query: group ? GET_GROUP_MILESTONES : GET_MILESTONES,
-        variables: { fullPath } });
+        variables: { fullPath },
+      });
       return (group ? data.data.group : data.data.project).milestones.nodes.map(
         (node: GqlMilestoneNode): MilestoneListEntry => ({
           id: getIdFromGqlId(node.id),
@@ -155,10 +162,11 @@ export function useSearch(
           expired: node.expired,
           webUrl: `${getGitLabGQL().url}/${node.webPath}`,
           closedIssuesCount: node.stats.closedIssuesCount,
-          totalIssuesCount: node.stats.totalIssuesCount }),
+          totalIssuesCount: node.stats.totalIssuesCount,
+        }),
       );
     },
-    [projectFullPath, isGroup]
+    [projectFullPath, isGroup],
   );
   return { milestones: data ?? [], isLoading };
 }

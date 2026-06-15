@@ -187,6 +187,10 @@ export function SearchMyMergeRequests(props: { project?: Project } = {}) {
     execute: !!project,
     keepPreviousData: true,
   });
+  const sectionTitle = useMemo(
+    () => buildMRSearchSectionTitle(mrState, scope, draftOnly, orderBy),
+    [draftOnly, mrState, orderBy, scope],
+  );
 
   return (
     <List
@@ -237,7 +241,7 @@ export function SearchMyMergeRequests(props: { project?: Project } = {}) {
         />
       ) : (
         <>
-          <List.Section title={buildMRSearchSectionTitle(mrState, scope, draftOnly, orderBy)}>
+          <List.Section title={sectionTitle}>
             {data.map((mergeRequest) => (
               <MRListItem
                 key={mergeRequest.id}

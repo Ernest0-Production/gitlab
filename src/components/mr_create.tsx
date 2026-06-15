@@ -1,7 +1,7 @@
 import { Form, Icon, popToRoot, Image, ActionPanel, Action, showToast, Toast, useNavigation } from "@raycast/api";
 import { Project, Branch, Issue, TemplateDetail, MergeRequest } from "../gitlabapi";
 import { gitlab } from "../common";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { showFailureToast, useCachedPromise, useCachedState, usePromise } from "@raycast/utils";
 import { projectIcon, stringToSlug, toFormValues } from "../utils";
 import { useProjectMR, useMilestones, ProjectInfoMR } from "../hooks";
@@ -312,36 +312,36 @@ export function MREditForm(props: { mr: MergeRequest; onUpdated?: () => void }) 
   );
   const { milestoneInfo, isLoadingMilestoneInfo } = useMilestones(project?.group_id);
   const members = projectinfo?.members || [];
-  const assigneePickerMembers = [
-    ...new Map(
-      [...members, ...props.mr.assignees].map((member) => [member.id, member]),
-    ).values(),
-  ];
-  const reviewerPickerMembers = [
-    ...new Map(
-      [...members, ...props.mr.reviewers].map((member) => [member.id, member]),
-    ).values(),
-  ];
-  const labelPickerOptions = [
-    ...new Map(
-      [...(projectinfo?.labels || []), ...props.mr.labels].map((label) => [label.name, label]),
-    ).values(),
-  ];
-  const milestonePickerOptions = [
-    ...new Map(
-      [
-        ...(projectinfo?.milestones || []),
-        ...(milestoneInfo || []),
-        ...(props.mr.milestone ? [props.mr.milestone] : []),
-      ].map((milestone) => [milestone.id, milestone]),
-    ).values(),
-  ];
+  const assigneePickerMembers = useMemo(
+    () => [...new Map([...members, ...props.mr.assignees].map((member) => [member.id, member])).values()],
+    [members, props.mr.assignees],
+  );
+  const reviewerPickerMembers = useMemo(
+    () => [...new Map([...members, ...props.mr.reviewers].map((member) => [member.id, member])).values()],
+    [members, props.mr.reviewers],
+  );
+  const labelPickerOptions = useMemo(
+    () => [
+      ...new Map([...(projectinfo?.labels || []), ...props.mr.labels].map((label) => [label.name, label])).values(),
+    ],
+    [projectinfo?.labels, props.mr.labels],
+  );
+  const milestonePickerOptions = useMemo(
+    () => [
+      ...new Map(
+        [
+          ...(projectinfo?.milestones || []),
+          ...(milestoneInfo || []),
+          ...(props.mr.milestone ? [props.mr.milestone] : []),
+        ].map((milestone) => [milestone.id, milestone]),
+      ).values(),
+    ],
+    [milestoneInfo, projectinfo?.milestones, props.mr.milestone],
+  );
 
   const [description, setDescription] = useState(props.mr.description);
   const [title, setTitle] = useState(() => props.mr.title);
-  const [isDraft, setIsDraft] = useState(
-    () => props.mr.draft || props.mr.title.startsWith(mrDraftTitlePrefix),
-  );
+  const [isDraft, setIsDraft] = useState(() => props.mr.draft || props.mr.title.startsWith(mrDraftTitlePrefix));
   const [sourceBranch, setSourceBranch] = useState(props.mr.source_branch);
   const [targetBranch, setTargetBranch] = useState(props.mr.target_branch);
   const [removeBranch, setRemoveBranch] = useState(props.mr.force_remove_source_branch ?? false);
@@ -349,9 +349,7 @@ export function MREditForm(props: { mr: MergeRequest; onUpdated?: () => void }) 
   function handleDraftChange(value: boolean) {
     setIsDraft(value);
     setTitle((current) => {
-      const withoutPrefix = current.startsWith(mrDraftTitlePrefix)
-        ? current.slice(mrDraftTitlePrefix.length)
-        : current;
+      const withoutPrefix = current.startsWith(mrDraftTitlePrefix) ? current.slice(mrDraftTitlePrefix.length) : current;
       return value ? `${mrDraftTitlePrefix}${withoutPrefix}` : withoutPrefix;
     });
   }
@@ -510,19 +508,26 @@ function SourceBranchDropdown(props: {
   value: string;
   onChange: (value: string) => void;
 }) {
-  if (props.project && props.info) {
-    const branchNames = branchesByCommittedDate(props.info.branches)
+  const branchNames = useMemo(() => {
+    if (!props.project || !props.info) {
+      return [];
+    }
+    const names = branchesByCommittedDate(props.info.branches)
       .filter((branch) => branch.name !== props.project?.default_branch)
       .map((branch) => branch.name);
-    if (props.value && !branchNames.includes(props.value)) {
-      branchNames.unshift(props.value);
+    if (props.value && !names.includes(props.value)) {
+      names.unshift(props.value);
     } else if (props.value) {
-      const selectedIndex = branchNames.indexOf(props.value);
+      const selectedIndex = names.indexOf(props.value);
       if (selectedIndex > 0) {
-        branchNames.splice(selectedIndex, 1);
-        branchNames.unshift(props.value);
+        names.splice(selectedIndex, 1);
+        names.unshift(props.value);
       }
     }
+    return names;
+  }, [props.info, props.project, props.value]);
+
+  if (props.project && props.info) {
     return (
       <Form.Dropdown
         id="source_branch"
@@ -553,19 +558,26 @@ function TargetBranchDropdown(props: {
   value: string;
   onChange: (value: string) => void;
 }) {
-  if (props.project && props.info) {
-    const branchNames = branchesByCommittedDate(props.info.branches).map((branch) => branch.name);
-    if (props.value && !branchNames.includes(props.value)) {
-      branchNames.push(props.value);
+  const branchNames = useMemo(() => {
+    if (!props.project || !props.info) {
+      return [];
+    }
+    const names = branchesByCommittedDate(props.info.branches).map((branch) => branch.name);
+    if (props.value && !names.includes(props.value)) {
+      names.push(props.value);
     }
     const defaultBranch = props.project.default_branch;
-    if (defaultBranch && branchNames.includes(defaultBranch)) {
-      const defaultIndex = branchNames.indexOf(defaultBranch);
+    if (defaultBranch && names.includes(defaultBranch)) {
+      const defaultIndex = names.indexOf(defaultBranch);
       if (defaultIndex > 0) {
-        branchNames.splice(defaultIndex, 1);
-        branchNames.unshift(defaultBranch);
+        names.splice(defaultIndex, 1);
+        names.unshift(defaultBranch);
       }
     }
+    return names;
+  }, [props.info, props.project, props.value]);
+
+  if (props.project && props.info) {
     return (
       <Form.Dropdown
         id="target_branch"

@@ -1,4 +1,5 @@
 import { Action, ActionPanel, Icon, List } from "@raycast/api";
+import { useMemo } from "react";
 import { Label } from "../gitlabapi";
 
 export function LabelListItem(props: { label: Label }) {
@@ -29,6 +30,8 @@ export function LabelList(props: {
   throttle?: boolean | undefined;
   navigationTitle?: string;
 }) {
+  const visibleLabels = useMemo(() => props.labels.filter((label) => label && label.id), [props.labels]);
+
   return (
     <List
       searchBarPlaceholder="Search labels by name"
@@ -38,11 +41,9 @@ export function LabelList(props: {
       navigationTitle={props.navigationTitle}
     >
       <List.Section title={props.title}>
-        {props.labels
-          .filter((label) => label && label.id)
-          .map((label) => (
-            <LabelListItem key={label.id.toString()} label={label} />
-          ))}
+        {visibleLabels.map((label) => (
+          <LabelListItem key={label.id.toString()} label={label} />
+        ))}
       </List.Section>
     </List>
   );

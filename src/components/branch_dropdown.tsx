@@ -1,6 +1,6 @@
 import { List } from "@raycast/api";
 import { useCachedPromise } from "@raycast/utils";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Project } from "../gitlabapi";
 import { fetchBranchNames } from "./branches_gql";
 
@@ -22,27 +22,7 @@ export function BranchDropdown(props: {
     { initialData: [] as string[] },
   );
 
-  const uniqueNames = new Set(branchNames);
-  if (props.value) {
-    uniqueNames.add(props.value);
-  }
-  if (props.project.default_branch) {
-    uniqueNames.add(props.project.default_branch);
-  }
-  const names = [...uniqueNames].sort((left, right) => {
-    if (left === props.project.default_branch) {
-      return -1;
-    }
-    if (right === props.project.default_branch) {
-      return 1;
-    }
-    return left.localeCompare(right);
-  });
-
-  useEffect(() => {
-    if (isLoading || branchNames.length === 0) {
-      return;
-    }
+  const names = useMemo(() => {
     const uniqueNames = new Set(branchNames);
     if (props.value) {
       uniqueNames.add(props.value);
@@ -50,7 +30,7 @@ export function BranchDropdown(props: {
     if (props.project.default_branch) {
       uniqueNames.add(props.project.default_branch);
     }
-    const names = [...uniqueNames].sort((left, right) => {
+    return [...uniqueNames].sort((left, right) => {
       if (left === props.project.default_branch) {
         return -1;
       }
@@ -59,6 +39,12 @@ export function BranchDropdown(props: {
       }
       return left.localeCompare(right);
     });
+  }, [branchNames, props.project.default_branch, props.value]);
+
+  useEffect(() => {
+    if (isLoading || branchNames.length === 0) {
+      return;
+    }
     if (props.value && names.includes(props.value)) {
       return;
     }
@@ -69,7 +55,7 @@ export function BranchDropdown(props: {
     if (nextBranch !== props.value) {
       props.onChange(nextBranch);
     }
-  }, [branchNames, isLoading, props.onChange, props.project.default_branch, props.project.id, props.value]);
+  }, [branchNames, isLoading, names, props.onChange, props.project.default_branch, props.project.id, props.value]);
 
   return (
     <List.Dropdown

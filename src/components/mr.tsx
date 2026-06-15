@@ -115,9 +115,11 @@ export function MRDetail(props: { mr: MergeRequest; onDataChange?: () => void })
     props.onDataChange?.();
   }, [mergeRequest.project_id, mergeRequest.iid, props.onDataChange]);
 
+  const markdown = useMemo(() => mrDescriptionMarkdown(mergeRequest), [mergeRequest]);
+
   return (
     <Detail
-      markdown={mrDescriptionMarkdown(mergeRequest)}
+      markdown={markdown}
       navigationTitle={`${mergeRequest.reference_full}`}
       actions={
         <ActionPanel>
@@ -132,28 +134,21 @@ export function MRDetail(props: { mr: MergeRequest; onDataChange?: () => void })
           <MRItemActions mr={mergeRequest} onDataChange={refreshMergeRequest} />
         </ActionPanel>
       }
-      metadata={
-        <MRDetailMetadata
-          mr={mergeRequest}
-          discussionLabel={discussionLabelFromMergeRequest(mergeRequest)}
-        />
-      }
+      metadata={<MRDetailMetadata mr={mergeRequest} discussionLabel={discussionLabelFromMergeRequest(mergeRequest)} />}
     />
   );
 }
 
 export function MRListDetail(props: { mr: MergeRequest }) {
   const { isShowingMetadata } = useMRListMetadata();
+  const markdown = useMemo(() => mrDescriptionMarkdown(props.mr, "\n"), [props.mr]);
 
   return (
     <List.Item.Detail
-      markdown={mrDescriptionMarkdown(props.mr, "\n")}
+      markdown={markdown}
       metadata={
         isShowingMetadata ? (
-          <MRListDetailMetadata
-            mr={props.mr}
-            discussionLabel={discussionLabelFromMergeRequest(props.mr)}
-          />
+          <MRListDetailMetadata mr={props.mr} discussionLabel={discussionLabelFromMergeRequest(props.mr)} />
         ) : undefined
       }
     />
@@ -265,57 +260,60 @@ export function MRListItem(props: {
     ? { source: props.mr.author?.avatar_url || "", mask: Image.Mask.Circle }
     : undefined;
 
-  const discussionLabel = !props.isShowingDetail ? discussionLabelFromMergeRequest(props.mr) : undefined;
-  const accessories: List.Item.Accessory[] = [];
-  if (!props.isShowingDetail) {
-    accessories.push(
-      ...(props.mr.has_conflicts
-        ? [
-            {
-              tag: { value: "Conflicts", color: Color.Red },
-              icon: { source: Icon.Warning, tintColor: Color.Red },
-              tooltip: "You should resolve merge conflict before merge",
-            },
-          ]
-        : []),
-      ...(discussionLabel
-        ? [
-            {
-              tag: { value: discussionLabel },
-              icon: { source: Icon.SpeechBubble, tintColor: Color.PrimaryText },
-              tooltip: "Resolved discussions",
-            },
-          ]
-        : []),
-      ...(props.mr.approvals_count && props.mr.approvals_count > 0
-        ? [
-            {
-              tag: { value: `${props.mr.approvals_count}`, color: Color.Green },
-              icon: { source: Icon.ThumbsUpFilled, tintColor: Color.Green },
-              tooltip: "Approvals",
-            },
-          ]
-        : []),
-    );
-  }
-  if ((props.showCIStatus === undefined || props.showCIStatus === true) && props.mr.head_pipeline?.status) {
-    accessories.push({
-      icon: getCIJobStatusIcon(props.mr.head_pipeline.status, false),
-      tooltip: getMRPipelineStatusTooltip(props.mr.head_pipeline.status),
-    });
-  }
-  if (!props.isShowingDetail && showAuthor && accessoryIcon) {
-    accessories.push({ icon: accessoryIcon, tooltip: props.mr.author?.name });
-  }
-  if (!props.isShowingDetail) {
-    accessories.push(
-      {
-        icon: props.mr.merge_when_pipeline_succeeds && props.mr.state === "opened" ? Icon.Rewind : undefined,
-        tooltip: props.mr.merge_when_pipeline_succeeds && props.mr.state === "opened" ? "Auto Merge" : undefined,
-      },
-      ...(props.mr.milestone?.title ? [{ tag: props.mr.milestone.title, tooltip: "Milestone" }] : []),
-    );
-  }
+  const accessories = useMemo((): List.Item.Accessory[] => {
+    const discussionLabel = !props.isShowingDetail ? discussionLabelFromMergeRequest(props.mr) : undefined;
+    const items: List.Item.Accessory[] = [];
+    if (!props.isShowingDetail) {
+      items.push(
+        ...(props.mr.has_conflicts
+          ? [
+              {
+                tag: { value: "Conflicts", color: Color.Red },
+                icon: { source: Icon.Warning, tintColor: Color.Red },
+                tooltip: "You should resolve merge conflict before merge",
+              },
+            ]
+          : []),
+        ...(discussionLabel
+          ? [
+              {
+                tag: { value: discussionLabel },
+                icon: { source: Icon.SpeechBubble, tintColor: Color.PrimaryText },
+                tooltip: "Resolved discussions",
+              },
+            ]
+          : []),
+        ...(props.mr.approvals_count && props.mr.approvals_count > 0
+          ? [
+              {
+                tag: { value: `${props.mr.approvals_count}`, color: Color.Green },
+                icon: { source: Icon.ThumbsUpFilled, tintColor: Color.Green },
+                tooltip: "Approvals",
+              },
+            ]
+          : []),
+      );
+    }
+    if ((props.showCIStatus === undefined || props.showCIStatus === true) && props.mr.head_pipeline?.status) {
+      items.push({
+        icon: getCIJobStatusIcon(props.mr.head_pipeline.status, false),
+        tooltip: getMRPipelineStatusTooltip(props.mr.head_pipeline.status),
+      });
+    }
+    if (!props.isShowingDetail && showAuthor && accessoryIcon) {
+      items.push({ icon: accessoryIcon, tooltip: props.mr.author?.name });
+    }
+    if (!props.isShowingDetail) {
+      items.push(
+        {
+          icon: props.mr.merge_when_pipeline_succeeds && props.mr.state === "opened" ? Icon.Rewind : undefined,
+          tooltip: props.mr.merge_when_pipeline_succeeds && props.mr.state === "opened" ? "Auto Merge" : undefined,
+        },
+        ...(props.mr.milestone?.title ? [{ tag: props.mr.milestone.title, tooltip: "Milestone" }] : []),
+      );
+    }
+    return items;
+  }, [props.isShowingDetail, props.mr, props.showCIStatus, showAuthor]);
 
   return (
     <List.Item

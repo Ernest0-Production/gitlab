@@ -1,11 +1,18 @@
 import { Action, ActionPanel, List, Color, Detail, Image, Icon } from "@raycast/api";
 import { gql } from "@apollo/client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { usePromise } from "@raycast/utils";
 import { getGitLabGQL, gitlab } from "../common";
 import { Group, Issue, Project } from "../gitlabapi";
 import { GitLabIcons } from "../icons";
-import { capitalizeFirstLetter, formatDate, formatDateTime, optimizeMarkdownText, Query, tokenizeQueryText } from "../utils";
+import {
+  capitalizeFirstLetter,
+  formatDate,
+  formatDateTime,
+  optimizeMarkdownText,
+  Query,
+  tokenizeQueryText,
+} from "../utils";
 import { IssueItemActions } from "./issue_actions";
 import { GitLabOpenInBrowserAction } from "./actions";
 import { userIcon, userTagOnAction } from "./users";
@@ -15,12 +22,14 @@ import { userIcon, userTagOnAction } from "./users";
 export enum IssueScope {
   created_by_me = "created_by_me",
   assigned_to_me = "assigned_to_me",
-  all = "all" }
+  all = "all",
+}
 
 export enum IssueState {
   all = "all",
   opened = "opened",
-  closed = "closed" }
+  closed = "closed",
+}
 
 const GET_ISSUE_DETAIL = gql`
   query GetIssueDetail($id: IssueID!) {
@@ -51,17 +60,28 @@ interface IssueDetailData {
 
 export function IssueDetail(props: { issue: Issue }) {
   const { issueDetail, isLoading } = useDetail(props.issue.id);
-
-  return (
-    <Detail
-      markdown={[
+  const markdown = useMemo(
+    () =>
+      [
         `# ${props.issue.title}`,
         optimizeMarkdownText(
           (issueDetail?.description ? issueDetail.description : props.issue.description) || "",
           issueDetail?.projectWebUrl,
           props.issue.project_id,
         ),
-      ].join("  \n")}
+      ].join("  \n"),
+    [
+      issueDetail?.description,
+      issueDetail?.projectWebUrl,
+      props.issue.description,
+      props.issue.project_id,
+      props.issue.title,
+    ],
+  );
+
+  return (
+    <Detail
+      markdown={markdown}
       isLoading={isLoading}
       navigationTitle={`${props.issue.reference_full}`}
       actions={
@@ -131,12 +151,14 @@ function useDetail(issueID: number): {
     async (issueId: number): Promise<IssueDetailData> => {
       const data = await getGitLabGQL().client.query({
         query: GET_ISSUE_DETAIL,
-        variables: { id: `gid://gitlab/Issue/${issueId}` } });
+        variables: { id: `gid://gitlab/Issue/${issueId}` },
+      });
       const webUrl = (data.data.issue.webUrl as string) || "";
       const index = webUrl.indexOf("/-/");
       return {
         description: data.data.issue.description || "<no description>",
-        projectWebUrl: index > 1 ? webUrl.substring(0, index) : undefined };
+        projectWebUrl: index > 1 ? webUrl.substring(0, index) : undefined,
+      };
     },
     [issueID],
     { execute: issueID > 0 },
@@ -154,13 +176,16 @@ export function IssueListItem(props: { issue: Issue; refreshData: () => void }) 
       icon={{
         value: {
           source: GitLabIcons.issue,
-          tintColor: props.issue.state === "opened" ? Color.Green : Color.Red },
-        tooltip: `Status: ${capitalizeFirstLetter(props.issue.state)}` }}
+          tintColor: props.issue.state === "opened" ? Color.Green : Color.Red,
+        },
+        tooltip: `Status: ${capitalizeFirstLetter(props.issue.state)}`,
+      }}
       accessories={[
         {
           text: props.issue.merge_requests_count > 0 ? `${props.issue.merge_requests_count}` : undefined,
           icon:
-            props.issue.merge_requests_count > 0 ? { source: "branch.png", tintColor: Color.PrimaryText } : undefined },
+            props.issue.merge_requests_count > 0 ? { source: "branch.png", tintColor: Color.PrimaryText } : undefined,
+        },
         {
           icon: props.issue.user_notes_count && props.issue.user_notes_count > 0 ? Icon.SpeechBubble : undefined,
           text:
@@ -170,14 +195,17 @@ export function IssueListItem(props: { issue: Issue; refreshData: () => void }) 
           tooltip:
             props.issue.user_notes_count && props.issue.user_notes_count > 0
               ? `Number of Comments ${props.issue.user_notes_count}`
-              : undefined },
+              : undefined,
+        },
         {
           tag: props.issue.milestone ? props.issue.milestone.title : "",
-          tooltip: props.issue.milestone ? `Milestone: ${props.issue.milestone.title}` : undefined },
+          tooltip: props.issue.milestone ? `Milestone: ${props.issue.milestone.title}` : undefined,
+        },
         { date: new Date(props.issue.updated_at), tooltip: `Updated: ${formatDateTime(props.issue.updated_at)}` },
         {
           icon: { source: props.issue.author?.avatar_url || "", mask: Image.Mask.Circle },
-          tooltip: props.issue.author ? `Author: ${props.issue.author?.name}` : undefined },
+          tooltip: props.issue.author ? `Author: ${props.issue.author?.name}` : undefined,
+        },
       ]}
       actions={
         <ActionPanel>
@@ -213,7 +241,8 @@ export function IssueList({
   scope = IssueScope.created_by_me,
   state = IssueState.all,
   project = undefined,
-  group = undefined }: IssueListProps) {
+  group = undefined,
+}: IssueListProps) {
   const [searchText, setSearchText] = useState<string>();
   const [searchState, setSearchState] = useState<IssueState>(state);
   const { issues, isLoading, refresh } = useSearch(searchText, scope, searchState, project, group);
@@ -242,7 +271,9 @@ export function IssueList({
           <List.Dropdown.Item title="All" value={IssueState.all} />
         </List.Dropdown>
       }
-      navigationTitle={group ? `Group Issues ${group.full_path}` : project ? `${project.name_with_namespace}` : undefined}
+      navigationTitle={
+        group ? `Group Issues ${group.full_path}` : project ? `${project.name_with_namespace}` : undefined
+      }
     >
       <List.Section
         title={scope === IssueScope.assigned_to_me ? "Your Issues" : "Created Recently"}
@@ -346,12 +377,13 @@ export function useSearch(
         state: issueState,
         scope: issueScope,
         search: parsedQuery.query || "",
-        in: "title" };
+        in: "title",
+      };
       injectQueryNamedParameters(requestParams, parsedQuery, issueScope, false);
       injectQueryNamedParameters(requestParams, parsedQuery, issueScope, true);
       return group ? gitlab.getGroupIssues(requestParams, group.id) : gitlab.getIssues(requestParams, project);
     },
-    [query ?? "", scope, state, project, group]
+    [query ?? "", scope, state, project, group],
   );
 
   return { issues: data, isLoading, refresh: revalidate };
@@ -366,7 +398,7 @@ export function useIssue(
 } {
   const { data, isLoading } = usePromise(
     (projectId: number, issueId: number) => gitlab.getIssue(projectId, issueId, {}),
-    [projectID, issueID]
+    [projectID, issueID],
   );
 
   return { issue: data, isLoading };

@@ -1,5 +1,5 @@
 import { ActionPanel, List } from "@raycast/api";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { MergeRequest, Project } from "../gitlabapi";
 import {
   MRListDetailsToggleAction,
@@ -9,7 +9,8 @@ import {
   MRScope,
   MRState,
   mrSearchBarPlaceholder,
-  useMRListDetails } from "./mr";
+  useMRListDetails,
+} from "./mr";
 import { RefreshMergeRequestsAction } from "./mr_actions";
 import { ListPagination, usePaginatedMergeRequests } from "./mr_data";
 import { MyProjectsDropdown } from "./project";
@@ -80,10 +81,14 @@ export function MyMergeRequests(props: {
 }) {
   const [project, setProject] = useState<Project>();
   const { mrs: raw, isLoading, performRefetch, pagination } = useMyMergeRequests(props.scope, props.state, project);
+  const mrs = useMemo(
+    () => (project ? raw.filter((mergeRequest) => mergeRequest.project_id === project.id) : raw),
+    [project, raw],
+  );
   return (
     <MyMRList
       isLoading={isLoading}
-      mrs={project ? raw.filter((mergeRequest) => mergeRequest.project_id === project.id) : raw}
+      mrs={mrs}
       title={
         props.scope == MRScope.assigned_to_me ? "Your assigned Merge Requests" : "Your Recently Created Merge Requests"
       }
@@ -112,5 +117,6 @@ export function useMyMergeRequests(
   // applied client-side in `MyMergeRequests` against the (global) fetched pages.
   return usePaginatedMergeRequests({
     cacheKey: `mymrs_${scope}_${state}_${labels ? labels.join(",") : "[]"}`,
-    buildParams: () => ({ state, scope, ...(labels && { labels }) }) });
+    buildParams: () => ({ state, scope, ...(labels && { labels }) }),
+  });
 }
