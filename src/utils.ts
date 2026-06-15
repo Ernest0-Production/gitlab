@@ -258,15 +258,6 @@ export function formatDateTime(input: Date | string): string {
   return date.toLocaleString();
 }
 
-export function formatDuration(totalSeconds: number): string {
-  const total = Math.floor(totalSeconds);
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const seconds = total % 60;
-  const pad = (value: number) => value.toString().padStart(2, "0");
-  return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
-}
-
 export function formatDurationHuman(totalSeconds: number): string {
   let remaining = Math.floor(totalSeconds);
   const days = Math.floor(remaining / 86400);
@@ -277,18 +268,18 @@ export function formatDurationHuman(totalSeconds: number): string {
   const seconds = remaining % 60;
   const parts: string[] = [];
   if (days > 0) {
-    parts.push(`${days} ${days === 1 ? "day" : "days"}`);
+    parts.push(`${days}d`);
   }
   if (hours > 0) {
-    parts.push(`${hours} ${hours === 1 ? "hour" : "hours"}`);
+    parts.push(`${hours}h`);
   }
   if (minutes > 0) {
-    parts.push(`${minutes} ${minutes === 1 ? "minute" : "minutes"}`);
+    parts.push(`${minutes} min`);
   }
   if (seconds > 0 || parts.length === 0) {
-    parts.push(`${seconds} ${seconds === 1 ? "second" : "seconds"}`);
+    parts.push(`${seconds} sec`);
   }
-  return parts.join(", ");
+  return parts.join(" ");
 }
 
 export interface Preferences {

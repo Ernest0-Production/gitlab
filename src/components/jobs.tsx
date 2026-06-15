@@ -2,7 +2,7 @@ import { Action, ActionPanel, List, Icon, Image, Color } from "@raycast/api";
 import { usePromise } from "@raycast/utils";
 import { getGitLabGQL, gitlab } from "../common";
 import { gql } from "@apollo/client";
-import { copyShortcut, formatDuration, formatDurationHuman, getIdFromGqlId } from "../utils";
+import { copyShortcut, formatDurationHuman, getIdFromGqlId } from "../utils";
 import {
   CancelJobAction,
   DownloadJobArtifactsSubmenu,
@@ -187,7 +187,7 @@ export function JobListItem(props: { job: Job; projectFullPath: string; onRefres
       subtitle={"#" + getIdFromGqlId(props.job.id)}
       accessories={
         props.job.duration !== undefined && props.job.duration > 0
-          ? [{ icon: Icon.Clock, text: formatDuration(props.job.duration), tooltip: formatDurationHuman(props.job.duration) }]
+          ? [{ icon: Icon.Clock, tag: { value: formatDurationHuman(props.job.duration) }, tooltip: "Duration" }]
           : []
       }
       actions={

@@ -1,5 +1,5 @@
 import { Action, ActionPanel, List, Icon, Color } from "@raycast/api";
-import { copyShortcut, formatDate, formatDateTime, formatDuration, formatDurationHuman } from "../utils";
+import { copyShortcut, formatDate, formatDateTime, formatDurationHuman } from "../utils";
 import { getCIJobStatusIcon, getMRPipelineStatusTooltip, JobList } from "./jobs";
 import {
   CancelPipelineAction,
@@ -46,7 +46,6 @@ export function PipelineListItem(props: {
         ...(iso
           ? [
               {
-                icon: Icon.Calendar,
                 text: formatDate(new Date(iso)),
                 tooltip: finishedAt
                   ? `Finished ${formatDateTime(new Date(iso))}`
@@ -55,9 +54,6 @@ export function PipelineListItem(props: {
                     : `Created ${formatDateTime(new Date(iso))}`,
               },
             ]
-          : []),
-        ...(props.pipeline.duration > 0
-          ? [{ icon: Icon.Clock, text: formatDuration(props.pipeline.duration), tooltip: formatDurationHuman(props.pipeline.duration) }]
           : []),
       ]}
       actions={
